@@ -798,23 +798,15 @@ export class ApiSportsService {
           }
           
           // If we get this far, try an alternative approach for some sports
-          if (['basketball', 'tennis', 'baseball', 'hockey', 'mma-ufc'].includes(sport)) {
+          // Note: tennis is already handled earlier in the switch statement and returns empty
+          if (['basketball', 'baseball', 'hockey', 'mma-ufc'].includes(sport)) {
             console.log(`[ApiSportsService] Trying alternate API request for upcoming ${sport} events`);
             
             // Different parameters for alternative approach
-            let altParams: Record<string, string> = {};
-            
-            if (sport === 'tennis') {
-              altParams = {
-                season: String(new Date().getFullYear())
-              };
-            } else {
-              altParams = {
-                season: String(new Date().getFullYear()),
-                // For days in the future (between 1-21 days ahead)
-                next: '21'
-              };
-            }
+            const altParams: Record<string, string> = {
+              season: String(new Date().getFullYear()),
+              next: '21'
+            };
             
             console.log(`[ApiSportsService] Using alternative params:`, altParams);
             
