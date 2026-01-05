@@ -90,16 +90,21 @@ export function useOnChainBet() {
     try {
       const { eventId, marketId, prediction, betAmount, odds, walrusBlobId = '', coinType = 'SUI', sbetsCoinObjectId, walletAddress } = params;
       
-      // On-chain bet limits (in SUI/SBETS tokens, not MIST)
-      const MIN_BET = 0.02; // 20,000,000 MIST
-      const MAX_BET = 15;   // 15,000,000,000 MIST
+      // On-chain bet limits (separate for SUI and SBETS)
+      const MIN_BET_SUI = 0.05;       // 50,000,000 MIST
+      const MAX_BET_SUI = 20;         // 20,000,000,000 MIST
+      const MIN_BET_SBETS = 1000;     // 1,000,000,000,000 MIST
+      const MAX_BET_SBETS = 10000000; // 10,000,000,000,000,000 MIST
+      
+      const MIN_BET = coinType === 'SBETS' ? MIN_BET_SBETS : MIN_BET_SUI;
+      const MAX_BET = coinType === 'SBETS' ? MAX_BET_SBETS : MAX_BET_SUI;
       
       // Validate bet amount against on-chain limits
       if (betAmount < MIN_BET) {
-        throw new Error(`Minimum bet is ${MIN_BET} ${coinType}. You tried to bet ${betAmount} ${coinType}.`);
+        throw new Error(`Minimum bet is ${MIN_BET.toLocaleString()} ${coinType}. You tried to bet ${betAmount.toLocaleString()} ${coinType}.`);
       }
       if (betAmount > MAX_BET) {
-        throw new Error(`Maximum bet is ${MAX_BET} ${coinType}. You tried to bet ${betAmount} ${coinType}.`);
+        throw new Error(`Maximum bet is ${MAX_BET.toLocaleString()} ${coinType}. You tried to bet ${betAmount.toLocaleString()} ${coinType}.`);
       }
       
       // Convert to smallest units (1 SUI/SBETS = 1_000_000_000)

@@ -56,8 +56,14 @@ export function BetSlip() {
     clearBets(); // Clear bets after showing confirmation
   };
 
-  const MIN_STAKE = 0.02;  // On-chain minimum (20,000,000 MIST)
-  const MAX_STAKE = 15;    // On-chain maximum (15,000,000,000 MIST)
+  // Separate limits for SUI and SBETS (matching on-chain contract)
+  const MIN_STAKE_SUI = 0.05;       // 50,000,000 MIST
+  const MAX_STAKE_SUI = 20;         // 20,000,000,000 MIST
+  const MIN_STAKE_SBETS = 1000;     // 1,000,000,000,000 MIST
+  const MAX_STAKE_SBETS = 10000000; // 10,000,000,000,000,000 MIST
+  
+  const MIN_STAKE = betCurrency === 'SBETS' ? MIN_STAKE_SBETS : MIN_STAKE_SUI;
+  const MAX_STAKE = betCurrency === 'SBETS' ? MAX_STAKE_SBETS : MAX_STAKE_SUI;
   
   // Track raw string inputs for each bet to allow intermediate typing states
   const [stakeInputs, setStakeInputs] = useState<Record<string, string>>({});
