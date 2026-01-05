@@ -1450,35 +1450,43 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
 
-  // Get user balance - fetches ON-CHAIN balances from Sui blockchain
+  // Get user balance - fetches BOTH on-chain wallet balance AND platform database balance
   app.get("/api/user/balance", async (req: Request, res: Response) => {
     try {
       const userId = req.query.userId as string;
       
-      // If userId looks like a wallet address (starts with 0x), fetch on-chain balance
+      // Always get database platform balance (for withdrawals of deposited funds)
+      const dbBalance = await balanceService.getBalanceAsync(userId || 'user1');
+      
+      // If userId looks like a wallet address (starts with 0x), also fetch on-chain balance
       if (userId && userId.startsWith('0x')) {
         try {
           const onChainBalance = await blockchainBetService.getWalletBalance(userId);
           return res.json({
+            // On-chain wallet balance (what user has in their Sui wallet for betting)
             SUI: onChainBalance.sui || 0,
             SBETS: onChainBalance.sbets || 0,
             suiBalance: onChainBalance.sui || 0,
             sbetsBalance: onChainBalance.sbets || 0,
-            source: 'on-chain'
+            // Platform/database balance (for off-chain deposits - withdrawable)
+            platformSuiBalance: dbBalance.suiBalance || 0,
+            platformSbetsBalance: dbBalance.sbetsBalance || 0,
+            source: 'combined'
           });
         } catch (chainError) {
           console.warn(`Failed to fetch on-chain balance for ${userId}:`, chainError);
-          // Fall back to database
+          // Fall back to database only
         }
       }
       
       // Fallback to database balance
-      const balance = await balanceService.getBalanceAsync(userId || 'user1');
       res.json({
-        SUI: balance.suiBalance || 0,
-        SBETS: balance.sbetsBalance || 0,
-        suiBalance: balance.suiBalance || 0,
-        sbetsBalance: balance.sbetsBalance || 0,
+        SUI: dbBalance.suiBalance || 0,
+        SBETS: dbBalance.sbetsBalance || 0,
+        suiBalance: dbBalance.suiBalance || 0,
+        sbetsBalance: dbBalance.sbetsBalance || 0,
+        platformSuiBalance: dbBalance.suiBalance || 0,
+        platformSbetsBalance: dbBalance.sbetsBalance || 0,
         source: 'database'
       });
     } catch (error) {

@@ -53,12 +53,20 @@ export default function DepositsWithdrawalsPage() {
     refetchInterval: 15000,
   });
 
-  // Platform balance (for withdrawal of deposited funds)
-  const { data: balanceData, refetch: refetchBalance } = useQuery<{ suiBalance: number; sbetsBalance: number }>({
+  // Platform balance (for withdrawal of deposited funds) - uses platformSuiBalance from API
+  const { data: balanceData, refetch: refetchBalance } = useQuery<{ 
+    suiBalance: number; 
+    sbetsBalance: number; 
+    platformSuiBalance?: number; 
+    platformSbetsBalance?: number; 
+  }>({
     queryKey: [`/api/user/balance?userId=${walletAddress}`],
     enabled: !!walletAddress,
     refetchInterval: 15000,
   });
+  
+  // Use platformSuiBalance for withdrawals (database balance), fall back to 0
+  const withdrawableBalance = balanceData?.platformSuiBalance ?? 0;
   
   const transactions: Transaction[] = Array.isArray(rawTransactions) ? rawTransactions : [];
 
@@ -104,9 +112,8 @@ export default function DepositsWithdrawalsPage() {
       toast({ title: 'Enter Amount', description: 'Please enter a valid withdrawal amount', variant: 'destructive' });
       return;
     }
-    const balance = balanceData?.suiBalance || 0;
-    if (parseFloat(withdrawAmount) > balance) {
-      toast({ title: 'Insufficient Balance', description: `You only have ${balance.toFixed(4)} SUI available`, variant: 'destructive' });
+    if (parseFloat(withdrawAmount) > withdrawableBalance) {
+      toast({ title: 'Insufficient Balance', description: `You only have ${withdrawableBalance.toFixed(4)} SUI available to withdraw`, variant: 'destructive' });
       return;
     }
     withdrawMutation.mutate({ amount: parseFloat(withdrawAmount), address: withdrawAddress });
@@ -176,7 +183,7 @@ export default function DepositsWithdrawalsPage() {
             {walletAddress ? (
               <div className="text-right">
                 <p className="text-green-400 text-xs" title="On-chain wallet balance">Wallet: {walletSuiBalance.toFixed(4)} SUI</p>
-                <p className="text-cyan-400 text-xs" title="Platform balance available to withdraw">Platform: {(balanceData?.suiBalance || 0).toFixed(4)} SUI</p>
+                <p className="text-cyan-400 text-xs" title="Platform balance available to withdraw">Platform: {withdrawableBalance.toFixed(4)} SUI</p>
                 <p className="text-gray-500 text-xs">{walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</p>
               </div>
             ) : (
@@ -214,7 +221,7 @@ export default function DepositsWithdrawalsPage() {
               </div>
               <div className="p-4 bg-[#111111] border border-cyan-900/30 rounded-xl">
                 <p className="text-gray-400 text-sm">Platform Balance (Withdrawable)</p>
-                <p className="text-3xl font-bold text-cyan-400">{(balanceData?.suiBalance || 0).toFixed(4)} SUI</p>
+                <p className="text-3xl font-bold text-cyan-400">{withdrawableBalance.toFixed(4)} SUI</p>
                 <p className="text-gray-500 text-xs mt-1">Previously deposited funds you can withdraw</p>
               </div>
             </div>
@@ -258,11 +265,11 @@ export default function DepositsWithdrawalsPage() {
                 <div className="flex justify-between mb-2">
                   <label className="text-gray-400 text-sm">Amount (SUI)</label>
                   <button 
-                    onClick={() => setWithdrawAmount((balanceData?.suiBalance || 0).toString())}
+                    onClick={() => setWithdrawAmount(withdrawableBalance.toString())}
                     className="text-cyan-400 text-sm hover:text-cyan-300"
                     data-testid="btn-max"
                   >
-                    MAX: {(balanceData?.suiBalance || 0).toFixed(4)} SUI
+                    MAX: {withdrawableBalance.toFixed(4)} SUI
                   </button>
                 </div>
                 <input
