@@ -25,7 +25,8 @@ import {
   Clock, 
   RotateCcw, 
   ArrowDownToLine,
-  TrendingUp
+  TrendingUp,
+  ExternalLink
 } from 'lucide-react';
 
 /**
@@ -243,6 +244,23 @@ export function BetHistory() {
                       <div className="text-right">
                         {(bet.placedAt || bet.createdAt) && formatDistanceToNow(new Date(bet.placedAt || bet.createdAt), { addSuffix: true })}
                       </div>
+                      
+                      {bet.txHash && (
+                        <>
+                          <div className="text-gray-400">Transaction:</div>
+                          <div className="text-right">
+                            <a 
+                              href={`https://suiscan.xyz/mainnet/tx/${bet.txHash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-cyan-400 hover:underline inline-flex items-center gap-1"
+                              data-testid={`link-tx-${bet.id}`}
+                            >
+                              View <ExternalLink className="w-3 h-3" />
+                            </a>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </CardContent>
                   <CardFooter className="pt-0">

@@ -17,7 +17,8 @@ import {
   Wallet,
   RefreshCw,
   Filter,
-  ArrowLeft
+  ArrowLeft,
+  ExternalLink
 } from 'lucide-react';
 
 interface ActivityItem {
@@ -29,6 +30,7 @@ interface ActivityItem {
   currency: string;
   timestamp: string;
   status: 'completed' | 'pending' | 'failed';
+  txHash?: string;
 }
 
 export default function ActivityPage() {
@@ -67,7 +69,8 @@ export default function ActivityPage() {
       amount: bet.status === 'won' ? bet.potentialWin : bet.stake,
       currency: bet.currency || 'SUI',
       timestamp: bet.placedAt || bet.createdAt,
-      status: 'completed'
+      status: 'completed',
+      txHash: bet.txHash
     }));
 
   const allActivities = [...activities, ...betActivities].sort(
@@ -262,13 +265,27 @@ export default function ActivityPage() {
                     }`}>
                       {activity.type === 'deposit' || activity.type.includes('won') ? '+' : '-'}{activity.amount} {activity.currency}
                     </p>
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      activity.status === 'completed' ? 'bg-green-500/20 text-green-400' :
-                      activity.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
-                      'bg-red-500/20 text-red-400'
-                    }`}>
-                      {activity.status}
-                    </span>
+                    <div className="flex items-center justify-end gap-2 mt-1">
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        activity.status === 'completed' ? 'bg-green-500/20 text-green-400' :
+                        activity.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
+                        'bg-red-500/20 text-red-400'
+                      }`}>
+                        {activity.status}
+                      </span>
+                      {activity.txHash && (
+                        <a 
+                          href={`https://suiscan.xyz/mainnet/tx/${activity.txHash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-cyan-400 hover:text-cyan-300 p-1"
+                          title="View on Explorer"
+                          data-testid={`link-tx-${activity.id}`}
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

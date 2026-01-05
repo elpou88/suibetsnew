@@ -187,7 +187,7 @@ export default function BetHistoryReal() {
                           <div className="flex justify-between text-sm">
                             <span className="text-gray-400">Transaction</span>
                             <a 
-                              href={`https://explorer.sui.io/txblock/${bet.txHash}?network=testnet`}
+                              href={`https://suiscan.xyz/mainnet/tx/${bet.txHash}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-400 hover:underline"
