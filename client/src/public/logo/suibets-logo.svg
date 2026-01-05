@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="150" height="30" viewBox="0 0 150 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M20.5 5L5 15L20.5 25" stroke="#28DAC4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M25 5L40 15L25 25" stroke="#28DAC4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="50" y="22" fill="#28DAC4" font-family="Arial" font-weight="bold" font-size="20">SuiBets</text>
+</svg>

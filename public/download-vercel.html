@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download SuiBets Vercel Package</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #2563eb;
+        }
+        .card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .button {
+            display: inline-block;
+            background-color: #2563eb;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: 500;
+            margin-top: 10px;
+        }
+        .button:hover {
+            background-color: #1d4ed8;
+        }
+        pre {
+            background-color: #f9fafb;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        ul {
+            margin-left: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>SuiBets Platform - Vercel Deployment Package</h1>
+    
+    <div class="card">
+        <h2>Download Optimized Package</h2>
+        <p>This package contains the SuiBets Platform code optimized for Vercel deployment. It includes:</p>
+        <ul>
+            <li>React frontend components</li>
+            <li>Express backend with API routes</li>
+            <li>WebSocket implementation for live updates</li>
+            <li>Fixed sport ID mapping (Football/Soccer)</li>
+            <li>Enhanced API reliability with fallback endpoints</li>
+            <li>Vercel deployment configuration</li>
+        </ul>
+        <p>Total package size: <strong>328KB</strong> (well under the 4MB limit)</p>
+        <a href="/suibets-vercel-package.tar.gz" class="button" download>Download Package</a>
+    </div>
+    
+    <div class="card">
+        <h2>Deployment Instructions</h2>
+        <p>To deploy this package to Vercel:</p>
+        <ol>
+            <li>Download the package using the button above</li>
+            <li>Extract it: <pre>tar -xzf suibets-vercel-package.tar.gz</pre></li>
+            <li>Navigate to the directory: <pre>cd suibets-vercel-package</pre></li>
+            <li>Initialize a git repository (if needed): <pre>git init</pre></li>
+            <li>Deploy to Vercel: <pre>vercel</pre> or connect your GitHub repository</li>
+        </ol>
+        <p>For detailed instructions, see the DEPLOYMENT.md file included in the package.</p>
+    </div>
+    
+    <div class="card">
+        <h2>Recent Fixes</h2>
+        <ul>
+            <li>Fixed sport ID mapping inconsistency between ID 1 (Football) and ID 26 (Soccer)</li>
+            <li>Implemented unified handler for both IDs using the same service</li>
+            <li>Enhanced API resilience service with better fallback domains</li>
+            <li>Improved DNS resolution with multiple alternative domain fallbacks</li>
+            <li>Fixed WebSocket implementation for better live updates</li>
+        </ul>
+    </div>
+</body>
+</html>

@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuiBets Frontend - Walrus Deployment Package</title>
+    <style>
+        :root {
+            --bg-dark: #0a0e14;
+            --bg-card: #0d1520;
+            --border-color: rgba(0, 200, 255, 0.3);
+            --cyan: #00ffff;
+            --cyan-dim: rgba(0, 255, 255, 0.6);
+            --text-primary: #ffffff;
+            --text-secondary: #94a3b8;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-card) 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 {
+            font-size: 2.5rem;
+            text-align: center;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, var(--cyan) 0%, #0088ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .subtitle { text-align: center; color: var(--text-secondary); margin-bottom: 40px; font-size: 1.1rem; }
+        .file-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+        .file-header {
+            background: linear-gradient(90deg, rgba(0, 200, 255, 0.15) 0%, transparent 100%);
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .file-name {
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 1rem;
+            color: var(--cyan);
+            font-weight: 600;
+        }
+        .copy-btn {
+            background: linear-gradient(135deg, var(--cyan) 0%, #0088ff 100%);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            color: #000;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .copy-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0, 255, 255, 0.3);
+        }
+        .code-content {
+            padding: 20px 24px;
+            overflow-x: auto;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        pre {
+            margin: 0;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            white-space: pre;
+            color: #e2e8f0;
+        }
+        .toc {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 40px;
+        }
+        .toc h2 { color: var(--cyan); margin-bottom: 16px; }
+        .toc-list { list-style: none; columns: 3; }
+        .toc-list li { padding: 6px 0; }
+        .toc-list a { color: var(--text-secondary); text-decoration: none; transition: color 0.2s; }
+        .toc-list a:hover { color: var(--cyan); }
+        .env-section {
+            background: linear-gradient(135deg, rgba(0, 200, 255, 0.1) 0%, rgba(0, 136, 255, 0.1) 100%);
+            border: 2px solid var(--cyan);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 40px;
+        }
+        .env-section h2 { color: var(--cyan); margin-bottom: 16px; }
+        .walrus-section {
+            background: linear-gradient(135deg, rgba(0, 255, 200, 0.1) 0%, rgba(0, 136, 255, 0.1) 100%);
+            border: 2px solid #00ffc8;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 40px;
+        }
+        .walrus-section h2 { color: #00ffc8; margin-bottom: 16px; }
+        code { background: rgba(0, 200, 255, 0.1); padding: 2px 6px; border-radius: 4px; font-family: 'Fira Code', monospace; }
+        @media (max-width: 768px) {
+            .toc-list { columns: 1; }
+            h1 { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SuiBets Frontend - Walrus Deployment</h1>
+        <p class="subtitle">Complete Frontend Code Package for Walrus Protocol Deployment</p>
+
+        <div class="walrus-section">
+            <h2>Walrus Protocol Deployment</h2>
+            <p style="margin-bottom: 16px; color: var(--text-secondary);">Deploy your frontend to Walrus for decentralized hosting:</p>
+            <pre style="background: var(--bg-dark); padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+# 1. Build the production bundle
+npm run build
+
+# 2. Install Walrus CLI (if not installed)
+cargo install walrus-cli
+
+# 3. Deploy to Walrus
+walrus deploy --network testnet ./dist/public
+
+# 4. Your site will be available at:
+# https://[blob-id].walrus.site
+            </pre>
+            <p style="color: var(--text-secondary); font-size: 0.9rem;">
+                Configure your backend API URL in <code>VITE_API_URL</code> environment variable pointing to your Railway deployment.
+            </p>
+        </div>
+
+        <div class="env-section">
+            <h2>Environment Variables (.env)</h2>
+            <pre style="background: var(--bg-dark); padding: 16px; border-radius: 8px;">
+VITE_API_URL=https://your-railway-backend.railway.app
+VITE_SUI_NETWORK=mainnet
+VITE_SBETS_TOKEN_ADDRESS=0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285::sbets::SBETS
+            </pre>
+        </div>
+
+        <div class="toc">
+            <h2>File Structure</h2>
+            <ul class="toc-list">
+                <li><a href="#vite-config">vite.config.ts</a></li>
+                <li><a href="#tailwind-config">tailwind.config.ts</a></li>
+                <li><a href="#index-html">client/index.html</a></li>
+                <li><a href="#main-tsx">client/src/main.tsx</a></li>
+                <li><a href="#app-tsx">client/src/App.tsx</a></li>
+                <li><a href="#index-css">client/src/index.css</a></li>
+                <li><a href="#query-client">client/src/lib/queryClient.ts</a></li>
+                <li><a href="#auth-context">client/src/context/AuthContext.tsx</a></li>
+                <li><a href="#betting-context">client/src/context/BettingContext.tsx</a></li>
+                <li><a href="#walrus-context">client/src/context/WalrusProtocolContext.tsx</a></li>
+                <li><a href="#use-walrus">client/src/hooks/useWalrusProtocol.tsx</a></li>
+                <li><a href="#types">client/src/types/index.ts</a></li>
+            </ul>
+        </div>
+
+        <!-- vite.config.ts -->
+        <div class="file-section" id="vite-config">
+            <div class="file-header">
+                <span class="file-name">vite.config.ts</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="code-content">
+<pre>import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import path from "path";
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      "@": path.resolve(import.meta.dirname, "client", "src"),
+      "@shared": path.resolve(import.meta.dirname, "shared"),
+      "@assets": path.resolve(import.meta.dirname, "attached_assets"),
+    },
+  },
+  root: path.resolve(import.meta.dirname, "client"),
+  build: {
+    outDir: path.resolve(import.meta.dirname, "dist/public"),
+    emptyOutDir: true,
+  },
+  server: {
+    proxy: {
+      '/api': {
+        target: process.env.VITE_API_URL || 'http://localhost:3000',
+        changeOrigin: true,
+      }
+    }
+  }
+});</pre>
+            </div>
+        </div>
+
+        <!-- tailwind.config.ts -->
+        <div class="file-section" id="tailwind-config">
+            <div class="file-header">
+                <span class="file-name">tailwind.config.ts</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="code-content">
+<pre>import type { Config } from "tailwindcss";
+
+export default {
+  darkMode: ["class"],
+  content: ["./client/index.html", "./client/src/**/*.{js,jsx,ts,tsx}"],
+  theme: {
+    extend: {
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+      },
+      colors: {
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
+        },
+        primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
+        },
+        secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
+        },
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
+        },
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+      },
+      keyframes: {
+        "accordion-down": {
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
+        },
+        "accordion-up": {
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
+      },
+      animation: {
+        "accordion-down": "accordion-down 0.2s ease-out",
+        "accordion-up": "accordion-up 0.2s ease-out",
+      },
+    },
+  },
+  plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
+} satisfies Config;</pre>
+            </div>
+        </div>
+
+        <!-- client/index.html -->
+        <div class="file-section" id="index-html">
+            <div class="file-header">
+                <span class="file-name">client/index.html</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="code-content">
+<pre>&lt;!DOCTYPE html&gt;
+&lt;html lang="en"&gt;
+  &lt;head&gt;
+    &lt;meta charset="UTF-8" /&gt;
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" /&gt;
+    &lt;title&gt;SuiBets - Crypto Sports Betting Platform&lt;/title&gt;
+    &lt;meta name="description" content="SuiBets - Decentralized sports betting on the Sui blockchain. Bet with SUI and SBETS tokens on live sports events." /&gt;
+    &lt;meta property="og:title" content="SuiBets - Crypto Sports Betting" /&gt;
+    &lt;meta property="og:description" content="Decentralized sports betting on the Sui blockchain" /&gt;
+    &lt;link rel="icon" type="image/png" href="/logo/suibets-logo.png" /&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;div id="root"&gt;&lt;/div&gt;
+    &lt;script type="module" src="/src/main.tsx"&gt;&lt;/script&gt;
+  &lt;/body&gt;
+&lt;/html&gt;</pre>
+            </div>
+        </div>
+
+        <!-- client/src/main.tsx -->
+        <div class="file-section" id="main-tsx">
+            <div class="file-header">
+                <span class="file-name">client/src/main.tsx</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="code-content">
+<pre>import { createRoot } from "react-dom/client";
+import App from "./App";
+import "./index.css";
+
+// Clean up any old wallet settings
+if (localStorage.getItem('use_demo_wallet') !== null) {
+  localStorage.removeItem('use_demo_wallet');
+  console.log('Removed demo wallet setting - only real wallets are now supported');
+}
+
+console.log("Starting SuiBets React application");
+try {
+  const rootElement = document.getElementById("root");
+  if (rootElement) {
+    createRoot(rootElement).render(&lt;App /&gt;);
+    console.log("SuiBets app rendered successfully");
+  } else {
+    console.error("Root element not found in the DOM");
+  }
+} catch (error) {
+  console.error("Error rendering React app:", error);
+}</pre>
+            </div>
+        </div>
+
+        <!-- client/src/index.css -->
+        <div class="file-section" id="index-css">
+            <div class="file-header">
+                <span class="file-name">client/src/index.css</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="code-content">
+<pre>@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@keyframes neonGlow {
+  0%, 100% { 
+    text-shadow: 0 0 10px rgba(0, 150, 255, 0.5), 0 0 20px rgba(0, 255, 255, 0.3);
+    box-shadow: 0 0 20px rgba(0, 150, 255, 0.3);
+  }
+  50% { 
+    text-shadow: 0 0 20px rgba(0, 150, 255, 0.8), 0 0 40px rgba(0, 255, 255, 0.5);
+    box-shadow: 0 0 40px rgba(0, 150, 255, 0.5);
+  }
+}
+
+@keyframes pulseNeon {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@layer base {
+  :root {
+    --background: 200 30% 3%;
+    --foreground: 210 40% 98%;
+    --primary: 200 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 180 100% 50%;
+    --secondary-foreground: 0 0% 0%;
+    --accent: 190 100% 50%;
+    --accent-foreground: 0 0% 0%;
+    --card: 200 25% 8%;
+    --card-foreground: 210 40% 98%;
+    --border: 200 30% 15%;
+    --input: 200 30% 10%;
+    --ring: 200 100% 50%;
+    --success: 120 100% 50%;
+    --warning: 40 100% 50%;
+    --danger: 0 100% 50%;
+    --radius: 0.75rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    background: linear-gradient(135deg, #0a0e14 0%, #0d1520 50%, #061118 100%);
+    min-height: 100vh;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: rgba(0, 150, 255, 0.05);
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #1e3a5f 0%, #0ea5e9 100%);
+    border-radius: 10px;
+    box-shadow: 0 0 12px rgba(14, 165, 233, 0.6);
+  }
+}
+
+@layer components {
+  .neon-card {
+    @apply relative overflow-hidden rounded-2xl border-2 bg-clip-padding backdrop-blur-xl transition-all duration-500;
+    border-color: rgba(0, 200, 255, 0.4);
+    background: linear-gradient(135deg, rgba(10, 14, 20, 0.95), rgba(13, 21, 32, 0.85));
+    box-shadow: 0 0 30px rgba(0, 200, 255, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+
+  .neon-card:hover {
+    border-color: rgba(0, 200, 255, 0.8);
+    box-shadow: 0 0 60px rgba(0, 150, 255, 0.4), 0 0 80px rgba(0, 200, 255, 0.3);
+    transform: translateY(-4px);
+  }
+
+  .neon-btn {
+    @apply px-8 py-4 rounded-xl font-bold text-white relative overflow-hidden transition-all duration-300 cursor-pointer hover:scale-105 active:scale-95 border;
+    background: linear-gradient(135deg, #0066ff 0%, #0050cc 100%);
+    border-color: rgba(0, 150, 255, 0.8);
+    box-shadow: 0 0 30px rgba(0, 150, 255, 0.5);
+  }
+
+  .neon-btn:hover {
+    box-shadow: 0 0 60px rgba(0, 150, 255, 0.8);
+  }
+
+  .neon-btn-cyan {
+    @apply px-8 py-3 rounded-xl font-bold text-slate-900 relative overflow-hidden transition-all duration-300 cursor-pointer hover:scale-105 active:scale-95 border;
+    background: linear-gradient(135deg, #00ffff 0%, #00d9ff 100%);
+    border-color: rgba(0, 255, 255, 0.9);
+    box-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
+  }
+
+  .odds-box {
+    @apply rounded-2xl border-2 p-5 transition-all duration-300 cursor-pointer bg-gradient-to-br from-blue-950/60 to-slate-900/60;
+    border-color: rgba(0, 150, 255, 0.4);
+    box-shadow: 0 0 25px rgba(0, 150, 255, 0.2);
+  }
+
+  .odds-box:hover {
+    border-color: rgba(0, 200, 255, 0.8);
+    box-shadow: 0 0 50px rgba(0, 200, 255, 0.4);
+  }
+
+  .odds-value {
+    @apply text-2xl font-black bg-gradient-to-r from-cyan-300 via-blue-300 to-cyan-300 bg-clip-text text-transparent;
+    animation: pulseNeon 2.5s ease-in-out infinite;
+  }
+
+  .balance-display {
+    @apply text-4xl font-black bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent;
+    animation: gradientShift 8s ease infinite;
+    background-size: 200% 200%;
+  }
+
+  .event-card {
+    @apply group relative rounded-2xl border-2 bg-gradient-to-br from-blue-950/70 to-blue-900/50 p-5 transition-all duration-500 cursor-pointer;
+    border-color: rgba(0, 150, 255, 0.3);
+    box-shadow: 0 0 20px rgba(0, 150, 255, 0.15);
+  }
+
+  .event-card:hover {
+    border-color: rgba(0, 200, 255, 0.8);
+    box-shadow: 0 0 50px rgba(0, 150, 255, 0.4);
+    transform: translateY(-4px);
+  }
+
+  .bet-slip {
+    @apply rounded-2xl border-2 bg-gradient-to-br from-blue-950/70 to-slate-950/70 p-6 backdrop-blur-xl;
+    border-color: rgba(0, 150, 255, 0.4);
+    box-shadow: 0 0 40px rgba(0, 150, 255, 0.3);
+  }
+}
+
+@layer utilities {
+  .text-glow {
+    @apply text-white;
+    letter-spacing: 0.5px;
+  }
+
+  .text-glow-cyan {
+    @apply text-cyan-300;
+  }
+
+  .glass-effect {
+    @apply backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl;
+  }
+
+  .grid-responsive {
+    @apply grid gap-5 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4;
+  }
+
+  .container-padding {
+    @apply px-6 py-8 sm:px-8 lg:px-10;
+  }
+}</pre>
+            </div>
+        </div>
+
+        <!-- client/src/lib/queryClient.ts -->
+        <div class="file-section" id="query-client">
+            <div class="file-header">
+                <span class="file-name">client/src/lib/queryClient.ts</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="code-content">
+<pre>import { QueryClient, QueryFunction } from "@tanstack/react-query";
+
+async function throwIfResNotOk(res: Response) {
+  if (!res.ok) {
+    let errorMessage = res.statusText;
+    try {
+      const data = await res.json();
+      errorMessage = data.message || data.error || JSON.stringify(data);
+    } catch (e) {
+      try {
+        errorMessage = await res.text();
+      } catch (textError) {
+        errorMessage = res.statusText;
+      }
+    }
+
+    const error = new Error(`${res.status}: ${errorMessage}`);
+    (error as any).status = res.status;
+    (error as any).isNetworkError = res.status >= 500 || res.status === 0;
+    (error as any).isAuthError = res.status === 401 || res.status === 403;
+    
+    throw error;
+  }
+}
+
+export async function apiRequest(
+  method: string,
+  url: string,
+  data?: unknown | undefined,
+  options?: { timeout?: number, retries?: number },
+): Promise&lt;Response&gt; {
+  try {
+    const maxRetries = options?.retries ?? 2;
+    let currentRetry = 0;
+    
+    const attemptFetch = async (): Promise&lt;Response&gt; => {
+      let abortController: AbortController | undefined;
+      let timeoutId: NodeJS.Timeout | undefined;
+      
+      try {
+        let effectiveTimeout = 20000;
+        
+        if (url.includes('/api/events')) {
+          effectiveTimeout = url.includes('isLive=true') ? 40000 : 30000;
+        }
+        
+        effectiveTimeout = options?.timeout || effectiveTimeout;
+        
+        abortController = new AbortController();
+        timeoutId = setTimeout(() => {
+          abortController?.abort(`Request timeout after ${effectiveTimeout}ms`);
+        }, effectiveTimeout);
+        
+        const headers: Record&lt;string, string&gt; = {};
+        
+        if (data) {
+          headers["Content-Type"] = "application/json";
+        }
+        
+        const res = await fetch(url, {
+          method,
+          headers,
+          body: data ? JSON.stringify(data) : undefined,
+          credentials: "include",
+          signal: abortController.signal,
+        });
+        
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = undefined;
+        }
+        
+        return res;
+      } catch (error) {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = undefined;
+        }
+        
+        if (currentRetry &lt; maxRetries) {
+          currentRetry++;
+          const backoffMs = Math.min(1000 * Math.pow(1.5, currentRetry) + (Math.random() * 1000), 8000);
+          await new Promise(resolve => setTimeout(resolve, backoffMs));
+          return attemptFetch();
+        }
+        
+        throw error;
+      }
+    };
+    
+    const res = await attemptFetch();
+    await throwIfResNotOk(res);
+    return res;
+  } catch (error) {
+    console.error(`API request error for ${url}:`, error);
+    
+    if (url.includes('/api/events')) {
+      return new Response(
+        JSON.stringify([]), 
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    throw error;
+  }
+}
+
+type UnauthorizedBehavior = "returnNull" | "throw";
+export const getQueryFn: &lt;T&gt;(options: {
+  on401: UnauthorizedBehavior;
+}) => QueryFunction&lt;T&gt; =
+  ({ on401: unauthorizedBehavior }) =>
+  async ({ queryKey }) => {
+    try {
+      const res = await apiRequest('GET', queryKey[0] as string);
+      
+      if (unauthorizedBehavior === "returnNull" && res.status === 401) {
+        return null;
+      }
+      
+      await throwIfResNotOk(res);
+      
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        return await res.json();
+      } else {
+        return await res.text();
+      }
+    } catch (error) {
+      if ((queryKey[0] as string).includes('/api/events')) {
+        return [];
+      }
+      throw error;
+    }
+  };
+
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      queryFn: getQueryFn({ on401: "throw" }),
+      refetchInterval: false,
+      refetchOnWindowFocus: false,
+      staleTime: Infinity,
+      retry: false,
+    },
+    mutations: {
+      retry: false,
+    },
+  },
+});</pre>
+            </div>
+        </div>
+
+        <!-- client/src/context/WalrusProtocolContext.tsx -->
+        <div class="file-section" id="walrus-context">
+            <div class="file-header">
+                <span class="file-name">client/src/context/WalrusProtocolContext.tsx</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="code-content">
+<pre>import { createContext, ReactNode, useContext } from 'react';
+import { useWalrusProtocol } from '@/hooks/useWalrusProtocol';
+
+const WalrusProtocolContext = createContext&lt;ReturnType&lt;typeof useWalrusProtocol&gt; | null&gt;(null);
+
+export function WalrusProtocolProvider({ children }: { children: ReactNode }) {
+  const walrusProtocolHooks = useWalrusProtocol();
+  
+  return (
+    &lt;WalrusProtocolContext.Provider value={walrusProtocolHooks}&gt;
+      {children}
+    &lt;/WalrusProtocolContext.Provider&gt;
+  );
+}
+
+export function useWalrusProtocolContext() {
+  const context = useContext(WalrusProtocolContext);
+  
+  if (!context) {
+    throw new Error('useWalrusProtocolContext must be used within a WalrusProtocolProvider');
+  }
+  
+  return context;
+}</pre>
+            </div>
+        </div>
+
+        <!-- client/src/hooks/useWalrusProtocol.tsx -->
+        <div class="file-section" id="use-walrus">
+            <div class="file-header">
+                <span class="file-name">client/src/hooks/useWalrusProtocol.tsx</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="code-content">
+<pre>import { useState } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { useToast } from '@/hooks/use-toast';
+import { apiRequest, queryClient } from '@/lib/queryClient';
+
+interface WalrusWallet {
+  address: string;
+  isRegistered: boolean;
+}
+
+interface WalrusBet {
+  id: string;
+  eventId: string;
+  marketId: string;
+  outcomeId: string;
+  amount: number;
+  tokenType: 'SUI' | 'SBETS';
+  timestamp: number;
+  status: 'pending' | 'won' | 'lost' | 'cancelled';
+  potentialWinnings: number;
+}
+
+export function useWalrusProtocol() {
+  const { toast } = useToast();
+  const [currentWallet, setCurrentWallet] = useState&lt;WalrusWallet | null&gt;(null);
+  const [error, setError] = useState&lt;string | null&gt;(null);
+  
+  const connectToWurlusProtocolMutation = useMutation({
+    mutationFn: async (walletAddress: string) => {
+      const res = await apiRequest('POST', '/api/walrus/connect', { walletAddress });
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      if (data.success && data.txHash) {
+        setCurrentWallet({
+          address: data.walletAddress || '',
+          isRegistered: true
+        });
+        
+        toast({
+          title: 'Wallet Connected',
+          description: 'Your wallet has been successfully connected to the Walrus protocol.',
+          variant: 'default',
+        });
+        
+        queryClient.invalidateQueries({ queryKey: ['/api/walrus/registration'] });
+      }
+    },
+    onError: (error: Error) => {
+      setError(error.message);
+      toast({
+        title: 'Connection Failed',
+        description: `Failed to connect wallet: ${error.message}`,
+        variant: 'destructive',
+      });
+    }
+  });
+  
+  const placeBetMutation = useMutation({
+    mutationFn: async (params: {
+      walletAddress: string;
+      eventId: string | number;
+      marketId: string | number;
+      outcomeId: string | number;
+      amount: number;
+      tokenType: 'SUI' | 'SBETS';
+    }) => {
+      const res = await apiRequest('POST', '/api/walrus/bet', params);
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      if (data.success && data.txHash) {
+        toast({
+          title: 'Bet Placed',
+          description: `Successfully placed bet of ${data.amount} ${data.tokenType}`,
+          variant: 'default',
+        });
+        
+        if (currentWallet?.address) {
+          queryClient.invalidateQueries({ queryKey: ['/api/walrus/bets', currentWallet.address] });
+        }
+      }
+    },
+    onError: (error: Error) => {
+      setError(error.message);
+      toast({
+        title: 'Bet Failed',
+        description: `Failed to place bet: ${error.message}`,
+        variant: 'destructive',
+      });
+    }
+  });
+  
+  const claimWinningsMutation = useMutation({
+    mutationFn: async (params: { walletAddress: string; betId: string }) => {
+      const res = await apiRequest('POST', '/api/walrus/claim-winnings', params);
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      if (data.success && data.txHash) {
+        toast({
+          title: 'Winnings Claimed',
+          description: 'Successfully claimed winnings from bet',
+          variant: 'default',
+        });
+        
+        if (currentWallet?.address) {
+          queryClient.invalidateQueries({ queryKey: ['/api/walrus/bets', currentWallet.address] });
+          queryClient.invalidateQueries({ queryKey: ['/api/wallet', currentWallet.address, 'balance'] });
+        }
+      }
+    },
+    onError: (error: Error) => {
+      setError(error.message);
+      toast({
+        title: 'Claim Failed',
+        description: `Failed to claim winnings: ${error.message}`,
+        variant: 'destructive',
+      });
+    }
+  });
+  
+  const useWalletBets = (walletAddress?: string) => {
+    return useQuery({
+      queryKey: ['/api/walrus/bets', walletAddress],
+      queryFn: async () => {
+        if (!walletAddress) return { bets: [] };
+        const res = await apiRequest('GET', `/api/walrus/bets/${walletAddress}`);
+        return await res.json();
+      },
+      enabled: !!walletAddress,
+    });
+  };
+  
+  return {
+    currentWallet,
+    error,
+    connectToWurlusProtocol: connectToWurlusProtocolMutation.mutateAsync,
+    placeBet: placeBetMutation.mutateAsync,
+    claimWinnings: claimWinningsMutation.mutateAsync,
+    useWalletBets,
+    isConnecting: connectToWurlusProtocolMutation.isPending,
+    isPlacingBet: placeBetMutation.isPending,
+    isClaimingWinnings: claimWinningsMutation.isPending,
+    clearError: () => setError(null)
+  };
+}</pre>
+            </div>
+        </div>
+
+        <!-- client/src/types/index.ts -->
+        <div class="file-section" id="types">
+            <div class="file-header">
+                <span class="file-name">client/src/types/index.ts</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="code-content">
+<pre>export interface User {
+  id: string;
+  username?: string;
+  email?: string;
+  walletAddress?: string;
+  walletType?: string;
+  balance?: number | { SUI: number; SBETS: number };
+  suiBalance?: number;
+  sbetsBalance?: number;
+}
+
+export interface AuthContextType {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  login: (userData: User) => void;
+  logout: () => void;
+  connectWallet: (address: string, walletType: string) => Promise&lt;void&gt;;
+  disconnectWallet: () => void;
+}
+
+export interface SelectedBet {
+  id: string;
+  uniqueId?: string;
+  eventId: string;
+  eventName: string;
+  marketId: string;
+  market: string;
+  outcomeId: string;
+  selectionName: string;
+  odds: number;
+  stake?: number;
+  homeTeam?: string;
+  awayTeam?: string;
+  sportId?: number;
+}
+
+export interface PlaceBetOptions {
+  betType?: 'single' | 'parlay';
+  currency?: 'SUI' | 'SBETS';
+  acceptOddsChange?: boolean;
+}
+
+export interface BettingContextType {
+  selectedBets: SelectedBet[];
+  addBet: (bet: SelectedBet) => void;
+  removeBet: (id: string) => void;
+  clearBets: () => void;
+  placeBet: (betAmount: number, options?: PlaceBetOptions) => Promise&lt;boolean&gt;;
+  totalStake: number;
+  potentialWinnings: number;
+  updateStake: (id: string, stake: number) => void;
+}
+
+export interface SportEvent {
+  id: string;
+  sportId: number;
+  leagueName: string;
+  leagueSlug?: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeOdds?: number;
+  awayOdds?: number;
+  drawOdds?: number | null;
+  startTime: string;
+  status: 'scheduled' | 'live' | 'finished' | 'upcoming';
+  score?: string;
+  markets: MarketData[];
+  isLive: boolean;
+}
+
+export interface MarketData {
+  id: string;
+  name: string;
+  status?: string;
+  marketType?: string;
+  outcomes: OutcomeData[];
+}
+
+export interface OutcomeData {
+  id: string;
+  name: string;
+  odds: number;
+  probability?: number;
+  status?: string;
+}
+
+export interface Bet {
+  id: string;
+  userId: string;
+  eventId: string;
+  marketId: string;
+  outcomeId: string;
+  odds: number;
+  betAmount: number;
+  status: 'pending' | 'won' | 'lost' | 'void' | 'cashed_out';
+  prediction: string;
+  placedAt: number;
+  settledAt?: number;
+  potentialPayout: number;
+  actualPayout?: number;
+}</pre>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 60px; padding: 40px; border-top: 1px solid var(--border-color);">
+            <p style="color: var(--text-secondary);">SuiBets Platform - Walrus Frontend Deployment Package</p>
+            <p style="color: var(--cyan); font-size: 0.9rem; margin-top: 8px;">Deploy to Walrus: walrus deploy --network testnet ./dist/public</p>
+        </div>
+    </div>
+
+    <script>
+        function copyCode(button) {
+            const codeContent = button.parentElement.nextElementSibling;
+            const code = codeContent.querySelector('pre').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                button.style.background = 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.style.background = 'linear-gradient(135deg, var(--cyan) 0%, #0088ff 100%)';
+                }, 2000);
+            });
+        }
+    </script>
+</body>
+</html>

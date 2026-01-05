@@ -1,0 +1,74 @@
+import requests
+import datetime
+import time
+
+BASE_URL = "https://api.sofascore.com/api/v1"
+HEADERS = {
+    "User-Agent": "Mozilla/5.0"
+}
+
+def get_sports():
+    res = requests.get(f"{BASE_URL}/sport", headers=HEADERS)
+    return res.json()
+
+def get_live_events():
+    res = requests.get(f"{BASE_URL}/sport/0/events/live", headers=HEADERS)
+    return res.json().get("events", [])
+
+def get_upcoming_events(sport_slug, date_str):
+    url = f"{BASE_URL}/sport/{sport_slug}/scheduled-events/{date_str}"
+    res = requests.get(url, headers=HEADERS)
+    return res.json().get("events", [])
+
+def get_event_odds(event_id):
+    url = f"{BASE_URL}/event/{event_id}"
+    res = requests.get(url, headers=HEADERS)
+    return res.json()
+
+def print_odds_info(event):
+    try:
+        home = event['homeTeam']['name']
+        away = event['awayTeam']['name']
+        tournament = event['tournament']['name']
+        event_id = event['id']
+
+        odds_data = get_event_odds(event_id)
+        markets = odds_data.get("markets", [])
+
+        print(f"\n🏆 {tournament}: {home} vs {away}")
+        if not markets:
+            print("🔒 No odds available.")
+            return
+
+        for market in markets:
+            print(f"➡️ Market: {market.get('name')}")
+            for outcome in market.get("outcomes", []):
+                print(f"   - {outcome['name']}: {outcome['odds']}")
+    except Exception as e:
+        print(f"❌ Error getting odds: {e}")
+
+def main():
+    today = datetime.date.today().strftime("%Y-%m-%d")
+    print(f"📅 Date: {today}")
+
+    # Step 1: Get sports
+    sports = get_sports()
+
+    # Step 2: Live events (all sports)
+    print("\n🔥 LIVE EVENTS")
+    live_events = get_live_events()
+    for event in live_events:
+        print_odds_info(event)
+        time.sleep(0.5)  # avoid rate-limiting
+
+    # Step 3: Upcoming events (today only)
+    print("\n⏳ UPCOMING EVENTS (Today)")
+    for sport in sports:
+        slug = sport['slug']
+        events = get_upcoming_events(slug, today)
+        for event in events:
+            print_odds_info(event)
+            time.sleep(0.5)
+
+if __name__ == "__main__":
+    main()

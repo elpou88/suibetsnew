@@ -1,0 +1,13 @@
+node_modules
+package-lock.json
+dist
+.git
+.gitignore
+*.md
+.env*
+.replit
+replit.nix
+sui_contracts
+suibets-vercel-package
+*.log
+.DS_Store

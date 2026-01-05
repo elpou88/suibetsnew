@@ -1,0 +1,505 @@
+import { storage } from '../storage';
+import balanceService from './balanceService';
+import { blockchainBetService } from './blockchainBetService';
+import { db } from '../db';
+import { settledEvents } from '../../shared/schema';
+import { eq, sql } from 'drizzle-orm';
+
+interface FinishedMatch {
+  eventId: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeScore: number;
+  awayScore: number;
+  winner: 'home' | 'away' | 'draw';
+  status: string;
+}
+
+interface UnsettledBet {
+  id: string;
+  eventId: string;
+  externalEventId: string;
+  homeTeam: string;
+  awayTeam: string;
+  prediction: string;
+  odds: number;
+  stake: number;
+  potentialWin: number;
+  userId: string;
+  currency: string;
+  betObjectId?: string; // On-chain Sui bet object ID (for SUI bets placed via contract)
+}
+
+const REVENUE_WALLET = 'platform_revenue';
+
+class SettlementWorkerService {
+  private isRunning = false;
+  private intervalId: NodeJS.Timeout | null = null;
+  private settledEventIdsCache = new Set<string>(); // In-memory cache, synced from DB
+  private checkInterval = 30 * 1000; // 30 seconds
+
+  async start() {
+    if (this.isRunning) {
+      console.log('⚙️ SettlementWorker already running');
+      return;
+    }
+
+    // Load settled events from database on startup (survives restarts)
+    await this.loadSettledEventsFromDB();
+
+    this.isRunning = true;
+    console.log('🚀 SettlementWorker started - checking for finished matches every 30s');
+
+    this.intervalId = setInterval(async () => {
+      try {
+        await this.checkAndSettleBets();
+      } catch (error) {
+        console.error('❌ SettlementWorker error:', error);
+      }
+    }, this.checkInterval);
+
+    this.checkAndSettleBets();
+  }
+
+  private async loadSettledEventsFromDB() {
+    try {
+      const settledFromDB = await db.select().from(settledEvents);
+      for (const event of settledFromDB) {
+        this.settledEventIdsCache.add(event.externalEventId);
+      }
+      console.log(`📋 Loaded ${settledFromDB.length} settled events from database`);
+    } catch (error) {
+      console.error('Failed to load settled events from DB:', error);
+    }
+  }
+
+  private async markEventAsSettled(match: FinishedMatch, betsSettledCount: number) {
+    try {
+      // Check if already exists in DB
+      const existing = await db.select().from(settledEvents).where(eq(settledEvents.externalEventId, match.eventId));
+      if (existing.length === 0) {
+        // Insert new settled event
+        await db.insert(settledEvents).values({
+          externalEventId: match.eventId,
+          homeTeam: match.homeTeam,
+          awayTeam: match.awayTeam,
+          homeScore: match.homeScore,
+          awayScore: match.awayScore,
+          winner: match.winner,
+          betsSettled: betsSettledCount
+        });
+        console.log(`📝 Persisted settled event: ${match.eventId} (${betsSettledCount} bets settled)`);
+      } else {
+        // Update betsSettled count for existing event (upsert pattern)
+        const newTotal = (existing[0].betsSettled || 0) + betsSettledCount;
+        await db.update(settledEvents)
+          .set({ betsSettled: newTotal })
+          .where(eq(settledEvents.externalEventId, match.eventId));
+        console.log(`📝 Updated settled event: ${match.eventId} (total ${newTotal} bets settled)`);
+      }
+      this.settledEventIdsCache.add(match.eventId);
+    } catch (error) {
+      console.error(`Failed to persist settled event ${match.eventId}:`, error);
+    }
+  }
+
+  private isEventSettled(eventId: string): boolean {
+    return this.settledEventIdsCache.has(eventId);
+  }
+
+  stop() {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
+    this.isRunning = false;
+    console.log('⏹️ SettlementWorker stopped');
+  }
+
+  public async checkAndSettleBets() {
+    console.log('🔍 SettlementWorker: Checking for finished matches...');
+
+    try {
+      const finishedMatches = await this.getFinishedMatches();
+      
+      if (finishedMatches.length === 0) {
+        console.log('📭 SettlementWorker: No new finished matches to settle');
+        return;
+      }
+
+      console.log(`📋 SettlementWorker: Found ${finishedMatches.length} finished matches`);
+
+      const unsettledBets = await this.getUnsettledBets();
+      
+      if (unsettledBets.length === 0) {
+        console.log('📭 SettlementWorker: No unsettled bets to process');
+        return;
+      }
+
+      console.log(`🎯 SettlementWorker: Processing ${unsettledBets.length} unsettled bets`);
+
+      for (const match of finishedMatches) {
+        // IMPROVED MATCHING: Use multiple strategies to find bets for this match
+        const betsForMatch = unsettledBets.filter(bet => {
+          // Strategy 1: Exact external event ID match (most reliable)
+          if (bet.externalEventId && bet.externalEventId === match.eventId) {
+            return true;
+          }
+          
+          // Strategy 2: Match by stored team names (reliable for newer bets)
+          if (bet.homeTeam && bet.awayTeam) {
+            const betHome = bet.homeTeam.toLowerCase();
+            const betAway = bet.awayTeam.toLowerCase();
+            const matchHome = match.homeTeam.toLowerCase();
+            const matchAway = match.awayTeam.toLowerCase();
+            if ((betHome === matchHome || matchHome.includes(betHome) || betHome.includes(matchHome)) &&
+                (betAway === matchAway || matchAway.includes(betAway) || betAway.includes(matchAway))) {
+              return true;
+            }
+          }
+          
+          // Strategy 3: Match by prediction containing team name (fallback for older bets)
+          const prediction = bet.prediction?.toLowerCase() || '';
+          const matchHome = match.homeTeam.toLowerCase();
+          const matchAway = match.awayTeam.toLowerCase();
+          if (prediction.includes(matchHome) || prediction.includes(matchAway)) {
+            return true;
+          }
+          
+          // Strategy 4: Legacy eventId match
+          if (bet.eventId && bet.eventId === match.eventId) {
+            return true;
+          }
+          
+          return false;
+        });
+
+        if (betsForMatch.length > 0) {
+          console.log(`⚽ Settling ${betsForMatch.length} bets for ${match.homeTeam} vs ${match.awayTeam} (${match.homeScore}-${match.awayScore})`);
+          await this.settleBetsForMatch(match, betsForMatch);
+        }
+      }
+    } catch (error) {
+      console.error('❌ SettlementWorker checkAndSettleBets error:', error);
+    }
+  }
+
+  private async getFinishedMatches(): Promise<FinishedMatch[]> {
+    const finishedMatches: FinishedMatch[] = [];
+    
+    try {
+      const sportsToCheck = ['football', 'basketball', 'baseball', 'hockey', 'handball', 'volleyball', 'rugby'];
+      
+      for (const sport of sportsToCheck) {
+        try {
+          const response = await this.fetchFinishedForSport(sport);
+          finishedMatches.push(...response);
+        } catch (error) {
+          // Silently skip failed sports
+        }
+      }
+
+      return finishedMatches.filter(match => !this.isEventSettled(match.eventId));
+    } catch (error) {
+      console.error('Error fetching finished matches:', error);
+      return [];
+    }
+  }
+
+  private async fetchFinishedForSport(sport: string): Promise<FinishedMatch[]> {
+    const finished: FinishedMatch[] = [];
+
+    const apiKey = process.env.API_SPORTS_KEY || process.env.SPORTSDATA_API_KEY || process.env.APISPORTS_KEY || '';
+    if (!apiKey) return [];
+
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    const todayStr = today.toISOString().split('T')[0];
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    
+    const datesToCheck = [todayStr, yesterdayStr];
+    
+    const sportEndpoints: Record<string, string> = {
+      football: 'https://v3.football.api-sports.io/fixtures',
+      basketball: 'https://v1.basketball.api-sports.io/games',
+      baseball: 'https://v1.baseball.api-sports.io/games',
+      hockey: 'https://v1.hockey.api-sports.io/games'
+    };
+
+    const url = sportEndpoints[sport];
+    if (!url) return finished;
+
+    for (const dateStr of datesToCheck) {
+      try {
+        const axios = await import('axios');
+        const params = sport === 'football' 
+          ? { date: dateStr, status: 'FT-AET-PEN' }
+          : { date: dateStr, status: 'FT' };
+          
+        const response = await axios.default.get(url, {
+          params,
+          headers: {
+            'x-apisports-key': apiKey,
+            'Accept': 'application/json'
+          },
+          timeout: 10000
+        });
+
+        if (response.data?.response && Array.isArray(response.data.response)) {
+          for (const match of response.data.response) {
+            const eventId = match.fixture?.id?.toString() || match.id?.toString();
+            const homeTeam = match.teams?.home?.name || '';
+            const awayTeam = match.teams?.away?.name || '';
+            
+            let homeScore = 0;
+            let awayScore = 0;
+            
+            if (sport === 'football') {
+              homeScore = match.goals?.home || 0;
+              awayScore = match.goals?.away || 0;
+            } else if (sport === 'basketball') {
+              homeScore = match.scores?.home?.total || 0;
+              awayScore = match.scores?.away?.total || 0;
+            } else {
+              homeScore = match.scores?.home || 0;
+              awayScore = match.scores?.away || 0;
+            }
+
+            const winner: 'home' | 'away' | 'draw' = 
+              homeScore > awayScore ? 'home' : 
+              awayScore > homeScore ? 'away' : 'draw';
+
+            finished.push({
+              eventId,
+              homeTeam,
+              awayTeam,
+              homeScore,
+              awayScore,
+              winner,
+              status: 'finished'
+            });
+          }
+        }
+      } catch (error) {
+        // Silently handle API errors for this date
+      }
+    }
+
+    return finished;
+  }
+
+  private settledBetIds = new Set<string>(); // Track settled bet IDs to prevent duplicates
+
+  private async getUnsettledBets(): Promise<UnsettledBet[]> {
+    try {
+      // Get ALL unsettled bets from all users - not just one user
+      const allBets = await storage.getAllBets('pending');
+      return allBets
+        .filter(bet => !this.settledBetIds.has(bet.id))
+        .map(bet => ({
+          id: bet.id,
+          eventId: bet.eventId || '',
+          externalEventId: bet.externalEventId || String(bet.eventId || ''),
+          homeTeam: bet.homeTeam || '',
+          awayTeam: bet.awayTeam || '',
+          prediction: bet.selection || bet.prediction || '',
+          odds: bet.odds,
+          stake: bet.stake || bet.betAmount,
+          potentialWin: bet.potentialWin || bet.potentialPayout,
+          userId: bet.walletAddress || bet.userId || 'unknown',
+          currency: bet.currency || 'SUI',
+          betObjectId: bet.betObjectId || undefined // On-chain bet object ID for SUI bets
+        }));
+    } catch (error) {
+      console.error('Error getting unsettled bets:', error);
+      return [];
+    }
+  }
+
+  private async settleBetsForMatch(match: FinishedMatch, bets: UnsettledBet[]) {
+    for (const bet of bets) {
+      // DUPLICATE SETTLEMENT PREVENTION: Skip if already settled this session
+      if (this.settledBetIds.has(bet.id)) {
+        console.log(`⚠️ SKIPPING: Bet ${bet.id} already processed this session`);
+        continue;
+      }
+      
+      try {
+        const isWinner = this.determineBetOutcome(bet, match);
+        const status = isWinner ? 'won' : 'lost';
+        const grossPayout = isWinner ? bet.potentialWin : 0;
+        const platformFee = grossPayout > 0 ? grossPayout * 0.01 : 0;
+        const netPayout = grossPayout - platformFee;
+
+        // DUAL SETTLEMENT: On-chain for SUI/SBETS with betObjectId, off-chain fallback
+        const hasOnChainBet = bet.betObjectId && blockchainBetService.isAdminKeyConfigured();
+        const isSuiOnChainBet = bet.currency === 'SUI' && hasOnChainBet;
+        const isSbetsOnChainBet = bet.currency === 'SBETS' && hasOnChainBet;
+
+        if (isSuiOnChainBet) {
+          // ============ ON-CHAIN SETTLEMENT (SUI via smart contract) ============
+          // Contract handles payout directly - winner gets SUI from contract treasury
+          // Lost bets stay in contract treasury as accrued fees
+          console.log(`🔗 ON-CHAIN SUI SETTLEMENT: Bet ${bet.id} via smart contract`);
+          
+          const settlementResult = await blockchainBetService.executeSettleBetOnChain(
+            bet.betObjectId!,
+            isWinner
+          );
+
+          if (settlementResult.success) {
+            // Update database status to reflect on-chain settlement
+            const statusUpdated = await storage.updateBetStatus(bet.id, status, grossPayout);
+            if (statusUpdated) {
+              console.log(`✅ ON-CHAIN SUI SETTLED: ${bet.id} ${status} | TX: ${settlementResult.txHash}`);
+              this.settledBetIds.add(bet.id);
+            }
+          } else {
+            console.error(`❌ ON-CHAIN SUI SETTLEMENT FAILED: ${bet.id} - ${settlementResult.error}`);
+            // Don't mark as settled - will retry next cycle
+            continue;
+          }
+        } else if (isSbetsOnChainBet) {
+          // ============ ON-CHAIN SETTLEMENT (SBETS via smart contract) ============
+          // Contract handles payout directly - winner gets SBETS from contract treasury
+          console.log(`🔗 ON-CHAIN SBETS SETTLEMENT: Bet ${bet.id} via smart contract`);
+          
+          const settlementResult = await blockchainBetService.executeSettleBetSbetsOnChain(
+            bet.betObjectId!,
+            isWinner
+          );
+
+          if (settlementResult.success) {
+            const statusUpdated = await storage.updateBetStatus(bet.id, status, grossPayout);
+            if (statusUpdated) {
+              console.log(`✅ ON-CHAIN SBETS SETTLED: ${bet.id} ${status} | TX: ${settlementResult.txHash}`);
+              this.settledBetIds.add(bet.id);
+            }
+          } else {
+            console.error(`❌ ON-CHAIN SBETS SETTLEMENT FAILED: ${bet.id} - ${settlementResult.error}`);
+            continue;
+          }
+        } else {
+          // ============ OFF-CHAIN SETTLEMENT (SBETS or SUI fallback) ============
+          // Uses internal balance tracking - funds managed via hybrid custodial model
+          console.log(`📊 OFF-CHAIN SETTLEMENT: Bet ${bet.id} (${bet.currency}) via database`);
+
+          // DOUBLE PAYOUT PREVENTION: Only process winnings if status update succeeded
+          const statusUpdated = await storage.updateBetStatus(bet.id, status, grossPayout);
+
+          if (statusUpdated) {
+            if (isWinner && netPayout > 0) {
+              const winningsAdded = await balanceService.addWinnings(bet.userId, netPayout, bet.currency as 'SUI' | 'SBETS');
+              if (!winningsAdded) {
+                // CRITICAL: Revert bet status if balance credit failed - allows retry next cycle
+                await storage.updateBetStatus(bet.id, 'pending');
+                console.error(`❌ SETTLEMENT REVERTED: Failed to credit winnings for bet ${bet.id} - will retry`);
+                continue; // Don't mark as settled, allow retry
+              }
+              // CRITICAL: Record 1% platform fee as revenue
+              await balanceService.addRevenue(platformFee, bet.currency as 'SUI' | 'SBETS');
+              console.log(`💰 WINNER (DB): ${bet.userId} won ${netPayout} ${bet.currency} (fee: ${platformFee} ${bet.currency} -> revenue)`);
+            } else {
+              // Lost bet - add full stake to platform revenue
+              await balanceService.addRevenue(bet.stake, bet.currency as 'SUI' | 'SBETS');
+              console.log(`📉 LOST (DB): ${bet.userId} lost ${bet.stake} ${bet.currency} - added to platform revenue`);
+            }
+            console.log(`✅ Settled bet ${bet.id}: ${status} (${match.homeTeam} ${match.homeScore}-${match.awayScore} ${match.awayTeam})`);
+            
+            // ONLY mark as settled after successful payout processing
+            this.settledBetIds.add(bet.id);
+          } else {
+            // Bet was already settled (by concurrent process) - mark to skip future attempts
+            console.log(`⚠️ DUPLICATE SETTLEMENT PREVENTED: Bet ${bet.id} already settled - no payout applied`);
+            this.settledBetIds.add(bet.id);
+          }
+        }
+      } catch (error) {
+        console.error(`❌ Error settling bet ${bet.id}:`, error);
+        // Don't mark as settled on error - allow retry next cycle
+      }
+    }
+
+    // Persist event as settled in database (survives restarts)
+    await this.markEventAsSettled(match, bets.length);
+  }
+
+  private determineBetOutcome(bet: UnsettledBet, match: FinishedMatch): boolean {
+    const prediction = bet.prediction.toLowerCase();
+    const homeTeam = match.homeTeam.toLowerCase();
+    const awayTeam = match.awayTeam.toLowerCase();
+
+    if (prediction.includes(homeTeam) || prediction === 'home' || prediction === '1') {
+      return match.winner === 'home';
+    }
+    
+    if (prediction.includes(awayTeam) || prediction === 'away' || prediction === '2') {
+      return match.winner === 'away';
+    }
+    
+    if (prediction === 'draw' || prediction === 'x' || prediction === 'tie') {
+      return match.winner === 'draw';
+    }
+
+    if (prediction.includes('over')) {
+      const totalGoals = match.homeScore + match.awayScore;
+      const threshold = parseFloat(prediction.replace(/[^0-9.]/g, '')) || 2.5;
+      return totalGoals > threshold;
+    }
+    
+    if (prediction.includes('under')) {
+      const totalGoals = match.homeScore + match.awayScore;
+      const threshold = parseFloat(prediction.replace(/[^0-9.]/g, '')) || 2.5;
+      return totalGoals < threshold;
+    }
+
+    return false;
+  }
+
+  async manualSettle(betId: string, outcome: 'won' | 'lost' | 'void') {
+    try {
+      const bet = await storage.getBet(betId);
+      if (!bet) throw new Error('Bet not found');
+
+      const payout = outcome === 'won' ? bet.potentialPayout : 
+                     outcome === 'void' ? bet.betAmount : 0;
+
+      // DOUBLE PAYOUT PREVENTION: Only process winnings if status update succeeded
+      const statusUpdated = await storage.updateBetStatus(betId, outcome, payout);
+
+      if (!statusUpdated) {
+        console.log(`⚠️ DUPLICATE SETTLEMENT PREVENTED: Bet ${betId} already settled - no payout applied`);
+        return { success: false, betId, outcome, payout, message: 'Bet already settled' };
+      }
+
+      if (outcome === 'won' && payout > 0) {
+        await balanceService.addWinnings(bet.userId || 'user1', payout, (bet.feeCurrency || 'SUI') as 'SUI' | 'SBETS');
+        console.log(`💰 MANUAL SETTLE (DB): ${bet.userId} won ${payout} ${bet.feeCurrency}`);
+      } else if (outcome === 'void') {
+        await balanceService.addWinnings(bet.userId || 'user1', payout, (bet.feeCurrency || 'SUI') as 'SUI' | 'SBETS');
+        console.log(`🔄 VOIDED (DB): Refunded ${payout} to ${bet.userId}`);
+      } else {
+        await balanceService.addRevenue(bet.betAmount, (bet.feeCurrency || 'SUI') as 'SUI' | 'SBETS');
+        console.log(`📉 MANUAL LOSS (DB): Added ${bet.betAmount} to platform revenue`);
+      }
+
+      return { success: true, betId, outcome, payout };
+    } catch (error) {
+      console.error('Manual settlement error:', error);
+      throw error;
+    }
+  }
+
+  getStatus() {
+    return {
+      isRunning: this.isRunning,
+      settledEventsInMemory: this.settledEventIdsCache.size,
+      settledBetsInMemory: this.settledBetIds.size,
+      checkInterval: this.checkInterval / 1000
+    };
+  }
+}
+
+export const settlementWorker = new SettlementWorkerService();

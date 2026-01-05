@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SuiBets Platform Download</title>
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      color: #f0f0f0;
+      background-color: #112225;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1, h2, h3 {
+      color: #00ffff;
+    }
+    .container {
+      border: 1px solid #1e3a3f;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      background-color: #0b1618;
+    }
+    .download-button {
+      display: inline-block;
+      padding: 10px 20px;
+      background-color: #00ffff;
+      color: #112225;
+      text-decoration: none;
+      font-weight: bold;
+      border-radius: 4px;
+      margin: 10px 0;
+      cursor: pointer;
+    }
+    .download-button:hover {
+      background-color: #00cccc;
+    }
+    pre {
+      background-color: #0b1618;
+      padding: 15px;
+      border-radius: 4px;
+      overflow-x: auto;
+      border: 1px solid #1e3a3f;
+    }
+    ul {
+      padding-left: 20px;
+    }
+    .package-info {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background-color: #1e3a3f;
+      padding: 10px 15px;
+      border-radius: 4px;
+      margin: 15px 0;
+    }
+    .size-info {
+      font-size: 14px;
+      color: #cccccc;
+    }
+  </style>
+</head>
+<body>
+  <h1>SuiBets Platform Download</h1>
+  
+  <div class="container">
+    <h2>Download Options</h2>
+    
+    <div class="package-info">
+      <div>
+        <h3>Complete Platform Package</h3>
+        <p>Latest version with database error handling</p>
+      </div>
+      <div class="size-info">70.2 MB</div>
+    </div>
+    
+    <a href="/suibets-platform.tar.gz" class="download-button">Download Package</a>
+    
+    <h3>After Downloading</h3>
+    <ol>
+      <li>Extract the archive with: <pre>tar -xzvf suibets-platform.tar.gz</pre></li>
+      <li>Navigate to the extracted directory: <pre>cd suibets-platform</pre></li>
+      <li>Copy the example environment file: <pre>cp .env.example .env</pre></li>
+      <li>Edit the .env file with your API keys</li>
+      <li>Install dependencies: <pre>npm install</pre></li>
+      <li>Start the application: <pre>npm run dev</pre></li>
+    </ol>
+    
+    <p><strong>Note:</strong> DATABASE_URL is optional. The application can run without a database connection by using blockchain storage as a fallback.</p>
+  </div>
+  
+  <div class="container">
+    <h2>Package Contents</h2>
+    <ul>
+      <li>Complete client application with all UI components</li>
+      <li>Server code for connecting to sports APIs</li>
+      <li>Move smart contracts for the Sui blockchain</li>
+      <li>Deployment configurations for Walrus</li>
+      <li>Support for 14 sports with proper market formatting</li>
+      <li>Comprehensive DeFi staking with outcome yield farming</li>
+      <li>Betting with both SUI and SBETS tokens</li>
+      <li>Database error handling with blockchain fallback</li>
+    </ul>
+  </div>
+
+  <div class="container">
+    <h2>Support</h2>
+    <p>For any issues during deployment, refer to our Telegram support channel:</p>
+    <a href="https://t.me/Sui_Bets" class="download-button">JOIN TELEGRAM</a>
+  </div>
+</body>
+</html>

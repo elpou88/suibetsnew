@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuiBets Navigation Toolbar</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background-color: #09181B;
+            font-family: Arial, sans-serif;
+        }
+        
+        .navbar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 60px;
+            background-color: #09181B;
+            border-bottom: 1px solid #112225;
+            padding: 0 16px;
+        }
+        
+        .navbar-links {
+            display: flex;
+            gap: 40px;
+            align-items: center;
+        }
+        
+        .navbar-link {
+            color: white;
+            text-decoration: none;
+            font-size: 16px;
+            padding-bottom: 5px;
+            position: relative;
+        }
+        
+        .navbar-link:hover {
+            color: #00FFFF;
+        }
+        
+        .navbar-link.active {
+            color: #00FFFF;
+            border-bottom: 2px solid #00FFFF;
+        }
+        
+        .red-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: red;
+            border-radius: 50%;
+            margin-left: 4px;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.3;
+            }
+            100% {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <div class="navbar-links">
+            <a href="/" class="navbar-link active">Sports</a>
+            <a href="/live.html" class="navbar-link">Live <span class="red-dot"></span></a>
+            <a href="/promotions.html" class="navbar-link">Promotions</a>
+        </div>
+    </div>
+</body>
+</html>

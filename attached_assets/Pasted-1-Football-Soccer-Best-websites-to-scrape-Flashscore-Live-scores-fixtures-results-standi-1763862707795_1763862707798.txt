@@ -1,0 +1,116 @@
+1. Football / Soccer
+
+Best websites to scrape:
+
+Flashscore
+ – Live scores, fixtures, results, standings.
+
+Sofascore
+ – Detailed live stats, player data.
+
+ESPN Soccer
+ – Match results and fixtures.
+
+Soccerway
+ – Historical data and fixtures.
+
+Tips:
+
+Flashscore & Sofascore have highly dynamic JS, so you may need headless browsers (e.g., Selenium, Playwright) or reverse-engineer their internal JSON endpoints via network tab.
+
+ESPN and Soccerway are easier for static scraping; use BeautifulSoup or Requests.
+
+2. Basketball
+
+Best websites to scrape:
+
+NBA.com
+ – Fixtures, results, stats.
+
+ESPN Basketball
+ – Live results, schedules.
+
+Basketball Reference
+ – Historical stats, player/team data.
+
+Tips:
+
+NBA.com provides JSON endpoints for live games; check network requests in dev tools for /scoreboard JSON.
+
+Basketball Reference is mainly static HTML, easy to parse.
+
+3. Tennis
+
+Best websites to scrape:
+
+ATP Tour
+ – Player results, fixtures.
+
+Tennis Live Scores
+ – Live matches across all tournaments.
+
+ESPN Tennis
+ – Fixtures, results, rankings.
+
+Tips:
+
+Flashscore for tennis has a unified endpoint across all sports; once you scrape tennis data, you can reuse similar methods for football/basketball.
+
+4. Cricket
+
+Best websites to scrape:
+
+Cricbuzz
+ – Live scores, fixtures.
+
+ESPN Cricinfo
+ – Detailed stats, player info.
+
+CricketAPI pages
+ – Some free endpoints, unofficial.
+
+Tips:
+
+Cricbuzz uses dynamic JS; network tab reveals JSON endpoints for live matches.
+
+Cricinfo pages are mostly static for past results; live scores often require JS rendering.
+
+5. American Football / NFL
+
+Best websites to scrape:
+
+NFL.com
+ – Fixtures, live scores.
+
+ESPN NFL
+ – Live scores, stats.
+
+Pro-Football Reference
+ – Historical stats, player data.
+
+Tips:
+
+ESPN JSON endpoints for scoreboard data are easier than parsing HTML.
+
+Pro-Football Reference is mostly static; ideal for historical stats.
+
+6. Multi-Sport / All Sports
+
+Best websites to scrape:
+
+Flashscore
+ – Covers football, basketball, tennis, hockey, rugby, cricket, motorsports.
+
+Sofascore
+ – Covers almost every sport in live scoring.
+
+ESPN
+ – Multiple sports, but may be slower and less structured than Flashscore.
+
+Tips:
+
+Flashscore/Sofascore are your best bets if you want all sports in one place.
+
+Both use JS-heavy pages, but the live data is often delivered via JSON/XHR endpoints you can reverse-engineer.
+
+Use a headless browser (Selenium/Playwright) if scraping HTML directly becomes messy.

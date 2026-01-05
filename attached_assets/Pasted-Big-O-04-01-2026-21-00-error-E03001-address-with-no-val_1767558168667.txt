@@ -1,0 +1,68 @@
+Big O, [04/01/2026 21:00]
+error[E03001]: address with no value
+   ┌─ ./sources/betting.move:11:9
+   │
+11 │     use sbets_token::sbets::SBETS;
+   │         ^^^^^^^^^^^ address 'sbets_token' is not assigned a value
+
+error[E03002]: unbound module
+   ┌─ ./sources/betting.move:11:9
+   │
+11 │     use sbets_token::sbets::SBETS;
+   │         ^^^^^^^^^^^^^^^^^^ Invalid 'use'. Unbound module: 'sbets_token::sbets'
+
+warning[W09011]: unused constant
+   ┌─ ./sources/betting.move:16:11
+   │
+16 │     const EUnauthorized: u64 = 2;
+   │           ^^^^^^^^^^^^^ The constant 'EUnauthorized' is never used. Consider removing it.
+   │
+   = This warning can be suppressed with '#[allow(unused_const)]' applied to the 'module' or module member ('const', 'fun', or 'struct')
+
+warning[W09011]: unused constant
+   ┌─ ./sources/betting.move:18:11
+   │
+18 │     const EBetNotFound: u64 = 4;
+   │           ^^^^^^^^^^^^ The constant 'EBetNotFound' is never used. Consider removing it.
+   │
+   = This warning can be suppressed with '#[allow(unused_const)]' applied to the 'module' or module member ('const', 'fun', or 'struct')
+
+warning[W09011]: unused constant
+   ┌─ ./sources/betting.move:19:11
+   │
+19 │     const EEventNotFinished: u64 = 5;
+   │           ^^^^^^^^^^^^^^^^^ The constant 'EEventNotFinished' is never used. Consider removing it.
+   │
+   = This warning can be suppressed with '#[allow(unused_const)]' applied to the 'module' or module member ('const', 'fun', or 'struct')
+
+error[E03004]: unbound type
+   ┌─ ./sources/betting.move:67:33
+   │
+67 │         treasury_sbets: Balance<SBETS>,
+   │                                 ^^^^^ Unbound type 'SBETS' in current scope
+
+error[E03004]: unbound type
+    ┌─ ./sources/betting.move:464:23
+    │
+464 │         payment: Coin<SBETS>,
+    │                       ^^^^^ Unbound type 'SBETS' in current scope
+
+error[E03004]: unbound type
+    ┌─ ./sources/betting.move:869:21
+    │
+869 │         funds: Coin<SBETS>,
+    │                     ^^^^^ Unbound type 'SBETS' in current scope
+
+Failed to build Move modules: Compilation error.
+
+Big O, [04/01/2026 21:17]
+So instead of using sbets
+
+Big O, [04/01/2026 21:17]
+Use this
+
+Big O, [04/01/2026 21:18]
+use sui::coin::Coin;
+
+Big O, [04/01/2026 21:18]
+It represents all the native sui tokens

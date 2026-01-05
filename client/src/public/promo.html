@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Promotions - SuiBets</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #030c0e;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            color: white;
+        }
+        .header {
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            border-bottom: 1px solid #0a1f25;
+            background-color: #030c0e;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
+        }
+        .back-button {
+            display: flex;
+            align-items: center;
+            color: #00FFFF;
+            background: none;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            margin-right: 16px;
+            padding: 8px;
+        }
+        .back-button:hover {
+            opacity: 0.8;
+        }
+        .back-icon {
+            margin-right: 4px;
+            width: 20px;
+            height: 20px;
+        }
+        .content {
+            display: flex;
+            justify-content: center;
+            padding: 24px 16px;
+            max-width: 100%;
+            overflow: auto;
+        }
+        .promo-image {
+            max-width: 800px;
+            width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-left">
+            <button class="back-button" onclick="goBack()">
+                <svg class="back-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                Back
+            </button>
+            <h1 style="font-size: 20px; margin: 0;">Promotions</h1>
+        </div>
+        <img src="/logo/suibets-logo.svg" alt="SuiBets Logo" style="height: 32px;">
+    </div>
+    
+    <div class="content">
+        <img class="promo-image" src="/promotions-image.png" alt="Promotions">
+    </div>
+
+    <script>
+        function goBack() {
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>

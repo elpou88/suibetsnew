@@ -1,0 +1,223 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 222.2 47.4% 11.2%;
+    
+    --primary: 183 100% 55%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 225 56% 13%;
+    --secondary-foreground: 0 0% 98%;
+    
+    --sidebar-background: 189 27% 7%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 183 100% 55%;
+    --sidebar-primary-foreground: 189 27% 7%;
+    --sidebar-accent: 0 0% 100%;
+    --sidebar-accent-foreground: 240 10% 3.9%;
+    --sidebar-border: 240 5.9% 90%;
+    --sidebar-ring: 183 100% 55%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 47.4% 11.2%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 47.4% 11.2%;
+    
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    
+    --accent: 183 100% 55%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    
+    --destructive: 0 100% 50%;
+    --destructive-foreground: 210 40% 98%;
+    
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 183 100% 55%;
+    
+    --radius: 0.5rem;
+    
+    --chart-1: 183 100% 55%;
+    --chart-2: 189 27% 7%;
+    --chart-3: 262.1 83.3% 57.8%;
+    --chart-4: 19.2 90.9% 48.2%;
+    --chart-5: 334.41 96.8% 51.96%;
+  }
+
+  .dark {
+    --background: 189 27% 7%;
+    --foreground: 210 40% 98%;
+    
+    --card: 189 27% 7%;
+    --card-foreground: 210 40% 98%;
+    
+    --popover: 189 27% 7%;
+    --popover-foreground: 210 40% 98%;
+    
+    --primary: 183 100% 55%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 225 56% 13%;
+    --secondary-foreground: 210 40% 98%;
+    
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    
+    --accent: 183 100% 55%;
+    --accent-foreground: 210 40% 98%;
+    
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 183 100% 55%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .scrollbar-hidden {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  /* Custom cyan scrollbar - vertical */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: #0b1618;
+    border-radius: 10px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #1e3a3f;
+    border-radius: 10px;
+    border: 1px solid rgba(0, 255, 255, 0.1);
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #00ffff;
+    box-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+  }
+  
+  /* Custom cyan scrollbar - horizontal */
+  .custom-scrollbar::-webkit-scrollbar:horizontal {
+    height: 6px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track:horizontal {
+    background: #0b1618;
+    border-radius: 10px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:horizontal {
+    background: #1e3a3f;
+    border-radius: 10px;
+    border: 1px solid rgba(0, 255, 255, 0.1);
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:horizontal:hover {
+    background: #00ffff;
+    box-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+  }
+  
+  /* Firefox scrollbar */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #1e3a3f #0b1618;
+  }
+  
+  .live-pulse {
+    animation: pulse 1.5s infinite;
+  }
+  
+  @keyframes pulse {
+    0% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+  
+  /* Sidebar glow effect */
+  .sidebar-item-active {
+    position: relative;
+    background-color: #1e3a3f;
+  }
+  
+  .sidebar-item-active::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 3px;
+    height: 100%;
+    background-color: #00ffff;
+    box-shadow: 0 0 8px 1px rgba(0, 255, 255, 0.5);
+  }
+}
+
+.sui-logo {
+  font-family: 'Arial', sans-serif;
+  font-weight: 700;
+  font-size: 1.75rem;
+  color: hsl(183, 100%, 55%);
+  letter-spacing: -0.05em;
+  position: relative;
+}
+
+.sui-logo::first-letter {
+  color: hsl(183, 100%, 55%);
+}
+
+.sui-logo::before {
+  content: '';
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: hsl(183, 100%, 55%);
+  top: 8px;
+  left: -8px;
+}
+
+/* Background colors for sidebar and main body */
+.bg-primary-gradient {
+  background-color: #09181B;
+  background-image: linear-gradient(180deg, #09181B 0%, #112225 100%);
+}
+
+/* Custom button styles for active states */
+.sport-button {
+  transition: all 0.2s ease;
+}
+
+.sport-button-active {
+  background-color: hsl(183, 100%, 55%);
+  color: #000000;
+  font-weight: 500;
+}

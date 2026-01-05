@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuiBets Backend - Railway Deployment Package</title>
+    <style>
+        :root {
+            --bg-dark: #0a0e14;
+            --bg-card: #0d1520;
+            --border-color: rgba(0, 200, 255, 0.3);
+            --cyan: #00ffff;
+            --cyan-dim: rgba(0, 255, 255, 0.6);
+            --text-primary: #ffffff;
+            --text-secondary: #94a3b8;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-card) 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 {
+            font-size: 2.5rem;
+            text-align: center;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, var(--cyan) 0%, #0088ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .subtitle { text-align: center; color: var(--text-secondary); margin-bottom: 40px; font-size: 1.1rem; }
+        .file-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+        .file-header {
+            background: linear-gradient(90deg, rgba(0, 200, 255, 0.15) 0%, transparent 100%);
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .file-name {
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 1rem;
+            color: var(--cyan);
+            font-weight: 600;
+        }
+        .copy-btn {
+            background: linear-gradient(135deg, var(--cyan) 0%, #0088ff 100%);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            color: #000;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .copy-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0, 255, 255, 0.3);
+        }
+        .code-content {
+            padding: 20px 24px;
+            overflow-x: auto;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        pre {
+            margin: 0;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            white-space: pre;
+            color: #e2e8f0;
+        }
+        .toc {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 40px;
+        }
+        .toc h2 { color: var(--cyan); margin-bottom: 16px; }
+        .toc-list { list-style: none; columns: 2; }
+        .toc-list li { padding: 6px 0; }
+        .toc-list a { color: var(--text-secondary); text-decoration: none; transition: color 0.2s; }
+        .toc-list a:hover { color: var(--cyan); }
+        .env-section {
+            background: linear-gradient(135deg, rgba(0, 200, 255, 0.1) 0%, rgba(0, 136, 255, 0.1) 100%);
+            border: 2px solid var(--cyan);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 40px;
+        }
+        .env-section h2 { color: var(--cyan); margin-bottom: 16px; }
+        .env-table { width: 100%; border-collapse: collapse; }
+        .env-table th, .env-table td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border-color); }
+        .env-table th { color: var(--cyan); font-weight: 600; }
+        .env-table td:first-child { font-family: 'Fira Code', monospace; color: #fbbf24; }
+        @media (max-width: 768px) {
+            .toc-list { columns: 1; }
+            h1 { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SuiBets Backend - Railway Deployment</h1>
+        <p class="subtitle">Complete Backend Code Package for Railway Deployment</p>
+
+        <div class="env-section">
+            <h2>Railway Environment Variables</h2>
+            <p style="margin-bottom: 16px; color: var(--text-secondary);">Configure these environment variables in your Railway project settings:</p>
+            <table class="env-table">
+                <tr><th>Variable</th><th>Description</th><th>Example</th></tr>
+                <tr><td>API_SPORTS_KEY</td><td>Paid API-Sports API Key</td><td>3ec255b133882788e32f6349eff77b21</td></tr>
+                <tr><td>DATABASE_URL</td><td>PostgreSQL connection string (Railway auto-configures this)</td><td>postgresql://...</td></tr>
+                <tr><td>NODE_ENV</td><td>Environment mode</td><td>production</td></tr>
+                <tr><td>SESSION_SECRET</td><td>Express session secret</td><td>your-secure-session-secret</td></tr>
+                <tr><td>ORACLE_PRIVATE_KEY</td><td>Private key for anti-cheat HMAC signing</td><td>(generate 64-char hex string)</td></tr>
+                <tr><td>SUI_NETWORK</td><td>Sui blockchain network</td><td>mainnet | testnet | devnet</td></tr>
+                <tr><td>ADMIN_PASSWORD</td><td>Admin panel access password</td><td>your-secure-admin-password</td></tr>
+                <tr><td>ADMIN_WALLET_ADDRESS</td><td>Admin wallet for operations</td><td>0x...</td></tr>
+            </table>
+        </div>
+
+        <div class="toc">
+            <h2>File Structure</h2>
+            <ul class="toc-list">
+                <li><a href="#package-json">package.json</a></li>
+                <li><a href="#tsconfig-json">tsconfig.json</a></li>
+                <li><a href="#server-index">server/index.ts</a></li>
+                <li><a href="#server-routes">server/routes-simple.ts</a></li>
+                <li><a href="#server-storage">server/storage.ts</a></li>
+                <li><a href="#server-config">server/config.ts</a></li>
+                <li><a href="#server-db">server/db.ts</a></li>
+                <li><a href="#server-validation">server/validation.ts</a></li>
+                <li><a href="#server-sports-config">server/sports-config.ts</a></li>
+                <li><a href="#server-blockchain-auth">server/blockchain-auth.ts</a></li>
+                <li><a href="#services-apisports">server/services/apiSportsService.ts</a></li>
+                <li><a href="#services-settlement">server/services/settlementService.ts</a></li>
+                <li><a href="#services-anticheat">server/services/smartContractAntiCheatService.ts</a></li>
+                <li><a href="#types-betting">server/types/betting.ts</a></li>
+                <li><a href="#shared-schema">shared/schema.ts</a></li>
+            </ul>
+        </div>
+
+        <!-- package.json -->
+        <div class="file-section" id="package-json">
+            <div class="file-header">
+                <span class="file-name">package.json</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="code-content">
+<pre>{
+  "name": "suibets-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "dev": "tsx server/index.ts",
+    "build": "esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
+    "start": "NODE_ENV=production node dist/index.js",
+    "db:push": "drizzle-kit push"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4",
+    "axios": "^1.8.4",
+    "bcrypt": "^5.1.1",
+    "connect-pg-simple": "^10.0.0",
+    "drizzle-orm": "^0.39.1",
+    "drizzle-zod": "^0.7.0",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "memorystore": "^1.6.7",
+    "openai": "^6.9.1",
+    "passport": "^0.7.0",
+    "passport-local": "^1.0.0",
+    "pg": "^8.14.1",
+    "postgres": "^3.4.5",
+    "ws": "^8.18.0",
+    "zod": "^3.23.8",
+    "zod-validation-error": "^3.4.0"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/connect-pg-simple": "^7.0.3",
+    "@types/express": "4.17.21",
+    "@types/express-session": "^1.18.0",
+    "@types/node": "20.16.11",
+    "@types/passport": "^1.0.16",
+    "@types/passport-local": "^1.0.38",
+    "@types/ws": "^8.5.13",
+    "drizzle-kit": "^0.30.4",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.19.1",
+    "typescript": "5.6.3"
+  }
+}</pre>
+            </div>
+        </div>
+
+        <!-- tsconfig.json -->
+        <div class="file-section" id="tsconfig-json">
+            <div class="file-header">
+                <span class="file-name">tsconfig.json</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="code-content">
+<pre>{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "outDir": "dist",
+    "rootDir": ".",
+    "baseUrl": ".",
+    "paths": {
+      "@shared/*": ["shared/*"]
+    }
+  },
+  "include": ["server/**/*", "shared/**/*"],
+  "exclude": ["node_modules", "dist"]
+}</pre>
+            </div>
+        </div>
+
+        <!-- server/index.ts -->
+        <div class="file-section" id="server-index">
+            <div class="file-header">
+                <span class="file-name">server/index.ts</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="code-content">
+<pre>import express, { type Request, Response, NextFunction } from "express";
+import { registerRoutes } from "./routes-simple";
+import { initDb, seedDb } from "./db";
+import { setupBlockchainAuth } from "./blockchain-auth";
+
+const app = express();
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+
+// Request logging middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  const path = req.path;
+  let capturedJsonResponse: Record&lt;string, any&gt; | undefined = undefined;
+
+  const originalResJson = res.json;
+  res.json = function (bodyJson, ...args) {
+    capturedJsonResponse = bodyJson;
+    return originalResJson.apply(res, [bodyJson, ...args]);
+  };
+
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    if (path.startsWith("/api")) {
+      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      if (capturedJsonResponse) {
+        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      }
+      if (logLine.length > 80) {
+        logLine = logLine.slice(0, 79) + "...";
+      }
+      console.log(logLine);
+    }
+  });
+
+  next();
+});
+
+(async () => {
+  try {
+    await initDb();
+    await seedDb();
+    console.log('Database initialized and seeded successfully');
+  } catch (error) {
+    console.error('Error initializing database:', error);
+    console.log('Continuing with blockchain-based storage');
+  }
+  
+  const { requireWalletAuth } = setupBlockchainAuth(app);
+  console.log('Blockchain-based authentication system initialized');
+  
+  console.log('Registering SuiBets API routes...');
+  const server = await registerRoutes(app);
+
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    const status = err.status || err.statusCode || 500;
+    const message = err.message || "Internal Server Error";
+    console.error('Server error:', err);
+    if (!res.headersSent) {
+      res.status(status).json({ message });
+    }
+  });
+
+  const port = parseInt(process.env.PORT || '3000', 10);
+  const host = process.env.HOST || '0.0.0.0';
+  
+  server.listen(port, host, () => {
+    console.log(`Server running on ${host}:${port} (NODE_ENV: ${process.env.NODE_ENV || 'development'})`);
+  });
+})();</pre>
+            </div>
+        </div>
+
+        <!-- server/config.ts -->
+        <div class="file-section" id="server-config">
+            <div class="file-header">
+                <span class="file-name">server/config.ts</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="code-content">
+<pre>/**
+ * Configuration for SuiBets Platform
+ */
+
+export type SuiNetwork = 'mainnet' | 'testnet' | 'devnet' | 'localnet';
+
+export interface AppConfig {
+  api: {
+    walAppApiKey?: string;
+    walAppBaseUrl?: string;
+  };
+  
+  blockchain: {
+    defaultNetwork: SuiNetwork;
+    verbose: boolean;
+    adminWalletAddress?: string;
+  };
+  
+  security?: {
+    encryptionKey?: string;
+    passwordSalt?: string;
+    sessionSecret?: string;
+    enableCsrf: boolean;
+    rateLimit: {
+      max: number;
+      windowMs: number;
+    };
+    contentSecurityPolicy: boolean;
+  };
+  
+  fees: {
+    platformFeeBetting: number;
+    networkFeeBetting: number;
+    platformFeeStaking: number;
+    platformFeeRewards: number;
+  };
+}
+
+const config: AppConfig = {
+  api: {
+    walAppApiKey: process.env.WAL_APP_API_KEY,
+    walAppBaseUrl: 'https://api.wal.app/v1',
+  },
+  
+  blockchain: {
+    defaultNetwork: (process.env.SUI_NETWORK as SuiNetwork) || 'devnet',
+    verbose: process.env.NODE_ENV !== 'production',
+    adminWalletAddress: process.env.ADMIN_WALLET_ADDRESS,
+  },
+  
+  security: {
+    encryptionKey: process.env.ENCRYPTION_KEY || 'your-fallback-encryption-key-for-dev',
+    passwordSalt: process.env.PASSWORD_SALT || 'your-fallback-salt-for-dev',
+    sessionSecret: process.env.SESSION_SECRET || 'your-fallback-session-secret-for-dev',
+    enableCsrf: process.env.NODE_ENV === 'production',
+    rateLimit: {
+      max: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
+      windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10),
+    },
+    contentSecurityPolicy: process.env.NODE_ENV === 'production',
+  },
+  
+  fees: {
+    platformFeeBetting: 0,
+    networkFeeBetting: 0.01,
+    platformFeeStaking: 0.02,
+    platformFeeRewards: 0.10,
+  },
+};
+
+export default config;</pre>
+            </div>
+        </div>
+
+        <!-- server/validation.ts -->
+        <div class="file-section" id="server-validation">
+            <div class="file-header">
+                <span class="file-name">server/validation.ts</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="code-content">
+<pre>/**
+ * Validation Schemas for SuiBets API
+ */
+
+import { z } from 'zod';
+
+export const BetAmountSchema = z.number()
+  .min(0.1, 'Minimum bet is 0.1 SUI')
+  .max(10000, 'Maximum bet is 10,000 SUI')
+  .positive('Bet amount must be positive');
+
+export const OddsSchema = z.number()
+  .min(1.01, 'Minimum odds is 1.01')
+  .max(1000, 'Maximum odds is 1000')
+  .positive('Odds must be positive');
+
+export const PlaceBetSchema = z.object({
+  userId: z.string().optional().default('user1'),
+  eventId: z.string().min(1, 'Event ID required'),
+  marketId: z.string().min(1, 'Market ID required'),
+  outcomeId: z.string().min(1, 'Outcome ID required'),
+  odds: OddsSchema,
+  betAmount: BetAmountSchema,
+  prediction: z.string().min(1, 'Prediction required')
+});
+
+export const ParlaySchema = z.object({
+  userId: z.string().optional().default('user1'),
+  selections: z.array(
+    z.object({
+      eventId: z.string(),
+      odds: OddsSchema,
+      prediction: z.string()
+    })
+  ).min(2, 'Parlay requires at least 2 selections').max(10, 'Maximum 10 selections per parlay'),
+  betAmount: BetAmountSchema
+});
+
+export const WithdrawSchema = z.object({
+  userId: z.string().optional().default('user1'),
+  amount: z.number()
+    .min(0.1, 'Minimum withdrawal is 0.1 SUI')
+    .max(10000, 'Maximum withdrawal is 10,000 SUI')
+    .positive('Amount must be positive')
+});
+
+export const SettleSchema = z.object({
+  eventResult: z.object({
+    eventId: z.string(),
+    result: z.string(),
+    homeScore: z.number().optional(),
+    awayScore: z.number().optional(),
+    winner: z.string().optional()
+  })
+});
+
+export const CashOutSchema = z.object({
+  currentOdds: z.number().min(1, 'Odds must be at least 1'),
+  percentageWinning: z.number().min(0, 'Percentage must be positive').max(1, 'Percentage must be &lt;= 1')
+});
+
+export function validateRequest&lt;T&gt;(schema: z.ZodSchema&lt;T&gt;, data: any): { valid: boolean; errors?: string[]; data?: T } {
+  try {
+    const validated = schema.parse(data);
+    return { valid: true, data: validated };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      const errors = error.errors.map(e => `${e.path.join('.')}: ${e.message}`);
+      return { valid: false, errors };
+    }
+    return { valid: false, errors: ['Validation error'] };
+  }
+}
+
+export default {
+  BetAmountSchema,
+  OddsSchema,
+  PlaceBetSchema,
+  ParlaySchema,
+  WithdrawSchema,
+  SettleSchema,
+  CashOutSchema,
+  validateRequest
+};</pre>
+            </div>
+        </div>
+
+        <!-- server/sports-config.ts -->
+        <div class="file-section" id="server-sports-config">
+            <div class="file-header">
+                <span class="file-name">server/sports-config.ts</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="code-content">
+<pre>/**
+ * Sports Configuration for SuiBets Platform
+ */
+
+export interface SportsConfig {
+  available: string[];
+  enabled?: string[];
+  singleSportMode: boolean;
+  currentSport: string;
+}
+
+const ALL_SPORTS = [
+  'football', 'basketball', 'tennis', 'baseball', 'hockey', 'handball', 'volleyball',
+  'rugby', 'cricket', 'golf', 'boxing', 'mma', 'formula-1', 'cycling',
+  'american-football', 'aussie-rules', 'snooker', 'darts', 'table-tennis',
+  'badminton', 'motorsport', 'esports', 'netball'
+];
+
+export function getSportsToFetch(): string[] {
+  const singleSportMode = process.env.SINGLE_SPORT_MODE === 'true';
+  
+  if (singleSportMode) {
+    const sport = process.env.CURRENT_SPORT || 'football';
+    console.log(`SINGLE SPORT MODE: Fetching only "${sport}"`);
+    return [sport];
+  }
+  
+  if (process.env.SPORTS_LIST) {
+    const customSports = process.env.SPORTS_LIST
+      .split(',')
+      .map(s => s.trim().toLowerCase())
+      .filter(s => s && ALL_SPORTS.includes(s));
+    
+    if (customSports.length > 0) {
+      console.log(`CUSTOM SPORTS LIST: ${customSports.join(', ')}`);
+      return customSports;
+    }
+  }
+  
+  console.log(`FETCHING ALL AVAILABLE SPORTS (${ALL_SPORTS.length} sports)`);
+  return ALL_SPORTS;
+}
+
+export function getSportsConfig(): SportsConfig {
+  const singleSportMode = process.env.SINGLE_SPORT_MODE === 'true';
+  
+  return {
+    available: ALL_SPORTS,
+    enabled: process.env.SPORTS_LIST 
+      ? process.env.SPORTS_LIST.split(',').map(s => s.trim().toLowerCase())
+      : undefined,
+    singleSportMode,
+    currentSport: process.env.CURRENT_SPORT || 'football'
+  };
+}
+
+export default { getSportsToFetch, getSportsConfig, ALL_SPORTS };</pre>
+            </div>
+        </div>
+
+        <!-- server/services/smartContractAntiCheatService.ts -->
+        <div class="file-section" id="services-anticheat">
+            <div class="file-header">
+                <span class="file-name">server/services/smartContractAntiCheatService.ts</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="code-content">
+<pre>/**
+ * Smart Contract Anti-Cheat Service
+ * Implements HMAC-SHA256 cryptographic signing and verification for settlement data
+ */
+
+import crypto from 'crypto';
+
+export interface SettlementData {
+  betId: string;
+  eventId: string;
+  outcome: 'won' | 'lost' | 'void';
+  payout: number;
+  timestamp: number;
+}
+
+export interface SignedSettlement {
+  data: SettlementData;
+  signature: string;
+  oraclePublicKey: string;
+  verified: boolean;
+}
+
+export class SmartContractAntiCheatService {
+  private oraclePrivateKey: string;
+  private oraclePublicKey: string;
+
+  constructor() {
+    this.oraclePrivateKey = process.env.ORACLE_PRIVATE_KEY || this.generatePrivateKey();
+    this.oraclePublicKey = this.derivePublicKey(this.oraclePrivateKey);
+  }
+
+  signSettlementData(data: SettlementData): SignedSettlement {
+    const canonicalData = JSON.stringify({
+      betId: data.betId,
+      eventId: data.eventId,
+      outcome: data.outcome,
+      payout: data.payout,
+      timestamp: data.timestamp
+    });
+
+    const hmac = crypto.createHmac('sha256', this.oraclePrivateKey);
+    hmac.update(canonicalData);
+    const signature = hmac.digest('hex');
+
+    console.log(`ANTI-CHEAT: Settlement signed for bet ${data.betId} | Outcome: ${data.outcome} | Payout: ${data.payout} SUI`);
+
+    return {
+      data,
+      signature,
+      oraclePublicKey: this.oraclePublicKey,
+      verified: false
+    };
+  }
+
+  verifySettlementSignature(signedSettlement: SignedSettlement): boolean {
+    const canonicalData = JSON.stringify({
+      betId: signedSettlement.data.betId,
+      eventId: signedSettlement.data.eventId,
+      outcome: signedSettlement.data.outcome,
+      payout: signedSettlement.data.payout,
+      timestamp: signedSettlement.data.timestamp
+    });
+
+    const hmac = crypto.createHmac('sha256', this.oraclePrivateKey);
+    hmac.update(canonicalData);
+    const expectedSignature = hmac.digest('hex');
+
+    const isValid = crypto.timingSafeEqual(
+      Buffer.from(signedSettlement.signature, 'hex'),
+      Buffer.from(expectedSignature, 'hex')
+    );
+
+    if (isValid) {
+      console.log(`ANTI-CHEAT VERIFIED: Settlement ${signedSettlement.data.betId} signature is authentic`);
+    } else {
+      console.error(`ANTI-CHEAT FAILED: Settlement ${signedSettlement.data.betId} signature is INVALID`);
+    }
+
+    return isValid;
+  }
+
+  hashSettlementData(data: SettlementData): string {
+    const canonicalData = JSON.stringify(data);
+    return crypto.createHash('sha256').update(canonicalData).digest('hex');
+  }
+
+  generateOnChainProof(signedSettlement: SignedSettlement): {
+    dataHash: string;
+    signature: string;
+    oraclePublicKey: string;
+    timestamp: number;
+  } {
+    return {
+      dataHash: this.hashSettlementData(signedSettlement.data),
+      signature: signedSettlement.signature,
+      oraclePublicKey: signedSettlement.oraclePublicKey,
+      timestamp: signedSettlement.data.timestamp
+    };
+  }
+
+  validateSettlementLogic(data: SettlementData, apiEventData: any): { valid: boolean; reason?: string } {
+    if (data.payout &lt; 0) {
+      return { valid: false, reason: 'Negative payout detected - potential manipulation' };
+    }
+
+    if (!['won', 'lost', 'void'].includes(data.outcome)) {
+      return { valid: false, reason: 'Invalid outcome value' };
+    }
+
+    if (data.payout > 100000) {
+      console.warn(`ANTI-CHEAT: Unusually high payout detected: ${data.payout} SUI for bet ${data.betId}`);
+    }
+
+    if (apiEventData?.status && apiEventData.status !== 'finished' && data.outcome !== 'void') {
+      return { valid: false, reason: 'Settling unfinished event without void status' };
+    }
+
+    return { valid: true };
+  }
+
+  private generatePrivateKey(): string {
+    return crypto.randomBytes(32).toString('hex');
+  }
+
+  private derivePublicKey(privateKey: string): string {
+    return crypto.createHash('sha256').update(privateKey).digest('hex');
+  }
+}
+
+export default new SmartContractAntiCheatService();</pre>
+            </div>
+        </div>
+
+        <!-- server/services/settlementService.ts -->
+        <div class="file-section" id="services-settlement">
+            <div class="file-header">
+                <span class="file-name">server/services/settlementService.ts</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="code-content">
+<pre>export interface Bet {
+  id: string;
+  userId: string;
+  eventId: string;
+  marketId: string;
+  outcomeId: string;
+  odds: number;
+  betAmount: number;
+  status: 'pending' | 'won' | 'lost' | 'void' | 'cashed_out';
+  prediction: string;
+  placedAt: number;
+  settledAt?: number;
+  potentialPayout: number;
+  actualPayout?: number;
+}
+
+export interface SettlementResult {
+  betId: string;
+  status: 'won' | 'lost' | 'void';
+  payout: number;
+}
+
+export class SettlementService {
+  static settleBet(bet: Bet, eventResult: any): SettlementResult {
+    const settled: SettlementResult = {
+      betId: bet.id,
+      status: 'lost',
+      payout: 0
+    };
+
+    try {
+      if (!eventResult) {
+        settled.status = 'void';
+        settled.payout = bet.betAmount;
+        return settled;
+      }
+
+      const betWon = this.isBetWon(bet, eventResult);
+
+      if (betWon) {
+        settled.status = 'won';
+        settled.payout = Math.round(bet.betAmount * bet.odds * 100) / 100;
+      } else {
+        settled.status = 'lost';
+        settled.payout = 0;
+      }
+
+      return settled;
+    } catch (error) {
+      console.error('Settlement error:', error);
+      settled.status = 'void';
+      settled.payout = bet.betAmount;
+      return settled;
+    }
+  }
+
+  static calculateCashOut(bet: Bet, currentOdds: number, percentageWinning: number): number {
+    if (bet.status !== 'pending') return 0;
+
+    const cashOutValue = bet.betAmount * (currentOdds / bet.odds) * percentageWinning * 0.95;
+    return Math.max(Math.round(cashOutValue * 100) / 100, bet.betAmount * 0.1);
+  }
+
+  static settleParlay(bets: Bet[], eventResults: any[]): SettlementResult {
+    const settled: SettlementResult = {
+      betId: `parlay-${bets.map(b => b.id).join('-')}`,
+      status: 'lost',
+      payout: 0
+    };
+
+    try {
+      const allWon = bets.every((bet, index) => {
+        const result = eventResults[index];
+        return this.isBetWon(bet, result);
+      });
+
+      if (allWon) {
+        settled.status = 'won';
+        const parlayOdds = bets.reduce((acc, bet) => acc * bet.odds, 1);
+        settled.payout = Math.round(bets[0].betAmount * parlayOdds * 100) / 100;
+      } else {
+        settled.status = 'lost';
+        settled.payout = 0;
+      }
+
+      return settled;
+    } catch (error) {
+      console.error('Parlay settlement error:', error);
+      settled.status = 'void';
+      settled.payout = bets[0].betAmount;
+      return settled;
+    }
+  }
+
+  private static isBetWon(bet: Bet, eventResult: any): boolean {
+    if (!eventResult) return false;
+
+    const prediction = bet.prediction.toLowerCase();
+    const result = (eventResult.result || eventResult.winner || '').toLowerCase();
+    const score = eventResult.score;
+
+    if (result === prediction || result === bet.outcomeId.toLowerCase()) {
+      return true;
+    }
+
+    if (bet.marketId.includes('match-winner') || bet.marketId.includes('1x2')) {
+      if (prediction === 'home' || prediction === '1') {
+        return result === 'home' || result === '1' || (eventResult.homeScore > eventResult.awayScore);
+      }
+      if (prediction === 'away' || prediction === '2') {
+        return result === 'away' || result === '2' || (eventResult.awayScore > eventResult.homeScore);
+      }
+      if (prediction === 'draw' || prediction === 'x') {
+        return result === 'draw' || result === 'x' || (eventResult.homeScore === eventResult.awayScore);
+      }
+    }
+
+    if (bet.marketId.includes('over-under') || bet.marketId.includes('o/u')) {
+      const totalGoals = (eventResult.homeScore || 0) + (eventResult.awayScore || 0);
+      const threshold = parseFloat(bet.marketId.match(/\d+\.?\d*/)?.[0] || '2.5');
+      
+      if (prediction.includes('over')) {
+        return totalGoals > threshold;
+      }
+      if (prediction.includes('under')) {
+        return totalGoals &lt; threshold;
+      }
+    }
+
+    return false;
+  }
+}</pre>
+            </div>
+        </div>
+
+        <!-- server/types/betting.ts -->
+        <div class="file-section" id="types-betting">
+            <div class="file-header">
+                <span class="file-name">server/types/betting.ts</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="code-content">
+<pre>export interface SportEvent {
+  id: string;
+  sportId: number;
+  leagueName: string;
+  leagueSlug?: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeOdds?: number;
+  awayOdds?: number;
+  drawOdds?: number | null;
+  startTime: string;
+  status: 'scheduled' | 'live' | 'finished' | 'upcoming';
+  score?: string;
+  markets: MarketData[];
+  isLive: boolean;
+  dataSource?: string;
+  venue?: string;
+  format?: string;
+  _sportId?: number;
+  _sportName?: string;
+}
+
+export interface MarketData {
+  id: string;
+  name: string;
+  status?: string;
+  marketType?: string;
+  outcomes: OutcomeData[];
+}
+
+export interface OutcomeData {
+  id: string;
+  name: string;
+  odds: number;
+  probability: number;
+  status?: string;
+}
+
+export interface OddsData {
+  providerId: string;
+  eventId: string;
+  marketId: string;
+  marketName: string;
+  outcomes: OutcomeData[];
+}
+
+export interface NormalizedOdds {
+  outcomeId: string;
+  marketId: string;
+  eventId: string;
+  value: number;
+  providerId: string;
+  timestamp: Date;
+  confidence: number;
+}
+
+export interface BetData {
+  id: string;
+  userId: string;
+  eventId: string;
+  marketId: string;
+  outcomeId: string;
+  odds: number;
+  stake: number;
+  potentialWinnings: number;
+  status: 'pending' | 'won' | 'lost' | 'void' | 'cash_out';
+  placedAt: string;
+  settledAt?: string;
+  cashOutValue?: number;
+}
+
+export interface OddsProviderConfig {
+  id: string;
+  name: string;
+  enabled: boolean;
+  weight: number;
+}
+
+export interface ApiResponse&lt;T&gt; {
+  success: boolean;
+  data?: T;
+  error?: string;
+  message?: string;
+  timestamp?: string;
+}</pre>
+            </div>
+        </div>
+
+        <!-- server/blockchain-auth.ts -->
+        <div class="file-section" id="server-blockchain-auth">
+            <div class="file-header">
+                <span class="file-name">server/blockchain-auth.ts</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="code-content">
+<pre>import { Express } from "express";
+
+/**
+ * Blockchain Authentication - zkLogin is the primary auth method
+ */
+
+export function setupBlockchainAuth(app: Express) {
+  console.log('Blockchain auth setup complete (zkLogin is primary auth method)');
+  
+  return {
+    requireWalletAuth: (req: any, res: any, next: any) => {
+      next();
+    }
+  };
+}
+
+export function blockchainStorageInstance() {
+  return null;
+}</pre>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 60px; padding: 40px; border-top: 1px solid var(--border-color);">
+            <p style="color: var(--text-secondary);">SuiBets Platform - Railway Backend Deployment Package</p>
+            <p style="color: var(--cyan); font-size: 0.9rem; margin-top: 8px;">Deploy to Railway with: railway init && railway up</p>
+        </div>
+    </div>
+
+    <script>
+        function copyCode(button) {
+            const codeContent = button.parentElement.nextElementSibling;
+            const code = codeContent.querySelector('pre').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                button.style.background = 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.style.background = 'linear-gradient(135deg, var(--cyan) 0%, #0088ff 100%)';
+                }, 2000);
+            });
+        }
+    </script>
+</body>
+</html>

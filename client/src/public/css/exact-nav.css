@@ -1,0 +1,125 @@
+body, html {
+  margin: 0;
+  padding: 0;
+  background-color: #09181B;
+  font-family: sans-serif;
+  color: white;
+}
+
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #09181B;
+  border-bottom: 1px solid #112225;
+  padding: 12px 24px;
+  height: 48px;
+}
+
+.left-nav {
+  display: flex;
+  align-items: center;
+}
+
+.nav-sports {
+  color: white;
+  text-decoration: none;
+  margin-right: 32px;
+  font-size: 14px;
+  padding: 4px 8px;
+}
+
+.nav-sports:hover {
+  color: #00FFFF;
+}
+
+.nav-live-btn {
+  background-color: #00FFFF;
+  color: black;
+  border: none;
+  font-weight: bold;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-right: 32px;
+  margin-left: 32px;
+  display: inline-block;
+  text-align: center;
+  cursor: pointer;
+  text-decoration: none;
+  min-width: 60px;
+  position: relative;
+  left: 15px;
+}
+
+.live-dot {
+  width: 6px;
+  height: 6px;
+  background-color: red;
+  border-radius: 50%;
+  margin-left: 4px;
+  display: inline-block;
+  position: relative;
+  top: -1px;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
+
+.nav-promo-btn {
+  background-color: #00FFFF;
+  color: black;
+  border: none;
+  font-weight: bold;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  text-align: center;
+  min-width: 50px;
+}
+
+.right-nav {
+  display: flex;
+  align-items: center;
+}
+
+.join-btn {
+  background: transparent;
+  border: 1px solid #00FFFF;
+  color: #00FFFF;
+  padding: 6px 12px;
+  border-radius: 4px;
+  margin-right: 16px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.wallet-btn {
+  background-color: #00FFFF;
+  color: black;
+  border: none;
+  font-weight: bold;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.main-content {
+  max-width: 100%;
+  height: calc(100vh - 49px);
+  overflow: auto;
+}
+
+.content-img {
+  width: 100%;
+  height: auto;
+  display: block;
+}

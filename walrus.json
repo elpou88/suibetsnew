@@ -1,0 +1,28 @@
+{
+  "name": "suibets-platform",
+  "version": "1.3.2",
+  "description": "Sports betting platform on the Sui blockchain",
+  "scripts": {
+    "dev": "npm run dev",
+    "build": "npm run build",
+    "start": "npm run start"
+  },
+  "blockchain": {
+    "type": "sui",
+    "network": "testnet"
+  },
+  "dependencies": {
+    "api-keys": [
+      "API_SPORTS_KEY",
+      "WURLUS_API_KEY",
+      "WAL_APP_API_KEY"
+    ]
+  },
+  "walletAddresses": {
+    "deposit": "0x14277cecf9d3f819c2ec39e9be93c35fb3bdd85d2fd5f6dcd1fad931aee232e8",
+    "withdrawal": "0xd8e37ef7507b086f1f9f29de543cb2c4e9249e886558a734923aafa4c103658c" 
+  },
+  "tokens": {
+    "sbets": "0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285::sbets::SBETS"
+  }
+}

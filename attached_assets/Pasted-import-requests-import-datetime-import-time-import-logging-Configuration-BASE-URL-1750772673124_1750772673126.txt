@@ -1,0 +1,99 @@
+import requests
+import datetime
+import time
+import logging
+
+# ---- Configuration ----
+BASE_URL = "https://api.sofascore.com/api/v1"
+HEADERS = {
+    "User-Agent": "Mozilla/5.0"
+}
+DAYS_AHEAD = 3       # Number of future days to include
+SLEEP_TIME = 0.5     # Seconds between requests
+
+# ---- Logging Setup ----
+logging.basicConfig(filename="sofascore_odds.log",
+                    level=logging.INFO,
+                    format="%(asctime)s [%(levelname)s] %(message)s")
+
+# ---- Helper Functions ----
+
+def get_json(url, max_retries=3):
+    for attempt in range(max_retries):
+        try:
+            res = requests.get(url, headers=HEADERS, timeout=10)
+            res.raise_for_status()
+            return res.json()
+        except Exception as e:
+            logging.warning(f"Attempt {attempt+1} failed for {url}: {e}")
+            time.sleep(1)
+    logging.error(f"Failed to fetch after {max_retries} retries: {url}")
+    return {}
+
+def get_sports():
+    return get_json(f"{BASE_URL}/sport")
+
+def get_live_events():
+    data = get_json(f"{BASE_URL}/sport/0/events/live")
+    return data.get("events", [])
+
+def get_upcoming_events(sport_slug, date_str):
+    url = f"{BASE_URL}/sport/{sport_slug}/scheduled-events/{date_str}"
+    data = get_json(url)
+    return data.get("events", [])
+
+def get_event_odds(event_id):
+    url = f"{BASE_URL}/event/{event_id}"
+    return get_json(url)
+
+def print_odds_info(event):
+    try:
+        home = event['homeTeam']['name']
+        away = event['awayTeam']['name']
+        tournament = event['tournament']['name']
+        event_id = event['id']
+
+        odds_data = get_event_odds(event_id)
+        markets = odds_data.get("markets", [])
+
+        print(f"\n🏆 {tournament}: {home} vs {away}")
+        if not markets:
+            print("🔒 No odds available.")
+            return
+
+        for market in markets:
+            print(f"➡️ Market: {market.get('name')}")
+            for outcome in market.get("outcomes", []):
+                print(f"   - {outcome['name']}: {outcome['odds']}")
+    except Exception as e:
+        logging.error(f"Error parsing odds for event {event.get('id')}: {e}")
+
+# ---- Main ----
+
+def main():
+    sports = get_sports()
+    if not sports:
+        logging.error("❌ Failed to fetch sports.")
+        return
+
+    # 1. Live events (all sports)
+    print("\n🔥 LIVE EVENTS")
+    live_events = get_live_events()
+    for event in live_events:
+        print_odds_info(event)
+        time.sleep(SLEEP_TIME)
+
+    # 2. Upcoming events for multiple days
+    print("\n📆 UPCOMING EVENTS (Next {} Days)".format(DAYS_AHEAD))
+    for i in range(DAYS_AHEAD):
+        date = (datetime.date.today() + datetime.timedelta(days=i)).strftime("%Y-%m-%d")
+        print(f"\n📅 Date: {date}")
+        for sport in sports:
+            slug = sport['slug']
+            events = get_upcoming_events(slug, date)
+            for event in events:
+                print_odds_info(event)
+                time.sleep(SLEEP_TIME)
+
+if __name__ == "__main__":
+    main()

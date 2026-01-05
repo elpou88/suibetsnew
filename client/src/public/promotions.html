@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Promotions Page</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      background-color: #09181B;
+    }
+    
+    img {
+      width: 100%;
+      height: auto;
+      max-width: 1440px;
+      margin: 0 auto;
+      display: block;
+    }
+    
+    .container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    @media (max-width: 1440px) {
+      img {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img src="/images/Promotions (2).png" alt="Promotions Page" usemap="#promomap" />
+    
+    <map name="promomap">
+      <!-- Using exact pixel coordinates from image -->
+      <area shape="rect" coords="75,20,150,35" alt="Sports" href="/" />
+      <area shape="rect" coords="507,20,547,35" alt="Live" href="/live.html" />
+      <area shape="rect" coords="555,20,625,35" alt="Promotions" href="/promotions.html" />
+      <area shape="rect" coords="1050,20,1115,35" alt="Join Now" href="/join" />
+      <area shape="rect" coords="1128,20,1223,35" alt="Connect Wallet" href="/connect-wallet" />
+    </map>
+  </div>
+</body>
+</html>

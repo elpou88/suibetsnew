@@ -1,0 +1,347 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@keyframes neonGlow {
+  0%, 100% { 
+    text-shadow: 0 0 10px rgba(0, 150, 255, 0.5), 0 0 20px rgba(0, 255, 255, 0.3);
+    box-shadow: 0 0 20px rgba(0, 150, 255, 0.3);
+  }
+  50% { 
+    text-shadow: 0 0 20px rgba(0, 150, 255, 0.8), 0 0 40px rgba(0, 255, 255, 0.5);
+    box-shadow: 0 0 40px rgba(0, 150, 255, 0.5);
+  }
+}
+
+@keyframes slideDown {
+  0% { transform: translateY(20px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fadeInScale {
+  0% { transform: scale(0.95); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes pulseNeon {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes shimmerFlow {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes floatUp {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+@layer base {
+  :root {
+    --background: 200 30% 3%;
+    --foreground: 210 40% 98%;
+    --primary: 200 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 180 100% 50%;
+    --secondary-foreground: 0 0% 0%;
+    --accent: 190 100% 50%;
+    --accent-foreground: 0 0% 0%;
+    --card: 200 25% 8%;
+    --card-foreground: 210 40% 98%;
+    --border: 200 30% 15%;
+    --input: 200 30% 10%;
+    --ring: 200 100% 50%;
+    --success: 120 100% 50%;
+    --warning: 40 100% 50%;
+    --danger: 0 100% 50%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 15 23% 6%;
+    --foreground: 210 40% 98%;
+    --card: 20 25% 12%;
+    --card-foreground: 210 40% 98%;
+    --border: 220 30% 20%;
+    --input: 220 30% 15%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    min-height: 100vh;
+    background: 
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 150, 255, 0.15) 0%, transparent 50%),
+      radial-gradient(ellipse 60% 40% at 100% 0%, rgba(6, 182, 212, 0.1) 0%, transparent 40%),
+      radial-gradient(ellipse 50% 30% at 0% 100%, rgba(59, 130, 246, 0.08) 0%, transparent 40%),
+      radial-gradient(circle at 50% 50%, rgba(0, 20, 40, 0.5) 0%, transparent 80%),
+      linear-gradient(180deg, #020617 0%, #0a1628 25%, #0d1f35 50%, #0a1628 75%, #020617 100%);
+    background-attachment: fixed;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+      radial-gradient(circle at 25% 25%, rgba(0, 200, 255, 0.03) 0%, transparent 50%),
+      radial-gradient(circle at 75% 75%, rgba(59, 130, 246, 0.03) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: -1;
+    animation: pulseGlow 8s ease-in-out infinite alternate;
+  }
+
+  @keyframes pulseGlow {
+    0% { opacity: 0.5; }
+    100% { opacity: 1; }
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: rgba(0, 150, 255, 0.05);
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #1e3a5f 0%, #0ea5e9 100%);
+    border-radius: 10px;
+    box-shadow: 0 0 12px rgba(14, 165, 233, 0.6);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #2563eb 0%, #06b6d4 100%);
+    box-shadow: 0 0 20px rgba(14, 165, 233, 0.9);
+  }
+}
+
+@layer components {
+  .neon-card {
+    @apply relative overflow-hidden rounded-2xl border-2 bg-clip-padding backdrop-blur-xl transition-all duration-500;
+    border-color: rgba(0, 200, 255, 0.4);
+    background: linear-gradient(135deg, rgba(10, 14, 20, 0.95), rgba(13, 21, 32, 0.85));
+    box-shadow: 0 0 30px rgba(0, 200, 255, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+
+  .neon-card:hover {
+    border-color: rgba(0, 200, 255, 0.8);
+    box-shadow: 0 0 60px rgba(0, 150, 255, 0.4), 0 0 80px rgba(0, 200, 255, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    transform: translateY(-4px);
+  }
+
+  .neon-btn {
+    @apply px-8 py-4 rounded-xl font-bold text-white relative overflow-hidden transition-all duration-300 cursor-pointer hover:scale-105 active:scale-95 border;
+    background: linear-gradient(135deg, #0066ff 0%, #0050cc 100%);
+    border-color: rgba(0, 150, 255, 0.8);
+    box-shadow: 0 0 30px rgba(0, 150, 255, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+
+  .neon-btn:hover {
+    box-shadow: 0 0 60px rgba(0, 150, 255, 0.8), 0 0 80px rgba(0, 200, 255, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  }
+
+  .neon-btn-cyan {
+    @apply px-8 py-3 rounded-xl font-bold text-slate-900 relative overflow-hidden transition-all duration-300 cursor-pointer hover:scale-105 active:scale-95 border;
+    background: linear-gradient(135deg, #00ffff 0%, #00d9ff 100%);
+    border-color: rgba(0, 255, 255, 0.9);
+    box-shadow: 0 0 30px rgba(0, 255, 255, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  }
+
+  .neon-btn-cyan:hover {
+    box-shadow: 0 0 60px rgba(0, 255, 255, 0.8), 0 0 80px rgba(0, 150, 255, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+
+  .odds-box {
+    @apply rounded-2xl border-2 p-5 transition-all duration-300 cursor-pointer bg-gradient-to-br from-blue-950/60 to-slate-900/60;
+    border-color: rgba(0, 150, 255, 0.4);
+    box-shadow: 0 0 25px rgba(0, 150, 255, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+
+  .odds-box:hover {
+    border-color: rgba(0, 200, 255, 0.8);
+    box-shadow: 0 0 50px rgba(0, 200, 255, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  }
+
+  .odds-value {
+    @apply text-2xl font-black bg-gradient-to-r from-cyan-300 via-blue-300 to-cyan-300 bg-clip-text text-transparent;
+    animation: pulseNeon 2.5s ease-in-out infinite;
+  }
+
+  .success-glow {
+    @apply rounded-2xl border-2 border-green-500/50 bg-gradient-to-br from-green-950/40 to-slate-900/60 p-5;
+    box-shadow: 0 0 30px rgba(34, 197, 94, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+
+  .success-glow:hover {
+    box-shadow: 0 0 60px rgba(34, 197, 94, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  }
+
+  .balance-display {
+    @apply text-4xl font-black bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent;
+    animation: gradientShift 8s ease infinite;
+    background-size: 200% 200%;
+  }
+
+  .event-card {
+    @apply group relative rounded-2xl border-2 bg-gradient-to-br from-blue-950/70 to-blue-900/50 p-5 transition-all duration-500 cursor-pointer;
+    border-color: rgba(0, 150, 255, 0.3);
+    box-shadow: 0 0 20px rgba(0, 150, 255, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+
+  .event-card:hover {
+    border-color: rgba(0, 200, 255, 0.8);
+    box-shadow: 0 0 50px rgba(0, 150, 255, 0.4), 0 0 70px rgba(0, 200, 255, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    transform: translateY(-4px);
+  }
+
+  .market-badge {
+    @apply inline-flex items-center gap-3 rounded-full bg-gradient-to-r from-blue-600/70 to-cyan-600/50 px-5 py-2 text-sm font-bold text-white border-2 border-blue-400/50 backdrop-blur-sm;
+    box-shadow: 0 0 20px rgba(0, 150, 255, 0.25);
+  }
+
+  .bet-slip {
+    @apply rounded-2xl border-2 bg-gradient-to-br from-blue-950/70 to-slate-950/70 p-6 backdrop-blur-xl;
+    border-color: rgba(0, 150, 255, 0.4);
+    box-shadow: 0 0 40px rgba(0, 150, 255, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+
+  .neon-spinner {
+    animation: spin 2s linear infinite;
+  }
+
+  .slide-down {
+    animation: slideDown 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .fade-scale {
+    animation: fadeInScale 0.5s ease-out;
+  }
+
+  .float-up {
+    animation: floatUp 3s ease-in-out infinite;
+  }
+
+  .shimmer {
+    animation: shimmerFlow 3s linear infinite;
+    background-size: 1000px 100%;
+  }
+}
+
+@layer utilities {
+  .text-glow {
+    @apply text-white;
+    letter-spacing: 0.5px;
+  }
+
+  .text-glow-cyan {
+    @apply text-cyan-300;
+  }
+
+  .glass-effect {
+    @apply backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl;
+  }
+
+  .neon-border {
+    @apply border-2 border-blue-500;
+  }
+
+  .grid-responsive {
+    @apply grid gap-5 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4;
+  }
+
+  .container-padding {
+    @apply px-6 py-8 sm:px-8 lg:px-10;
+  }
+
+  .premium-header {
+    @apply text-5xl font-black tracking-tight text-white;
+  }
+
+  .premium-subheader {
+    @apply text-2xl font-bold text-cyan-300;
+  }
+
+  @media (max-width: 640px) {
+    body {
+      font-size: 14px;
+    }
+
+    .neon-btn {
+      @apply px-5 py-3 text-base;
+      min-height: 50px;
+    }
+
+    .neon-btn-cyan {
+      @apply px-4 py-2.5 text-sm;
+      min-height: 48px;
+    }
+
+    .odds-box {
+      @apply p-4;
+    }
+
+    .odds-value {
+      @apply text-xl;
+    }
+
+    .balance-display {
+      @apply text-3xl;
+    }
+
+    .event-card {
+      @apply p-4;
+    }
+
+    .bet-slip {
+      @apply p-4 sticky bottom-0 rounded-t-2xl z-50;
+    }
+
+    .grid-responsive {
+      @apply grid-cols-1 gap-4;
+    }
+
+    .container-padding {
+      @apply px-4 py-5;
+    }
+
+    .premium-header {
+      @apply text-3xl;
+    }
+
+    .premium-subheader {
+      @apply text-xl;
+    }
+
+    h1 {
+      @apply text-2xl;
+    }
+
+    h2 {
+      @apply text-xl;
+    }
+  }
+
+  @media (min-width: 641px) and (max-width: 1024px) {
+    .grid-responsive {
+      @apply grid-cols-2;
+    }
+  }
+}

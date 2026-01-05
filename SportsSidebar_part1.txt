@@ -1,0 +1,150 @@
+import { useState, useEffect, useMemo } from 'react';
+import { useLocation } from 'wouter';
+import { useQuery } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { apiRequest } from '@/lib/queryClient';
+import { 
+  Trophy, 
+  Grid, 
+  Home,
+  ChevronRight,
+  BarChart,
+  Clock,
+  Zap,
+  Radio,
+  AreaChart
+} from 'lucide-react';
+
+// Sport icon mapping
+const SPORT_ICONS: Record<number, JSX.Element> = {
+  1: <Zap className="mr-2 h-4 w-4 text-cyan-400" />, // Soccer/Football
+  2: <Radio className="mr-2 h-4 w-4 text-cyan-400" />, // Basketball
+  3: <AreaChart className="mr-2 h-4 w-4 text-cyan-400" />, // Tennis
+  4: <AreaChart className="mr-2 h-4 w-4 text-cyan-400" />, // Baseball
+  5: <Radio className="mr-2 h-4 w-4 text-cyan-400" />, // Hockey
+  6: <Zap className="mr-2 h-4 w-4 text-cyan-400" />, // Rugby
+  7: <AreaChart className="mr-2 h-4 w-4 text-cyan-400" />, // Golf
+  8: <Zap className="mr-2 h-4 w-4 text-cyan-400" />, // Boxing
+  9: <Radio className="mr-2 h-4 w-4 text-cyan-400" />, // Cricket
+  13: <AreaChart className="mr-2 h-4 w-4 text-cyan-400" />, // Formula 1
+  16: <Zap className="mr-2 h-4 w-4 text-cyan-400" />, // American Football
+  17: <Zap className="mr-2 h-4 w-4 text-cyan-400" />, // Rugby
+};
+
+export default function SportsSidebar() {
+  const [, setLocation] = useLocation();
+  const [sportEventCounts, setSportEventCounts] = useState<Record<number, { live: number, upcoming: number }>>({});
+  
+  // Fetch sports for the sidebar directly from the API with error handling
+  const { data: sports = [] } = useQuery({
+    queryKey: ['/api/sports'],
+    queryFn: async () => {
+      try {
+        console.log("Fetching sports for sidebar...");
+        const response = await apiRequest('GET', '/api/sports', undefined, { timeout: 5000 });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch sports: ${response.status} ${response.statusText}`);
+        }
+        const data = await response.json();
+        console.log(`Fetched ${data.length} sports for sidebar`, data);
+        return data;
+      } catch (error) {
+        console.error("Error fetching sports:", error);
+        // Return hardcoded default sports as fallback to ensure sidebar always shows something
+        return [
+          { id: 1, name: 'Soccer', slug: 'soccer', icon: '⚽', isActive: true },
+          { id: 2, name: 'Basketball', slug: 'basketball', icon: '🏀', isActive: true },
+          { id: 3, name: 'Tennis', slug: 'tennis', icon: '🎾', isActive: true },
+          { id: 4, name: 'Baseball', slug: 'baseball', icon: '⚾', isActive: true },
+          { id: 5, name: 'Hockey', slug: 'hockey', icon: '🏒', isActive: true },
+          { id: 9, name: 'Cricket', slug: 'cricket', icon: '🏏', isActive: true },
+          { id: 10, name: 'Golf', slug: 'golf', icon: '⛳', isActive: true },
+          { id: 13, name: 'Formula 1', slug: 'formula_1', icon: '🏎️', isActive: true },
+          { id: 14, name: 'Cycling', slug: 'cycling', icon: '🚴', isActive: true },
+          { id: 16, name: 'American Football', slug: 'american_football', icon: '🏈', isActive: true },
+          { id: 17, name: 'Rugby', slug: 'rugby', icon: '🏉', isActive: true },
+          { id: 19, name: 'Volleyball', slug: 'volleyball', icon: '🏐', isActive: true },
+          { id: 20, name: 'Snooker', slug: 'snooker', icon: '🎱', isActive: true },
+          { id: 22, name: 'Darts', slug: 'darts', icon: '🎯', isActive: true },
+          { id: 23, name: 'MMA', slug: 'mma', icon: '🥊', isActive: true }
+        ];
+      }
+    },
+    // Refresh every 5 minutes
+    refetchInterval: 300000,
+    // Retry 3 times with exponential backoff
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
+  });
+  
+  // Fetch live events with our optimized lite endpoint with better error handling
+  const { data: liveEvents = [] } = useQuery({
+    queryKey: ['/api/events/live-lite'],
+    queryFn: async () => {
+      try {
+        console.log("Fetching live events from lite API for sidebar");
+        
+        // Try the lite endpoint first with text parsing to handle non-JSON responses
+        try {
+          // Use a direct fetch for more control over response parsing
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
+          
+          const response = await fetch('/api/events/live-lite', {
+            signal: controller.signal,
+            headers: {
+              'Accept': 'application/json',
+              'Cache-Control': 'no-cache'
+            }
+          });
+          
+          clearTimeout(timeoutId);
+          
+          // Handle non-OK responses
+          if (!response.ok) {
+            console.warn(`Live events lite API returned status ${response.status}`);
+            throw new Error(`API status: ${response.status}`);
+          }
+          
+          // Get response as text first to validate
+          const responseText = await response.text();
+          
+          // Simple validation that response looks like a JSON array
+          if (!responseText.trim().startsWith('[') || !responseText.trim().endsWith(']')) {
+            console.warn("Live events lite API did not return an array format");
+            throw new Error("Invalid array format");
+          }
+          
+          try {
+            // Parse the text as JSON
+            const data = JSON.parse(responseText);
+            
+            // Double-check it's an array
+            if (!Array.isArray(data)) {
+              console.warn("Live events lite API did not return an array after parsing:", typeof data);
+              throw new Error("Not an array after parsing");
+            }
+            
+            console.log(`Received ${data.length} lite events for sidebar`);
+            
+            // Filter out malformed events
+            const validEvents = data.filter(event => 
+              event && 
+              typeof event === 'object' && 
+              (event.id || event.eventId) && 
+              (event.homeTeam || event.awayTeam || event.home || event.team1)
+            );
+            
+            return validEvents;
+          } catch (jsonError) {
+            console.warn("Failed to parse lite API response:", jsonError);
+            throw jsonError;
+          }
+        } catch (liteError) {
+          // Fallback to main API endpoint
+          console.warn("Lite API failed, using fallback endpoint:", liteError);
+          
+          // Use the main API endpoint with longer timeout as fallback
+          const fallbackResponse = await apiRequest('GET', '/api/events?isLive=true', undefined, { 
+            timeout: 15000, // Longer timeout for main endpoint

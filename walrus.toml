@@ -1,0 +1,51 @@
+# SuiBets Platform - Walrus Configuration
+
+[app]
+name = "suibets-platform"
+description = "A cryptocurrency betting platform leveraging Sui blockchain"
+version = "1.0.0"
+
+[build]
+command = "npm run build"
+directory = "dist"
+
+[settings]
+node_version = "20.x"
+
+[env]
+# Required environment variables
+DATABASE_URL = { required = true }
+API_SPORTS_KEY = { required = true }
+SPORTSDATA_API_KEY = { required = true }
+SUI_NETWORK = { required = true, default = "testnet" }
+ADMIN_WALLET_ADDRESS = { required = true }
+SESSION_SECRET = { required = true }
+PASSWORD_SALT = { required = true }
+SBETS_TOKEN_ADDRESS = { required = true, default = "0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285::sbets::SBETS" }
+DEPOSIT_RECEIVER_ADDRESS = { required = true }
+WITHDRAWAL_PROVIDER_ADDRESS = { required = true }
+
+# Optional environment variables
+STRIPE_SECRET_KEY = { required = false }
+VITE_STRIPE_PUBLIC_KEY = { required = false }
+STRIPE_PRICE_ID = { required = false }
+
+# Platform settings with defaults
+PLATFORM_FEE_BETTING = { required = false, default = "0.00" }
+NETWORK_FEE_BETTING = { required = false, default = "0.01" }
+PLATFORM_FEE_STAKING = { required = false, default = "0.02" }
+PLATFORM_FEE_REWARDS = { required = false, default = "0.10" }
+
+[deploy]
+strategy = "node"
+entry = "server/index.js"
+autostart = true
+healthcheck = true
+healthcheck_path = "/api/status"
+
+[resources]
+memory = "1GB"
+cpu = 1
+
+[domains]
+main = "app.suibets.com"

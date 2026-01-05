@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuiBets - Complete Whitepaper</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+            color: #e0e0e0;
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(10, 14, 39, 0.95);
+            border: 2px solid hsl(190, 100%, 50%);
+            border-radius: 12px;
+            padding: 60px;
+            box-shadow: 0 0 40px rgba(0, 255, 255, 0.3), inset 0 0 60px rgba(0, 255, 255, 0.05);
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 60px;
+            border-bottom: 2px solid hsl(190, 100%, 50%);
+            padding-bottom: 40px;
+        }
+
+        .logo {
+            font-size: 48px;
+            font-weight: 800;
+            background: linear-gradient(135deg, hsl(190, 100%, 50%), hsl(190, 90%, 60%));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 20px;
+            text-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
+            letter-spacing: 2px;
+        }
+
+        .tagline {
+            color: hsl(190, 100%, 50%);
+            font-size: 18px;
+            margin-bottom: 20px;
+            font-weight: 600;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
+        }
+
+        .subtitle {
+            color: #b0b0b0;
+            font-size: 16px;
+            margin-top: 15px;
+        }
+
+        /* Sections */
+        h1 {
+            color: hsl(190, 100%, 50%);
+            font-size: 36px;
+            margin-top: 50px;
+            margin-bottom: 30px;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+            border-left: 4px solid hsl(190, 100%, 50%);
+            padding-left: 20px;
+        }
+
+        h2 {
+            color: hsl(190, 95%, 55%);
+            font-size: 28px;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+            border-left: 3px solid hsl(190, 85%, 50%);
+            padding-left: 15px;
+        }
+
+        h3 {
+            color: hsl(190, 90%, 60%);
+            font-size: 22px;
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+
+        p {
+            margin-bottom: 15px;
+            color: #d0d0d0;
+            line-height: 1.8;
+        }
+
+        /* Code Blocks */
+        code {
+            background: rgba(0, 255, 255, 0.05);
+            color: hsl(190, 100%, 60%);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            border: 1px solid rgba(0, 255, 255, 0.2);
+        }
+
+        pre {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid hsl(190, 100%, 50%);
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+            overflow-x: auto;
+            color: hsl(190, 100%, 60%);
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+            box-shadow: inset 0 0 20px rgba(0, 255, 255, 0.05);
+        }
+
+        /* Lists */
+        ul, ol {
+            margin-left: 30px;
+            margin-bottom: 20px;
+        }
+
+        li {
+            margin-bottom: 10px;
+            color: #d0d0d0;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: rgba(0, 255, 255, 0.02);
+            border: 1px solid hsl(190, 100%, 50%);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        th {
+            background: rgba(0, 255, 255, 0.1);
+            color: hsl(190, 100%, 50%);
+            padding: 15px;
+            text-align: left;
+            border-bottom: 2px solid hsl(190, 100%, 50%);
+            font-weight: 600;
+        }
+
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+            color: #d0d0d0;
+        }
+
+        tr:hover {
+            background: rgba(0, 255, 255, 0.05);
+        }
+
+        /* Highlights */
+        .highlight {
+            color: hsl(190, 100%, 50%);
+            font-weight: 600;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+        }
+
+        .success {
+            color: #00ff88;
+        }
+
+        .warning {
+            color: #ffaa00;
+        }
+
+        .error {
+            color: #ff4444;
+        }
+
+        /* Feature List */
+        .features {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .feature {
+            background: rgba(0, 255, 255, 0.05);
+            border: 1px solid hsl(190, 100%, 50%);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.1);
+        }
+
+        .feature-title {
+            color: hsl(190, 100%, 50%);
+            font-weight: 600;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .feature-desc {
+            color: #b0b0b0;
+            font-size: 14px;
+        }
+
+        /* Stats */
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 15px;
+            margin: 30px 0;
+        }
+
+        .stat {
+            background: rgba(0, 255, 255, 0.08);
+            border: 1px solid hsl(190, 100%, 50%);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .stat-value {
+            color: hsl(190, 100%, 50%);
+            font-size: 24px;
+            font-weight: 800;
+            text-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+        }
+
+        .stat-label {
+            color: #808080;
+            font-size: 12px;
+            margin-top: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Callouts */
+        .callout {
+            background: rgba(0, 255, 255, 0.08);
+            border-left: 4px solid hsl(190, 100%, 50%);
+            border-radius: 4px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: inset 0 0 20px rgba(0, 255, 255, 0.05);
+        }
+
+        .callout-title {
+            color: hsl(190, 100%, 50%);
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 60px;
+            padding-top: 40px;
+            border-top: 2px solid hsl(190, 100%, 50%);
+            text-align: center;
+            color: hsl(190, 80%, 50%);
+        }
+
+        /* Print styles */
+        @media print {
+            body {
+                background: white;
+            }
+            .container {
+                background: white;
+                border: none;
+                box-shadow: none;
+                padding: 40px;
+            }
+            h1, h2, h3 {
+                page-break-after: avoid;
+            }
+        }
+
+        /* Download button */
+        .download-btn {
+            display: inline-block;
+            background: linear-gradient(135deg, hsl(190, 100%, 50%), hsl(190, 90%, 60%));
+            color: #0a0e27;
+            padding: 12px 30px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            margin-top: 20px;
+            border: 2px solid hsl(190, 100%, 50%);
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        .download-btn:hover {
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.6);
+            transform: translateY(-2px);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 30px;
+            }
+            .stats {
+                grid-template-columns: 1fr 1fr;
+            }
+            .features {
+                grid-template-columns: 1fr;
+            }
+            h1 {
+                font-size: 28px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">SUIBETS</div>
+            <div class="tagline">Decentralized Sports Betting on Sui Network</div>
+            <div class="subtitle">Blockchain-Verified | Walrus-Secured | API-Sports Oracle</div>
+        </div>
+
+        <!-- Executive Summary -->
+        <h1>Executive Summary</h1>
+        <p>SuiBets is a production-ready, blockchain-based sports betting platform built on the <span class="highlight">Sui network</span>, integrating decentralized storage via Walrus protocol, smart contract-verified betting, and real-time oracle data from API-Sports.</p>
+        
+        <p>The platform enables global users to place bets on 23+ sports with <span class="highlight">dual-token support</span> (SUI and SBETS), automated settlement, and zero-trust verification through <span class="highlight">HMAC-SHA256</span> anti-cheat mechanisms.</p>
+
+        <!-- Key Metrics -->
+        <h2>Key Metrics</h2>
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-value">23+</div>
+                <div class="stat-label">Sports Covered</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">&lt;2s</div>
+                <div class="stat-label">Bet Placement</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">&lt;1s</div>
+                <div class="stat-label">Settlement</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">0.5%</div>
+                <div class="stat-label">Platform Fee</div>
+            </div>
+        </div>
+
+        <!-- Problem Statement -->
+        <h1>1. Problem Statement</h1>
+        <h2>Traditional Betting Limitations</h2>
+        <ul>
+            <li><strong>Centralized Control:</strong> Users trust single operators with funds; no transparency</li>
+            <li><strong>Manipulation Risk:</strong> Results can be altered by central authority</li>
+            <li><strong>Liquidity Fragmentation:</strong> Each platform has isolated user bases</li>
+            <li><strong>High Fees:</strong> 2-5% take from operators eating into winnings</li>
+            <li><strong>Geographic Restrictions:</strong> KYC/regulatory barriers prevent global participation</li>
+            <li><strong>Slow Payouts:</strong> Settlement takes days to weeks</li>
+        </ul>
+
+        <div class="callout">
+            <div class="callout-title">✅ SuiBets Solution</div>
+            <p>Smart contracts govern bets, Walrus stores immutable records, API-Sports provides verified data, and HMAC-SHA256 prevents any tampering. Settlements complete in seconds globally with no intermediaries.</p>
+        </div>
+
+        <!-- Platform Architecture -->
+        <h1>2. Platform Architecture</h1>
+        <h2>System Components</h2>
+        <div class="features">
+            <div class="feature">
+                <div class="feature-title">Frontend Layer</div>
+                <div class="feature-desc">React + TypeScript with Vite build tool. Responsive UI with neon cyan theme.</div>
+            </div>
+            <div class="feature">
+                <div class="feature-title">Backend Layer</div>
+                <div class="feature-desc">Express.js API with rate limiting, transaction queuing, and admin controls.</div>
+            </div>
+            <div class="feature">
+                <div class="feature-title">Smart Contracts</div>
+                <div class="feature-desc">Move language on Sui. Bet placement, settlement, anti-cheat verification.</div>
+            </div>
+            <div class="feature">
+                <div class="feature-title">Walrus Protocol</div>
+                <div class="feature-desc">Decentralized storage for immutable bet records and transaction ledger.</div>
+            </div>
+            <div class="feature">
+                <div class="feature-title">Oracle Service</div>
+                <div class="feature-desc">API-Sports integration for real-time sports data across 23 sports.</div>
+            </div>
+            <div class="feature">
+                <div class="feature-title">Wallet Integration</div>
+                <div class="feature-desc">Sui Wallet Connect for non-custodial fund control and transactions.</div>
+            </div>
+        </div>
+
+        <!-- Smart Contracts -->
+        <h1>3. Sui Smart Contracts - Complete Implementation</h1>
+        <p>Built in Move language with atomic transactions, immutable records, and capability-based security:</p>
+
+        <h2>Core Betting Contract Structure</h2>
+        <pre>module suibets::betting {
+  use sui::object::{Self, UID};
+  use sui::coin::{Self, Coin};
+  use sui::sui::SUI;
+  use sui::transfer;
+  use sui::tx_context::{Self, TxContext};
+  use std::string::String;
+
+  /// Bet structure stored permanently on Sui blockchain
+  public struct Bet has key, store {
+    id: UID,
+    bettor: address,
+    amount: u64,
+    token_type: String,
+    event_id: String,
+    market_id: String,
+    outcome_id: String,
+    odds: u64,
+    potential_winnings: u64,
+    timestamp: u64,
+    status: String,
+    anti_cheat_hash: String,
+  }
+
+  /// Betting pool holding all locked funds
+  public struct BettingPool has key {
+    id: UID,
+    owner: address,
+    sui_balance: Coin<SUI>,
+    sbets_balance: Coin<SBETS>,
+    total_bets: u64,
+    total_volume: u64,
+  }
+
+  /// Place bet - locks tokens in smart contract
+  public entry fun place_bet(
+    pool: &mut BettingPool,
+    amount: u64,
+    coin: Coin<SUI>,
+    event_id: String,
+    market_id: String,
+    outcome_id: String,
+    odds: u64,
+    ctx: &mut TxContext
+  ) { /* implementation */ }
+
+  /// Settle bet with HMAC verification
+  public entry fun settle_bet(
+    pool: &mut BettingPool,
+    bet: &mut Bet,
+    did_win: bool,
+    hmac_hash: String,
+    ctx: &mut TxContext
+  ) { /* implementation */ }
+}</pre>
+
+        <h2>Contract Functions</h2>
+        <ul>
+            <li><strong>place_bet():</strong> Lock user tokens in pool, create immutable bet record, set status to "pending"</li>
+            <li><strong>settle_bet():</strong> Verify HMAC-SHA256, execute payout or mark loss, update bet status</li>
+            <li><strong>cancel_bet():</strong> Refund before settlement (admin only)</li>
+            <li><strong>claim_winnings():</strong> User confirms receipt of payout</li>
+            <li><strong>get_bet():</strong> Read-only query of bet data</li>
+        </ul>
+
+        <div class="callout">
+            <div class="callout-title">🔒 Sui Security Features</div>
+            <ul>
+                <li><strong>Type-Safe Move Language:</strong> No integer overflows, no unsafe memory operations</li>
+                <li><strong>Immutable Bet Records:</strong> Once created on blockchain, cannot be altered</li>
+                <li><strong>Atomic Transactions:</strong> Bet placement either succeeds completely or fails - no partial state</li>
+                <li><strong>Capability System:</strong> Only authorized actors (owner, admin) can call settlement functions</li>
+                <li><strong>HMAC-SHA256 Verification:</strong> Prevents oracle/admin from tampering with results</li>
+                <li><strong>Shared Objects:</strong> Multiple users can bet into same pool, enabling network effects</li>
+                <li><strong>Parallel Execution:</strong> Sui processes thousands of concurrent bets simultaneously</li>
+            </ul>
+        </div>
+
+        <!-- Walrus Protocol Deep Dive -->
+        <h1>4. Walrus Protocol Integration - Decentralized Storage</h1>
+        
+        <h2>Walrus Architecture Overview</h2>
+        <p>Walrus is a decentralized blob storage protocol built for Sui, providing <span class="highlight">censorship-resistant, immutable storage</span> for all SuiBets betting data.</p>
+
+        <h2>Data Storage Structure</h2>
+        <pre>/walrus/suibets/
+├── /bets/{walletAddress}/
+│   ├── bet_001.json
+│   │   {
+│   │     "id": "0x1234abc...",
+│   │     "bettor": "0xuser123...",
+│   │     "amount": 10000000000,
+│   │     "tokenType": "SUI",
+│   │     "eventId": "liverpool_vs_afc",
+│   │     "marketId": "match_winner",
+│   │     "outcomeId": "liverpool_win",
+│   │     "odds": 2500,
+│   │     "potentialWinnings": 25000000000,
+│   │     "timestamp": 1732018400,
+│   │     "status": "won",
+│   │     "suiTxHash": "0xabc123...",
+│   │     "walrusObjectId": "0xwalrus123...",
+│   │     "storageEpoch": 5000
+│   │   }
+│   ├── bet_002.json
+│   └── bet_003.json
+│
+├── /events/{eventId}/
+│   ├── metadata.json
+│   │   {
+│   │     "eventId": "liverpool_vs_afc",
+│   │     "sport": "football",
+│   │     "date": "2025-11-24T20:00:00Z",
+│   │     "teams": ["Liverpool", "AFC Bournemouth"],
+│   │     "status": "completed",
+│   │     "result": "Liverpool 3 - 1 AFC",
+│   │     "totalBets": 12345,
+│   │     "totalVolume": 500000000000,
+│   │     "walrusProof": "0xproof...",
+│   │     "verifiedAt": 1732019200
+│   │   }
+│   └── bets_summary.json
+│
+├── /ledger/
+│   ├── tx_001_settlement.json
+│   │   {
+│   │     "txHash": "0x1234...",
+│   │     "betId": "0x5678...",
+│   │     "type": "settlement",
+│   │     "bettor": "0xuser...",
+│   │     "amount": 25000000000,
+│   │     "result": "won",
+│   │     "timestamp": 1732019200,
+│   │     "walrusStored": true
+│   │   }
+│   ├── tx_002_claim.json
+│   └── tx_003_refund.json
+│
+├── /dividends/{walletAddress}/
+│   ├── div_001.json
+│   ├── div_002.json
+│   └── div_003.json
+│
+└── /merkle_tree_proofs/
+    ├── root_proof_001.json
+    ├── user_proof_{walletAddress}.json
+    └── event_proof_{eventId}.json</pre>
+
+        <h2>Walrus Protocol Features in SuiBets</h2>
+        <ul>
+            <li><strong>Immutable Audit Trail:</strong> Every bet placement, settlement, and claim permanently stored</li>
+            <li><strong>Content-Addressed Storage:</strong> Data identified by content hash - tampering detected immediately</li>
+            <li><strong>Distributed Verification:</strong> Walrus nodes verify data integrity across decentralized network</li>
+            <li><strong>Censorship Resistance:</strong> No single entity can delete or modify bet records</li>
+            <li><strong>Long-Term Storage:</strong> Bets stored for 90+ days via storage proof system</li>
+            <li><strong>Zero-Knowledge Proofs:</strong> Users can prove ownership without revealing private data</li>
+            <li><strong>Merkle Tree Verification:</strong> All bets verified against Merkle root on Sui blockchain</li>
+        </ul>
+
+        <h2>Walrus Frontend Integration</h2>
+        <pre>// Frontend hook for Walrus operations
+export function useWalrusProtocol() {
+  // Store bet in Walrus after blockchain confirmation
+  const storeBetInWalrus = async (bet) => {
+    const walrusClient = new WalrusClient(
+      process.env.WALRUS_RPC_URL
+    );
+
+    // Encode bet data
+    const betData = JSON.stringify(bet);
+    const encoder = new TextEncoder();
+    const betBlob = encoder.encode(betData);
+
+    // Upload to Walrus
+    const storageProof = await walrusClient.store(
+      betBlob,
+      { duration_epochs: 100 } // 90+ day storage
+    );
+
+    // Get Walrus Object ID (immutable reference)
+    const walrusObjectId = storageProof.object_id;
+
+    // Store reference on Sui blockchain
+    const tx = new Transaction();
+    tx.moveCall({
+      target: '0x...::betting::record_walrus_proof',
+      arguments: [
+        tx.object(betId),
+        tx.pure.string(walrusObjectId),
+      ],
+    });
+
+    return { walrusObjectId, txHash: result.digest };
+  };
+
+  // Retrieve bet from Walrus
+  const retrieveBetFromWalrus = async (walrusObjectId) => {
+    const walrusClient = new WalrusClient(
+      process.env.WALRUS_RPC_URL
+    );
+
+    const betData = await walrusClient.read(walrusObjectId);
+    return JSON.parse(new TextDecoder().decode(betData));
+  };
+
+  // Verify Walrus proof
+  const verifyWalrusProof = async (walrusObjectId) => {
+    const isValid = await walrusClient.verifyProof(
+      walrusObjectId
+    );
+    return isValid; // Proves data hasn't been tampered
+  };
+
+  return {
+    storeBetInWalrus,
+    retrieveBetFromWalrus,
+    verifyWalrusProof,
+  };
+}</pre>
+
+        <h2>Sui Blockchain Integration with Walrus</h2>
+        <pre>// Smart contract linking Sui bets to Walrus storage
+module suibets::walrus_integration {
+  use sui::object::{Self, UID};
+  use std::string::String;
+
+  /// Bet record with Walrus reference
+  public struct WalrusBetRecord has key, store {
+    id: UID,
+    bet_id: String,
+    walrus_object_id: String,  // Reference to Walrus storage
+    sui_tx_hash: String,       // Sui blockchain transaction
+    storage_epoch: u64,        // When stored in Walrus
+    verified: bool,
+  }
+
+  /// Store Walrus proof on Sui blockchain
+  public entry fun record_walrus_proof(
+    bet: &mut Bet,
+    walrus_object_id: String,
+    ctx: &mut TxContext
+  ) {
+    // Create immutable record linking bet to Walrus
+    let record = WalrusBetRecord {
+      id: object::new(ctx),
+      bet_id: bet.id,
+      walrus_object_id,
+      sui_tx_hash: tx_context::digest(ctx),
+      storage_epoch: tx_context::epoch(ctx),
+      verified: true,
+    };
+
+    transfer::share_object(record);
+  }
+
+  /// Verify Walrus data matches Sui record
+  public fun verify_walrus_integrity(
+    bet: &Bet,
+    record: &WalrusBetRecord
+  ): bool {
+    // Merkle proof verification against Walrus root
+    // If hashes match -> data integrity confirmed
+    bet.id == record.bet_id && record.verified
+  }
+}</pre>
+
+        <!-- Oracle -->
+        <h1>5. Oracle Adapter - Real-Time Sports Data</h1>
+        <h2>API-Sports Integration</h2>
+        <p>Monitors <span class="highlight">23+ sports</span> including:</p>
+        <p>Football, Basketball, Tennis, Baseball, Hockey, Handball, Volleyball, Rugby, Cricket, Golf, Boxing, MMA, Formula-1, Cycling, American Football, Aussie Rules, Snooker, Darts, Table Tennis, Badminton, Motorsport, Esports, Netball</p>
+
+        <h2>Oracle Service Architecture</h2>
+        <pre>class ApiSportsService {
+  private cache = new Map();
+  private readonly CACHE_TTL = 60000; // 60 seconds
+
+  async getUpcomingEvents(sport: string) {
+    // Check cache first
+    if (this.cache.has(`upcoming_${sport}`)) {
+      return this.cache.get(`upcoming_${sport}`);
+    }
+
+    // Fetch from API-Sports
+    const response = await axios.get(
+      'https://v1.{sport}.api-sports.io/matches?date=upcoming',
+      { headers: { 'x-apisports-key': API_KEY } }
+    );
+
+    // Transform and cache
+    const events = this.transformEvents(response.data);
+    this.cache.set(`upcoming_${sport}`, events);
+    return events;
+  }
+
+  async getLiveEvents(sport: string) {
+    // Poll every 5 seconds for live events
+    const response = await axios.get(
+      'https://v1.{sport}.api-sports.io/matches?status=live',
+      { headers: { 'x-apisports-key': API_KEY } }
+    );
+
+    // Only return GENUINE live events (no synthetic data)
+    return response.data.filter(e => e.status.short === 'LIVE');
+  }
+
+  startPolling() {
+    // Update cache every 30 seconds
+    setInterval(async () => {
+      for (const sport of SPORTS) {
+        await this.getUpcomingEvents(sport);
+        await this.getLiveEvents(sport);
+      }
+    }, 30000);
+  }
+}</pre>
+
+        <!-- Anti-Cheat -->
+        <h1>6. Anti-Cheat System - HMAC-SHA256</h1>
+        <p>Prevents oracle/admin from tampering with settlement results:</p>
+
+        <div class="callout">
+            <div class="callout-title">🛡️ Anti-Cheat Flow</div>
+            <ol>
+                <li>Admin generates HMAC: <code>HMAC-SHA256(betId|eventId|outcome|result, ADMIN_SECRET)</code></li>
+                <li>Hash submitted with settlement transaction to smart contract</li>
+                <li>Smart contract recalculates expected hash</li>
+                <li>If hashes don't match → <span class="error">SETTLEMENT FAILS</span></li>
+                <li>Prevents result manipulation completely</li>
+            </ol>
+        </div>
+
+        <h2>Attack Prevention Example</h2>
+        <pre>// Attacker tries to mark lost bet as won
+Bet ID: "bet_001"
+Event: "Liverpool vs AFC"
+Outcome: "liverpool_win"
+
+// System generated HMAC for LOST bet:
+hmac = HMAC-SHA256(
+  "bet_001|liverpool_vs_afc|liverpool_win|false",
+  ADMIN_SECRET
+)
+Result: "a7f3c9e8b2d4f1a6c9e8b2d4f1a6c9e8"
+
+// Attacker tries to settle with WON but same hash
+Smart Contract recalculates:
+hmac = HMAC-SHA256(
+  "bet_001|liverpool_vs_afc|liverpool_win|true",
+  ADMIN_SECRET
+)
+Result: "xyz789completely_different_hash"
+
+// MISMATCH! ❌ Transaction REVERTED
+// Attack failed, bet not settled</pre>
+
+        <!-- Deposits & Withdrawals -->
+        <h1>7. Deposits & Withdrawals</h1>
+        <h2>Blockchain Deposits</h2>
+        <ul>
+            <li>User connects Sui wallet and sends SUI/SBETS to betting pool</li>
+            <li>Funds locked in smart contract (no withdrawal by user possible)</li>
+            <li>Balance updated immediately on blockchain</li>
+            <li>No intermediaries or custody risk</li>
+        </ul>
+
+        <h2>Blockchain Withdrawals</h2>
+        <ul>
+            <li>User initiates withdrawal in dApp</li>
+            <li>Smart contract executes transfer to recipient address</li>
+            <li>Funds available in external wallet instantly (1-2 second finality)</li>
+            <li>Settlement confirmed immutably on Sui blockchain</li>
+            <li>Record stored in Walrus for permanent audit trail</li>
+        </ul>
+
+        <!-- Sui Wallet -->
+        <h1>8. Sui Wallet Integration</h1>
+        <p>Non-custodial wallet control using Sui Wallet Connect:</p>
+        <ul>
+            <li>✅ Users control private keys (not stored on backend)</li>
+            <li>✅ Every transaction requires user approval in wallet extension</li>
+            <li>✅ Support for Sui Wallet, Suiet, Martian, and others</li>
+            <li>✅ Hardware wallet support (Ledger, Trezor)</li>
+            <li>✅ Real-time balance updates from Sui RPC</li>
+            <li>✅ Multi-token support (SUI + SBETS simultaneously)</li>
+            <li>✅ Instant wallet switching between accounts</li>
+        </ul>
+
+        <!-- Placing Bets -->
+        <h1>9. Placing Bets - Complete Flow</h1>
+        <h2>Step-by-Step Process</h2>
+        <ol>
+            <li><strong>User selects</strong> sporting event from API-Sports data</li>
+            <li><strong>Frontend validates</strong> user has sufficient balance (from Sui blockchain)</li>
+            <li><strong>Transaction created</strong> with bet parameters</li>
+            <li><strong>Sui wallet signs</strong> the transaction (user approval required)</li>
+            <li><strong>Smart contract executes:</strong>
+                <ul>
+                    <li>Validates bet parameters (amount > 0, odds valid)</li>
+                    <li>Locks tokens in betting pool (atomic operation)</li>
+                    <li>Creates immutable bet record on Sui</li>
+                    <li>Sets status to "pending"</li>
+                    <li>Returns bet ID</li>
+                </ul>
+            </li>
+            <li><strong>Walrus stores</strong> bet data with storage proof</li>
+            <li><strong>User sees</strong> confirmation with Sui transaction hash</li>
+            <li><strong>Balance updated</strong> - funds now locked in contract</li>
+        </ol>
+
+        <h2>On-Chain Bet Lifecycle</h2>
+        <pre>Status Flow:
+pending → [event concludes]
+         → won (payout issued) / lost (loss recorded)
+         → claimed (user collected winnings)
+
+OR
+
+pending → [admin refund]
+         → cancelled (refund issued)</pre>
+
+        <!-- Claiming -->
+        <h1>10. Claiming Winnings</h1>
+        <h2>Automatic Settlement Process</h2>
+        <ol>
+            <li>Event concludes in real-world (e.g., Liverpool 3-1 AFC Bournemouth)</li>
+            <li>Oracle detects official final result via API-Sports</li>
+            <li>Backend processes all pending bets for that event</li>
+            <li>For each bet:
+                <ul>
+                    <li>Calculate if bet won or lost</li>
+                    <li>Generate HMAC-SHA256 hash for anti-cheat</li>
+                    <li>Call smart contract settle_bet() function</li>
+                    <li>Smart contract verifies hash validity</li>
+                    <li>If won: transfer payout to user's wallet</li>
+                    <li>If lost: mark as lost (tokens stay in pool as platform revenue)</li>
+                </ul>
+            </li>
+            <li>Bet status changed to "won" or "lost" on Sui blockchain</li>
+            <li>Settlement transaction recorded in Walrus</li>
+            <li>User sees "Won Bets" section in dApp UI</li>
+            <li>User clicks "Claim Winnings" to confirm receipt</li>
+            <li>User wallet receives payout instantly</li>
+        </ol>
+
+        <div class="callout">
+            <div class="callout-title">💰 Winning Bet Example</div>
+            <p>Bet 10 SUI at 2.5 odds on Liverpool win<br/>
+            → Liverpool wins 3-1<br/>
+            → Smart contract pays out 25 SUI to wallet<br/>
+            → Transaction confirmed in &lt;1 second<br/>
+            → Profit: 15 SUI immediately available</p>
+        </div>
+
+        <!-- Staking & Dividends -->
+        <h1>11. Staking & Dividends</h1>
+        <h2>SBETS Token Staking</h2>
+        <ul>
+            <li>Users stake SBETS tokens for <span class="highlight">25% APY</span></li>
+            <li>Lock periods: 30, 90, or 365 days</li>
+            <li>Rewards calculated daily and compounded</li>
+            <li>Funds locked in smart contract (no early unstaking)</li>
+            <li>After period: principal + rewards transferred to wallet</li>
+        </ul>
+
+        <h2>Platform Dividends (20% Revenue Share)</h2>
+        <ul>
+            <li>20% of all platform revenue distributed daily to stakers</li>
+            <li>Revenue = sum of all lost bets</li>
+            <li>Distribution: <code>(your_stake / total_staked) × daily_revenue × 0.20</code></li>
+            <li>Dividends auto-added to balance (no claim needed)</li>
+            <li>Recorded on blockchain and Walrus for transparency</li>
+        </ul>
+
+        <!-- Security -->
+        <h1>12. Security Model</h1>
+        <h2>5-Layer Security Architecture</h2>
+
+        <table>
+            <tr>
+                <th>Layer</th>
+                <th>Technology</th>
+                <th>Protection</th>
+            </tr>
+            <tr>
+                <td><strong>Smart Contract</strong></td>
+                <td>Move Language + Capabilities</td>
+                <td>Type-safe, immutable records, atomic transactions</td>
+            </tr>
+            <tr>
+                <td><strong>Oracle</strong></td>
+                <td>API-Sports + Verification</td>
+                <td>Real-time data, settlement delay, dispute handling</td>
+            </tr>
+            <tr>
+                <td><strong>Walrus</strong></td>
+                <td>Decentralized Storage</td>
+                <td>Immutable audit trail, distributed verification</td>
+            </tr>
+            <tr>
+                <td><strong>Backend</strong></td>
+                <td>Rate Limiting + Queue</td>
+                <td>Prevents spam, race conditions, admin auth</td>
+            </tr>
+            <tr>
+                <td><strong>Wallet</strong></td>
+                <td>Non-Custodial Keys</td>
+                <td>User controls private keys, no backend access</td>
+            </tr>
+        </table>
+
+        <!-- Sui & Walrus Deep Tech -->
+        <h1>13. Sui Blockchain Deep Technical Integration</h1>
+        
+        <h2>Sui Object Model for Betting</h2>
+        <pre>// Every bet is a Sui object
+public struct Bet has key, store {
+  id: UID,  // Global unique identifier on Sui
+  bettor: address,  // Owner of this object
+  /* ... data ... */
+}
+
+// Only object owner can modify it
+// This is enforced by Sui's type system
+// No code can bypass ownership rules
+
+// When user places bet:
+// 1. Coin<SUI> object transferred to BettingPool
+// 2. Bet object created and transferred to user
+// 3. User now owns bet object (can see it on blockchain)
+// 4. Admin can settle but not delete it</pre>
+
+        <h2>Move Capability System</h2>
+        <pre>// Only authorized admin can settle bets
+public entry fun settle_bet(
+  pool: &mut BettingPool,  // Admin capability
+  bet: &mut Bet,
+  did_win: bool,
+  ctx: &mut TxContext
+) {
+  // This function requires:
+  // 1. Mutable reference to BettingPool (admin only)
+  // 2. Verified signature from pool owner
+  // 3. Valid transaction context
+
+  // Attempting to call without permissions → FAILS
+  // Attempting to change settled_at field → TYPE ERROR
+  // Move compiler prevents these at compile time
+}</pre>
+
+        <h2>Sui Transaction Finality</h2>
+        <ul>
+            <li><strong>Sub-1 Second Settlement:</strong> Bets finalized in &lt;1 second on Sui network</li>
+            <li><strong>Immediate Consensus:</strong> No block confirmations needed (vs 3-6 on Ethereum)</li>
+            <li><strong>Atomic Operations:</strong> Bet placement and settlement either complete fully or revert</li>
+            <li><strong>Parallel Execution:</strong> Sui processes thousands of bets simultaneously via horizontal scaling</li>
+            <li><strong>Zero Forks:</strong> Sui uses Byzantine Fault Tolerant consensus - finality guaranteed</li>
+        </ul>
+
+        <!-- Walrus Advanced Features -->
+        <h1>14. Walrus Advanced Features</h1>
+
+        <h2>Merkle Tree Proofs</h2>
+        <p>All bets are organized in a Merkle tree structure on Walrus, allowing users to prove specific bets exist without exposing entire bet history:</p>
+        <ul>
+            <li>User proves: "I placed a bet on 2025-01-15"</li>
+            <li>Provides only: Merkle proof branch (~256 bytes)</li>
+            <li>Verifier confirms: Bet exists in root stored on Sui</li>
+            <li>Privacy: Other bets remain hidden</li>
+        </ul>
+
+        <h2>Zero-Knowledge Proofs</h2>
+        <ul>
+            <li>User proves: "I won $1000 in winnings"</li>
+            <li>Without revealing: Which bets, event IDs, or other details</li>
+            <li>Walrus verifies proof against immutable storage</li>
+            <li>Useful for privacy-preserving integrations</li>
+        </ul>
+
+        <h2>Storage Proof System</h2>
+        <pre>// When bet is stored in Walrus:
+StorageProof {
+  object_id: "0x1234abc...",    // Walrus object ID
+  epoch: 5000,                   // Storage epoch
+  certification: "0xproof...",   // Cryptographic proof
+  size_bytes: 512,
+  timestamp: 1732018400,
+}
+
+// Proof stored on Sui blockchain
+// Anyone can verify:
+// 1. Bet exists in Walrus
+// 2. Has not been modified
+// 3. Will be stored for 90+ days
+// 4. Can retrieve full data from Walrus network</pre>
+
+        <!-- Conclusion -->
+        <h1>15. Conclusion</h1>
+        <p>SuiBets represents a paradigm shift in sports betting from centralized operators to decentralized smart contracts. The platform combines:</p>
+
+        <div class="features">
+            <div class="feature">
+                <div class="feature-title">Sui Blockchain</div>
+                <div class="feature-desc">Fast (&lt;1s), secure (Byzantine consensus), type-safe Move contracts</div>
+            </div>
+            <div class="feature">
+                <div class="feature-title">Walrus Protocol</div>
+                <div class="feature-desc">Immutable storage, audit trail, decentralized verification</div>
+            </div>
+            <div class="feature">
+                <div class="feature-title">API-Sports Oracle</div>
+                <div class="feature-desc">Real-time data, 23+ sports, proven data sources</div>
+            </div>
+            <div class="feature">
+                <div class="feature-title">HMAC-SHA256 Verification</div>
+                <div class="feature-desc">Prevents manipulation, cryptographically secure settlement</div>
+            </div>
+        </div>
+
+        <h2>Platform Advantages</h2>
+        <ul>
+            <li><strong>Fully Decentralized:</strong> No single entity controls bets or funds</li>
+            <li><strong>Immutable Records:</strong> Complete audit trail on Walrus + Sui</li>
+            <li><strong>Fast Settlements:</strong> Results finalized in &lt;1 second</li>
+            <li><strong>Global Access:</strong> No geographic restrictions or KYC</li>
+            <li><strong>Secure:</strong> Move language + Walrus + HMAC verification</li>
+            <li><strong>Transparent:</strong> All bets publicly verifiable on blockchain</li>
+            <li><strong>Low Fees:</strong> 0.5% platform fee (vs 2-5% traditional)</li>
+        </ul>
+
+        <!-- Footer -->
+        <div class="footer">
+            <h2>SuiBets: The Future of Decentralized Sports Betting</h2>
+            <p>Blockchain-Verified | Walrus-Secured | API-Sports Oracle</p>
+            <p style="margin-top: 30px; color: #606060; font-size: 14px;">
+                © 2025 SuiBets. All rights reserved.<br/>
+                Built with Sui Move Smart Contracts | Walrus Protocol Storage | React + Express.js
+            </p>
+            <button class="download-btn" onclick="downloadPDF()">📥 Download as PDF</button>
+        </div>
+    </div>
+
+    <script>
+        function downloadPDF() {
+            window.print();
+        }
+    </script>
+</body>
+</html>

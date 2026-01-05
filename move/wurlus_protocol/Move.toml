@@ -1,0 +1,10 @@
+[package]
+name = "wurlus_protocol"
+version = "1.0.0"
+authors = ["Wurlus Protocol Developers"]
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "devnet" }
+
+[addresses]
+wurlus_protocol = "0x0"

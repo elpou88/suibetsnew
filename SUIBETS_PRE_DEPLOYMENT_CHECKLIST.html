@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuiBets Pre-Deployment Checklist</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #0a0e14 0%, #0d1520 100%);
+            color: #e0e0ff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        .header {
+            background: linear-gradient(135deg, #0066ff, #0050cc);
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            border: 2px solid #0096ff;
+            box-shadow: 0 0 30px rgba(0, 150, 255, 0.5);
+            text-align: center;
+        }
+        .header h1 { 
+            font-size: 2.5em; 
+            color: #00ffff; 
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #0a0e14;
+            border: 2px solid #0096ff;
+            border-radius: 8px;
+            margin-top: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff99, #00ffff);
+            width: 0%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #000;
+            font-weight: bold;
+            box-shadow: 0 0 20px rgba(0, 255, 150, 0.6);
+        }
+        .section {
+            background: #0d1520;
+            border: 2px solid #0096ff;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        .section-title {
+            background: #0a1628;
+            padding: 15px 20px;
+            border-bottom: 2px solid #0096ff;
+            color: #00ffff;
+            font-weight: bold;
+            font-size: 1.2em;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+        }
+        .section-title:hover { background: #1a2a3a; }
+        .expand-icon { font-size: 1.5em; }
+        .section-content {
+            padding: 20px;
+            background: #061118;
+            max-height: 1000px;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        .section-content.collapsed { max-height: 0; }
+        .checklist-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 15px;
+            padding: 12px;
+            background: #0a0e14;
+            border-left: 3px solid #0096ff;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .checklist-item:hover { 
+            background: #0d1520;
+            border-left-color: #00ffff;
+        }
+        .checklist-item.completed {
+            border-left-color: #00ff99;
+            opacity: 0.8;
+        }
+        .checkbox {
+            width: 24px;
+            height: 24px;
+            border: 2px solid #0096ff;
+            border-radius: 4px;
+            margin-right: 15px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+            margin-top: 2px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .checkbox:hover { border-color: #00ffff; }
+        .checklist-item.completed .checkbox {
+            background: linear-gradient(135deg, #00ff99, #00cc77);
+            border-color: #00ff99;
+            color: #000;
+        }
+        .checklist-item.completed .checkbox::after { content: '✓'; }
+        .item-text {
+            flex: 1;
+        }
+        .item-title {
+            color: #00ffff;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .item-description {
+            color: #b0e0ff;
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+        .code-block {
+            background: #0a0e14;
+            padding: 10px;
+            border-left: 2px solid #00ff99;
+            margin-top: 8px;
+            font-size: 0.85em;
+            color: #66ff99;
+            overflow-x: auto;
+            border-radius: 4px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status-badge.pending { 
+            background: #1a3a5a; 
+            color: #66ff99;
+        }
+        .status-badge.completed { 
+            background: #1a5a3a; 
+            color: #00ff99;
+        }
+        .summary {
+            background: linear-gradient(135deg, #0a1628, #0d1520);
+            border: 2px solid #00ff99;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin-top: 20px;
+        }
+        .summary h2 {
+            color: #00ffff;
+            margin-bottom: 15px;
+        }
+        .summary p {
+            color: #b0e0ff;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+        .deploy-btn {
+            background: linear-gradient(135deg, #00ff99, #00cc77);
+            color: #000;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .deploy-btn:hover { 
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(0, 255, 153, 0.6);
+        }
+        .deploy-btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        .warning {
+            background: #3a2a1a;
+            border: 1px solid #ff9966;
+            padding: 12px;
+            border-radius: 6px;
+            color: #ffbb99;
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+        .success {
+            background: #1a3a2a;
+            border: 1px solid #00ff99;
+            padding: 12px;
+            border-radius: 6px;
+            color: #66ff99;
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+        .section-progress {
+            display: inline-block;
+            padding: 5px 12px;
+            background: #1a2a3a;
+            border-radius: 4px;
+            color: #66ff99;
+            font-size: 0.85em;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>🚀 SuiBets Pre-Deployment Checklist</h1>
+        <p>Verify everything before deploying to Railway & Walrus</p>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill" style="width: 0%;">0%</div>
+        </div>
+    </div>
+
+    <!-- ENVIRONMENT VARIABLES -->
+    <div class="section">
+        <div class="section-title" onclick="toggleSection(this)">
+            <div>
+                <span>📋 Environment Variables</span>
+                <span class="section-progress" id="progress-env">0/8</span>
+            </div>
+            <span class="expand-icon">▼</span>
+        </div>
+        <div class="section-content">
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <div class="checkbox"></div>
+                <div class="item-text">
+                    <div class="item-title">✓ DATABASE_URL</div>
+                    <div class="item-description">PostgreSQL connection string set in .env</div>
+                    <div class="code-block">DATABASE_URL=postgresql://user:pass@host:5432/suibets</div>
+                </div>
+            </div>
+
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <div class="checkbox"></div>
+                <div class="item-text">
+                    <div class="item-title">✓ API_SPORTS_KEY</div>
+                    <div class="item-description">Sports data API key configured</div>
+                    <div class="code-block">API_SPORTS_KEY=3ec255b133882788e32f6349eff77b21</div>
+                </div>
+            </div>
+
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <div class="checkbox"></div>
+                <div class="item-text">
+                    <div class="item-title">✓ SESSION_SECRET</div>
+                    <div class="item-description">Secure random string for session management</div>
+                    <div class="code-block">SESSION_SECRET=your_64_char_random_string</div>
+                    <div class="warning">⚠️ Must be at least 32 characters. Generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"</div>
+                </div>
+            </div>
+
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <div class="checkbox"></div>
+                <div class="item-text">
+                    <div class="item-title">✓ SUI_NETWORK</div>
+                    <div class="item-description">Sui blockchain network configuration</div>
+                    <div class="code-block">SUI_NETWORK=testnet (use mainnet for production)</div>
+                </div>
+            </div>
+
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <div class="checkbox"></div>
+                <div class="item-text">
+                    <div class="item-title">✓ ADMIN_PASSWORD</div>
+                    <div class="item-description">Admin panel access (change from default!)</div>
+                    <div class="code-block">ADMIN_PASSWORD=your_strong_password (NOT 123Jamie88 in production)</div>
+                </div>
+            </div>
+
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <div class="checkbox"></div>
+                <div class="item-text">
+                    <div class="item-title">✓ NODE_ENV</div>
+                    <div class="item-description">Environment mode for deployment</div>
+                    <div class="code-block">NODE_ENV=production (for Railway deployment)</div>
+                </div>
+            </div>
+
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <div class="checkbox"></div>
+                <div class="item-text">
+                    <div class="item-title">✓ PORT Configuration</div>
+                    <div class="item-description">Server port (Railway assigns automatically)</div>
+                    <div class="code-block">PORT=5000 (leave empty for Railway)</div>
+                </div>
+            </div>
+
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <div class="checkbox"></div>
+                <div class="item-text">
+                    <div class="item-title">✓ Optional: zkLogin Keys</div>
+                    <div class="item-description">Google & Discord OAuth (if using social auth)</div>
+                    <div class="code-block">GOOGLE_CLIENT_ID, DISCORD_CLIENT_ID (optional)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DATABASE SETUP -->
+    <div class="section">
+        <div class="section-title" onclick="toggleSection(this)">
+            <div>
+                <span>🗄️ Database Setup</span>
+                <span class="section-progress" id="progress-db">0/4</span>
+            </div>
+            <span class="expand-icon">▼</span>
+        </div>
+        <div class="section-content">
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <div class="checkbox"></div>
+                <div class="item-text">
+                    <div class="item-title">✓ PostgreSQL Database Created</div>
+                    <div class="item-description">Database exists and is accessible via DATABASE_URL</div>
+                    <div class="code-block">Verify connection: psql $DATABASE_URL -c "SELECT 1"</div>
+                </div>
+            </div>
+
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <div class="checkbox"></div>
+                <div class="item-text">
+                    <div class="item-title">✓ Run Database Migrations</div>
+                    <div class="item-description">Apply Drizzle ORM schema to database</div>
+                    <div class="code-block">npm run db:push</div>
+                    <div class="success">✓ Tables created: users, sports, events, markets, bets, parlays, etc.</div>
+                </div>
+            </div>
+
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <div class="checkbox"></div>
+                <div class="item-text">
+                    <div class="item-title">✓ Seed Initial Data</div>
+                    <div class="item-description">Database seeding runs automatically on startup</div>
+                    <div class="code-block">Sports, market types, and promotions auto-seeded</div>
+                </div>
+            </div>
+
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <div class="checkbox"></div>
+                <div class="item-text">
+                    <div class="item-title">✓ Connection Verified</div>
+                    <div class="item-description">Test database connectivity from backend</div>
+                    <div class="code-block">npm run dev (check console for "Database initialized")</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BUILD VERIFICATION -->
+    <div class="section">
+        <div class="section-title" onclick="toggleSection(this)">
+            <div>
+                <span>🔨 Build Verification</span>
+                <span class="section-progress" id="progress-build">0/5</span>
+            </div>
+            <span class="expand-icon">▼</span>
+        </div>
+        <div class="section-content">
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <div class="checkbox"></div>
+                <div class="item-text">
+                    <div class="item-title">✓ Dependency Installation</div>
+                    <div class="item-description">All npm packages installed without errors</div>
+                    <div class="code-block">npm install (should complete without errors)</div>
+                </div>
+            </div>
+
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <div class="checkbox"></div>
+                <div class="item-text">
+                    <div class="item-title">✓ TypeScript Type Check</div>
+                    <div class="item-description">All TypeScript files compile without errors</div>
+                    <div class="code-block">npm run check (tsc --noEmit)</div>
+                </div>
+            </div>
+
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <div class="checkbox"></div>
+                <div class="item-text">
+                    <div class="item-title">✓ Backend Build</div>
+                    <div class="item-description">Express server builds successfully</div>
+                    <div class="code-block">npm run build (creates dist/ folder)</div>
+                </div>
+            </div>
+
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <div class="checkbox"></div>
+                <div class="item-text">
+                    <div class="item-title">✓ Frontend Build</div>
+                    <div class="item-description">React app builds successfully</div>
+                    <div class="code-block">npm run build (creates dist/public/ folder)</div>
+                </div>
+            </div>
+
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <div class="checkbox"></div>
+                <div class="item-text">
+                    <div class="item-title">✓ Dev Server Test</div>
+                    <div class="item-description">Application runs locally without errors</div>
+                    <div class="code-block">npm run dev (visit http://localhost:5000)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DEPLOYMENT TARGETS -->
+    <div class="section">
+        <div class="section-title" onclick="toggleSection(this)">
+            <div>
+                <span>🌐 Deployment Targets</span>
+                <span class="section-progress" id="progress-deploy">0/4</span>
+            </div>
+            <span class="expand-icon">▼</span>
+        </div>
+        <div class="section-content">
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <div class="checkbox"></div>
+                <div class="item-text">
+                    <div class="item-title">✓ Railway Account Created</div>
+                    <div class="item-description">Backend hosting platform ready</div>
+                    <div class="code-block">https://railway.app (create account & connect GitHub)</div>
+                </div>
+            </div>
+
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <div class="checkbox"></div>
+                <div class="item-text">
+                    <div class="item-title">✓ Railway Environment Variables</div>
+                    <div class="item-description">All env vars configured in Railway dashboard</div>
+                    <div class="code-block">DATABASE_URL, API_SPORTS_KEY, SESSION_SECRET, NODE_ENV</div>
+                </div>
+            </div>
+
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <div class="checkbox"></div>
+                <div class="item-text">
+                    <div class="item-title">✓ Walrus CLI Installed</div>
+                    <div class="item-description">Frontend deployment tool ready</div>
+                    <div class="code-block">npm install -g @mysten/walrus-cli</div>
+                </div>
+            </div>
+
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <div class="checkbox"></div>
+                <div class="item-text">
+                    <div class="item-title">✓ Git Repository Ready</div>
+                    <div class="item-description">Code committed and synced to GitHub</div>
+                    <div class="code-block">git add . && git commit -m "Production ready" && git push</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- API ENDPOINTS -->
+    <div class="section">
+        <div class="section-title" onclick="toggleSection(this)">
+            <div>
+                <span>✅ API Verification</span>
+                <span class="section-progress" id="progress-api">0/3</span>
+            </div>
+            <span class="expand-icon">▼</span>
+        </div>
+        <div class="section-content">
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <div class="checkbox"></div>
+                <div class="item-text">
+                    <div class="item-title">✓ GET /api/sports</div>
+                    <div class="item-description">Sports list endpoint responds</div>
+                    <div class="code-block">curl http://localhost:5000/api/sports</div>
+                </div>
+            </div>
+
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <div class="checkbox"></div>
+                <div class="item-text">
+                    <div class="item-title">✓ GET /api/events</div>
+                    <div class="item-description">Events endpoint returns live matches</div>
+                    <div class="code-block">curl http://localhost:5000/api/events?isLive=true</div>
+                </div>
+            </div>
+
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <div class="checkbox"></div>
+                <div class="item-text">
+                    <div class="item-title">✓ POST /api/wallet/connect</div>
+                    <div class="item-description">Wallet connection endpoint works</div>
+                    <div class="code-block">Wallet adapter responds to connection requests</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FINAL CHECKS -->
+    <div class="section">
+        <div class="section-title" onclick="toggleSection(this)">
+            <div>
+                <span>🎯 Final Checks</span>
+                <span class="section-progress" id="progress-final">0/3</span>
+            </div>
+            <span class="expand-icon">▼</span>
+        </div>
+        <div class="section-content">
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <div class="checkbox"></div>
+                <div class="item-text">
+                    <div class="item-title">✓ No Console Errors</div>
+                    <div class="item-description">Dev console shows no errors on startup</div>
+                    <div class="code-block">npm run dev (check for error messages)</div>
+                </div>
+            </div>
+
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <div class="checkbox"></div>
+                <div class="item-text">
+                    <div class="item-title">✓ All Features Tested</div>
+                    <div class="item-description">Connect wallet, view events, place test bet</div>
+                    <div class="code-block">Manual testing on localhost complete</div>
+                </div>
+            </div>
+
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <div class="checkbox"></div>
+                <div class="item-text">
+                    <div class="item-title">✓ Ready for Production</div>
+                    <div class="item-description">All checks passed - safe to deploy</div>
+                    <div class="code-block">✅ Application is production-ready!</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SUMMARY -->
+    <div class="summary">
+        <h2 id="statusTitle">Complete the checklist above ⬆️</h2>
+        <p>Total Progress: <span id="totalPercent">0</span>% Complete</p>
+        <button class="deploy-btn" id="deployBtn" disabled onclick="deployReady()">
+            🚀 READY TO DEPLOY
+        </button>
+        <p style="margin-top: 20px; font-size: 0.9em;">
+            Backend → Railway | Frontend → Walrus Protocol
+        </p>
+    </div>
+</div>
+
+<script>
+let checkboxes = [];
+
+function initChecklist() {
+    checkboxes = document.querySelectorAll('.checklist-item');
+    checkboxes.forEach(item => {
+        item.addEventListener('click', updateProgress);
+    });
+    updateProgress();
+}
+
+function toggleCheckbox(element) {
+    element.classList.toggle('completed');
+    updateProgress();
+}
+
+function toggleSection(titleElement) {
+    const content = titleElement.nextElementSibling;
+    const icon = titleElement.querySelector('.expand-icon');
+    content.classList.toggle('collapsed');
+    icon.style.transform = content.classList.contains('collapsed') ? 'rotate(-90deg)' : 'rotate(0)';
+}
+
+function updateProgress() {
+    let completed = 0;
+    let total = 0;
+
+    // Count by section
+    const sections = {
+        'env': document.querySelectorAll('[section-env] ~ .section-content .checklist-item.completed').length,
+        'db': document.querySelectorAll('[section-db] ~ .section-content .checklist-item.completed').length,
+        'build': document.querySelectorAll('[section-build] ~ .section-content .checklist-item.completed').length,
+        'deploy': document.querySelectorAll('[section-deploy] ~ .section-content .checklist-item.completed').length,
+        'api': document.querySelectorAll('[section-api] ~ .section-content .checklist-item.completed').length,
+        'final': document.querySelectorAll('[section-final] ~ .section-content .checklist-item.completed').length
+    };
+
+    checkboxes.forEach(item => {
+        total++;
+        if (item.classList.contains('completed')) {
+            completed++;
+        }
+    });
+
+    const percent = Math.round((completed / total) * 100);
+    
+    document.getElementById('progressFill').style.width = percent + '%';
+    document.getElementById('progressFill').textContent = percent + '%';
+    document.getElementById('totalPercent').textContent = percent;
+
+    // Update section progress
+    const allSections = document.querySelectorAll('.section');
+    allSections.forEach(section => {
+        const items = section.querySelectorAll('.checklist-item');
+        const completedItems = section.querySelectorAll('.checklist-item.completed');
+        const progress = section.querySelector('.section-progress');
+        if (progress) {
+            progress.textContent = `${completedItems.length}/${items.length}`;
+        }
+    });
+
+    // Enable deploy button at 90%+
+    const deployBtn = document.getElementById('deployBtn');
+    const statusTitle = document.getElementById('statusTitle');
+    
+    if (percent >= 90) {
+        deployBtn.disabled = false;
+        statusTitle.textContent = '✅ Ready to Deploy!';
+        statusTitle.style.color = '#00ff99';
+    } else if (percent >= 50) {
+        statusTitle.textContent = `${percent}% Complete - Almost there! 🚀`;
+        statusTitle.style.color = '#66ff99';
+    } else {
+        statusTitle.textContent = `${percent}% Complete - Keep going! 💪`;
+        statusTitle.style.color = '#b0e0ff';
+    }
+}
+
+function deployReady() {
+    alert('✅ ALL CHECKS PASSED!\n\nYour app is ready to deploy:\n\n1. BACKEND → Railway\n2. FRONTEND → Walrus Protocol\n3. DATABASE → PostgreSQL\n\nGood luck! 🚀');
+}
+
+// Initialize on load
+document.addEventListener('DOMContentLoaded', initChecklist);
+</script>
+
+</body>
+</html>
