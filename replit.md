@@ -96,6 +96,9 @@ Preferred communication style: Simple, everyday language.
     - Module: `betting`
     - **Separate Bet Limits**: SUI (min 0.05, max 400) | SBETS (min 1000, max 50,000,000)
     - **All frontend/backend code updated to use these addresses**
+- **DEPRECATED Old Contract** (DO NOT USE - funds locked):
+    - Old Package: `0x9ca7d3b57c018fb171724dc808a542d2ec27354f6526b75e968d308d29bb6626`
+    - Note: Contains locked funds (~4.23 SUI, ~4.1M SBETS) that cannot be recovered due to contract design (no emergency_withdraw function)
 - **SUI Betting Functions**:
     - `place_bet` - Place bet with SUI (any user)
     - `settle_bet` / `settle_bet_admin` - Settle SUI bet (OracleCap / AdminCap)

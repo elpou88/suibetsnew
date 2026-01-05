@@ -1,6 +1,7 @@
 import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { Transaction } from '@mysten/sui/transactions';
+import { decodeSuiPrivateKey } from '@mysten/sui/cryptography';
 
 const SBETS_PACKAGE_ID = process.env.SBETS_TOKEN_ADDRESS?.split('::')[0] || '0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285';
 // Contract addresses - redeployed January 5, 2026
@@ -304,10 +305,8 @@ export class BlockchainBetService {
       
       // Support multiple formats: hex, base64, or Sui bech32 format
       if (ADMIN_PRIVATE_KEY.startsWith('suiprivkey')) {
-        // Sui bech32 format - use decodeSuiPrivateKey if available
+        // Sui bech32 format - use decodeSuiPrivateKey
         try {
-          // Try importing the decode function
-          const { decodeSuiPrivateKey } = require('@mysten/sui/cryptography');
           const decoded = decodeSuiPrivateKey(ADMIN_PRIVATE_KEY);
           return Ed25519Keypair.fromSecretKey(decoded.secretKey);
         } catch (e) {
