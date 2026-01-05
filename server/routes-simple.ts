@@ -1390,7 +1390,12 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("Auth wallet connect error:", error?.message || error);
-      res.status(500).json({ success: false, message: "Failed to connect wallet" });
+      console.error("Auth wallet connect full error:", error);
+      // Include more details for debugging
+      res.status(500).json({ 
+        success: false, 
+        message: `Failed to connect wallet: ${error?.message || 'Unknown error'}`
+      });
     }
   });
 
