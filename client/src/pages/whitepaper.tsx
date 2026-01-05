@@ -193,9 +193,9 @@ export default function WhitepaperPage() {
             <div className="flex items-center justify-between p-4 bg-black/50 rounded-xl">
               <span className="text-gray-400">Betting Platform</span>
               <div className="flex items-center gap-2">
-                <code className="text-cyan-400 text-sm">0xfb946f...a89e9c</code>
+                <code className="text-cyan-400 text-sm">0xae1b0d...4099b3</code>
                 <a 
-                  href="https://suiscan.xyz/mainnet/object/0xfb946f078082f42c93b7c1db30365f590338fd477ac20c564498d9315ca89e9c"
+                  href="https://suiscan.xyz/mainnet/object/0xae1b0dfed589c6ce5b7dafdb7477954670f0f73530668b5476e3a429b64099b3"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-cyan-400 hover:text-cyan-300"
@@ -208,9 +208,9 @@ export default function WhitepaperPage() {
             <div className="flex items-center justify-between p-4 bg-black/50 rounded-xl">
               <span className="text-gray-400">Betting Package</span>
               <div className="flex items-center gap-2">
-                <code className="text-cyan-400 text-sm">0x9ca7d3...b6626</code>
+                <code className="text-cyan-400 text-sm">0xfaf371...6e8b32</code>
                 <a 
-                  href="https://suiscan.xyz/mainnet/object/0x9ca7d3b57c018fb171724dc808a542d2ec27354f6526b75e968d308d29bb6626"
+                  href="https://suiscan.xyz/mainnet/object/0xfaf371c3c9fe2544cc1ce9a40b07621503b300bf3a65b8fab0dba134636e8b32"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-cyan-400 hover:text-cyan-300"

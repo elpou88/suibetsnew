@@ -93,23 +93,23 @@ After deployment, you'll get THREE important IDs:
 - **BettingPlatform Object ID**: The shared platform object
 - **AdminCap Object ID**: The admin capability (transferred to deployer)
 
-Example output (actual mainnet deployment January 4, 2026):
+Example output (actual mainnet deployment January 5, 2026):
 ```
 Published Objects:
-- Package: 0x9ca7d3b57c018fb171724dc808a542d2ec27354f6526b75e968d308d29bb6626
+- Package: 0xfaf371c3c9fe2544cc1ce9a40b07621503b300bf3a65b8fab0dba134636e8b32
 Created Objects:
-- ID: 0xfb946f078082f42c93b7c1db30365f590338fd477ac20c564498d9315ca89e9c, Owner: Shared, Type: ...::betting::BettingPlatform
-- ID: 0x49bee21bdf21522f401d5a3d6677604f0738bbd20f9bffef97d2223bdf2a1cb5, Owner: 0x20850db591c4d575b5238baf975e54580d800e69b8b5b421de796a311d3bea50, Type: ...::betting::AdminCap
+- ID: 0xae1b0dfed589c6ce5b7dafdb7477954670f0f73530668b5476e3a429b64099b3, Owner: Shared, Type: ...::betting::BettingPlatform
+- ID: 0xaec276da96bc9fb7781213f3aedb18eacf30af1932dc577abbe5529583251827, Owner: 0x20850db591c4d575b5238baf975e54580d800e69b8b5b421de796a311d3bea50, Type: ...::betting::AdminCap
 ```
 
 ### 6. Update environment variables in Replit secrets:
 ```
-# Current mainnet deployment (January 4, 2026)
-BETTING_PACKAGE_ID=0x9ca7d3b57c018fb171724dc808a542d2ec27354f6526b75e968d308d29bb6626
-BETTING_PLATFORM_ID=0xfb946f078082f42c93b7c1db30365f590338fd477ac20c564498d9315ca89e9c
-ADMIN_CAP_ID=0x49bee21bdf21522f401d5a3d6677604f0738bbd20f9bffef97d2223bdf2a1cb5
-VITE_BETTING_PACKAGE_ID=0x9ca7d3b57c018fb171724dc808a542d2ec27354f6526b75e968d308d29bb6626
-VITE_BETTING_PLATFORM_ID=0xfb946f078082f42c93b7c1db30365f590338fd477ac20c564498d9315ca89e9c
+# Current mainnet deployment (January 5, 2026)
+BETTING_PACKAGE_ID=0xfaf371c3c9fe2544cc1ce9a40b07621503b300bf3a65b8fab0dba134636e8b32
+BETTING_PLATFORM_ID=0xae1b0dfed589c6ce5b7dafdb7477954670f0f73530668b5476e3a429b64099b3
+ADMIN_CAP_ID=0xaec276da96bc9fb7781213f3aedb18eacf30af1932dc577abbe5529583251827
+VITE_BETTING_PACKAGE_ID=0xfaf371c3c9fe2544cc1ce9a40b07621503b300bf3a65b8fab0dba134636e8b32
+VITE_BETTING_PLATFORM_ID=0xae1b0dfed589c6ce5b7dafdb7477954670f0f73530668b5476e3a429b64099b3
 SBETS_TOKEN_ADDRESS=0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285::sbets::SBETS
 ```
 

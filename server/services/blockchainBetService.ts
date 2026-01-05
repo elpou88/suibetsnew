@@ -3,10 +3,10 @@ import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { Transaction } from '@mysten/sui/transactions';
 
 const SBETS_PACKAGE_ID = process.env.SBETS_TOKEN_ADDRESS?.split('::')[0] || '0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285';
-// Contract addresses - deployed January 4, 2026
-const BETTING_PACKAGE_ID = process.env.BETTING_PACKAGE_ID || '0x9ca7d3b57c018fb171724dc808a542d2ec27354f6526b75e968d308d29bb6626';
-const BETTING_PLATFORM_ID = process.env.BETTING_PLATFORM_ID || '0xfb946f078082f42c93b7c1db30365f590338fd477ac20c564498d9315ca89e9c';
-const ADMIN_CAP_ID = process.env.ADMIN_CAP_ID || '0x49bee21bdf21522f401d5a3d6677604f0738bbd20f9bffef97d2223bdf2a1cb5';
+// Contract addresses - redeployed January 5, 2026
+const BETTING_PACKAGE_ID = process.env.BETTING_PACKAGE_ID || '0xfaf371c3c9fe2544cc1ce9a40b07621503b300bf3a65b8fab0dba134636e8b32';
+const BETTING_PLATFORM_ID = process.env.BETTING_PLATFORM_ID || '0xae1b0dfed589c6ce5b7dafdb7477954670f0f73530668b5476e3a429b64099b3';
+const ADMIN_CAP_ID = process.env.ADMIN_CAP_ID || '0xaec276da96bc9fb7781213f3aedb18eacf30af1932dc577abbe5529583251827';
 // Admin wallet that owns AdminCap - MUST match the wallet that deployed the contract
 const ADMIN_WALLET = process.env.ADMIN_WALLET_ADDRESS || '0x20850db591c4d575b5238baf975e54580d800e69b8b5b421de796a311d3bea50';
 const PLATFORM_REVENUE_WALLET = process.env.PLATFORM_REVENUE_WALLET || ADMIN_WALLET;
