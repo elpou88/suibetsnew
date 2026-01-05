@@ -263,6 +263,19 @@ export default function ParlayPage() {
                     </button>
                   </Link>
                 </div>
+              ) : parlayLegs.length === 1 ? (
+                <div className="text-center py-16">
+                  <AlertCircle className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
+                  <p className="text-yellow-400 text-lg mb-2">Need More Selections</p>
+                  <p className="text-gray-500 text-sm mb-4">A parlay requires at least 2 selections. You have 1 single bet.</p>
+                  <p className="text-gray-400 text-sm mb-6">Place it as a single bet from the main page, or add more selections.</p>
+                  <Link href="/">
+                    <button className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold px-6 py-3 rounded-xl transition-colors" data-testid="btn-add-more">
+                      <Plus className="h-5 w-5 inline mr-2" />
+                      Add More Selections
+                    </button>
+                  </Link>
+                </div>
               ) : (
                 <div className="space-y-3">
                   {parlayLegs.map((leg, index) => (

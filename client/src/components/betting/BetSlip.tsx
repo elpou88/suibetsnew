@@ -46,6 +46,16 @@ export function BetSlip() {
     };
   }, []);
 
+  // Auto-dismiss confirmation after 5 seconds
+  useEffect(() => {
+    if (confirmedBet) {
+      const timer = setTimeout(() => {
+        dismissConfirmation();
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [confirmedBet]);
+
   const copyBetId = (betId: string) => {
     navigator.clipboard.writeText(betId);
     toast({ title: "Copied!", description: "Bet ID copied to clipboard" });

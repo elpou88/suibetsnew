@@ -427,10 +427,26 @@ class SettlementWorkerService {
   }
 
   private determineBetOutcome(bet: UnsettledBet, match: FinishedMatch): boolean {
-    const prediction = bet.prediction.toLowerCase();
+    const prediction = bet.prediction.toLowerCase().trim();
     const homeTeam = match.homeTeam.toLowerCase();
     const awayTeam = match.awayTeam.toLowerCase();
 
+    // Check for Correct Score prediction (e.g., "1-0", "2-1", "0-0")
+    const correctScoreMatch = prediction.match(/^(\d+)\s*[-:]\s*(\d+)$/);
+    if (correctScoreMatch) {
+      const predictedHome = parseInt(correctScoreMatch[1], 10);
+      const predictedAway = parseInt(correctScoreMatch[2], 10);
+      return match.homeScore === predictedHome && match.awayScore === predictedAway;
+    }
+
+    // Check for "Other" correct score prediction (any score not in standard options)
+    if (prediction === 'other') {
+      const commonScores = ['0-0', '1-0', '0-1', '1-1', '2-0', '0-2', '2-1', '1-2', '2-2', '3-0', '0-3', '3-1', '1-3', '3-2', '2-3'];
+      const actualScore = `${match.homeScore}-${match.awayScore}`;
+      return !commonScores.includes(actualScore);
+    }
+
+    // Match Winner predictions
     if (prediction.includes(homeTeam) || prediction === 'home' || prediction === '1') {
       return match.winner === 'home';
     }
@@ -443,6 +459,7 @@ class SettlementWorkerService {
       return match.winner === 'draw';
     }
 
+    // Over/Under predictions (for other sports like basketball, tennis)
     if (prediction.includes('over')) {
       const totalGoals = match.homeScore + match.awayScore;
       const threshold = parseFloat(prediction.replace(/[^0-9.]/g, '')) || 2.5;

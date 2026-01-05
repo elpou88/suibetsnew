@@ -1799,22 +1799,58 @@ export class ApiSportsService {
             }
           ]
         });
-      } else { // Default (football)
+      } else { // Default (football) - Correct Score market
         marketsData.push({
-          id: `${eventId}-market-over-under`,
-          name: 'Total Goals',
+          id: `${eventId}-market-correct-score`,
+          name: 'Correct Score',
           outcomes: [
             {
-              id: `${eventId}-outcome-over`,
-              name: 'Over 2.5',
-              odds: 1.85,
-              probability: 0.54
+              id: `${eventId}-outcome-1-0`,
+              name: '1-0',
+              odds: 6.5,
+              probability: 0.15
             },
             {
-              id: `${eventId}-outcome-under`,
-              name: 'Under 2.5',
-              odds: 1.95,
-              probability: 0.51
+              id: `${eventId}-outcome-2-0`,
+              name: '2-0',
+              odds: 8.0,
+              probability: 0.12
+            },
+            {
+              id: `${eventId}-outcome-2-1`,
+              name: '2-1',
+              odds: 7.5,
+              probability: 0.13
+            },
+            {
+              id: `${eventId}-outcome-0-0`,
+              name: '0-0',
+              odds: 9.0,
+              probability: 0.11
+            },
+            {
+              id: `${eventId}-outcome-1-1`,
+              name: '1-1',
+              odds: 5.5,
+              probability: 0.18
+            },
+            {
+              id: `${eventId}-outcome-0-1`,
+              name: '0-1',
+              odds: 7.0,
+              probability: 0.14
+            },
+            {
+              id: `${eventId}-outcome-0-2`,
+              name: '0-2',
+              odds: 9.5,
+              probability: 0.10
+            },
+            {
+              id: `${eventId}-outcome-other`,
+              name: 'Other',
+              odds: 4.0,
+              probability: 0.25
             }
           ]
         });
