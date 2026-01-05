@@ -4,6 +4,7 @@ import { Transaction } from '@mysten/sui/transactions';
 import { decodeSuiPrivateKey } from '@mysten/sui/cryptography';
 
 const SBETS_PACKAGE_ID = process.env.SBETS_TOKEN_ADDRESS?.split('::')[0] || '0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285';
+const SBETS_COIN_TYPE = process.env.SBETS_TOKEN_ADDRESS || `${SBETS_PACKAGE_ID}::sbets::SBETS`;
 // Contract addresses - redeployed January 5, 2026
 const BETTING_PACKAGE_ID = process.env.BETTING_PACKAGE_ID || '0xfaf371c3c9fe2544cc1ce9a40b07621503b300bf3a65b8fab0dba134636e8b32';
 const BETTING_PLATFORM_ID = process.env.BETTING_PLATFORM_ID || '0xae1b0dfed589c6ce5b7dafdb7477954670f0f73530668b5476e3a429b64099b3';
