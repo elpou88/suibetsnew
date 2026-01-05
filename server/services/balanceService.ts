@@ -182,20 +182,21 @@ export class BalanceService {
   }
 
   /**
-   * Withdraw SUI to wallet - PERSISTS TO DATABASE
+   * Withdraw SUI or SBETS to wallet - PERSISTS TO DATABASE
    * If ADMIN_PRIVATE_KEY is set and executeOnChain=true, executes on-chain payout
    * Otherwise, creates pending withdrawal for manual admin processing
    */
-  async withdraw(userId: string, amount: number, executeOnChain: boolean = false): Promise<{ 
+  async withdraw(userId: string, amount: number, executeOnChain: boolean = false, currency: 'SUI' | 'SBETS' = 'SUI'): Promise<{ 
     success: boolean; 
     txHash?: string; 
     message: string;
     status: 'completed' | 'pending_admin';
   }> {
     const balance = await this.getBalanceAsync(userId);
+    const availableBalance = currency === 'SBETS' ? balance.sbetsBalance : balance.suiBalance;
 
     if (amount < 0.1) {
-      return { success: false, message: 'Minimum withdrawal is 0.1 SUI', status: 'pending_admin' };
+      return { success: false, message: `Minimum withdrawal is 0.1 ${currency}`, status: 'pending_admin' };
     }
 
     // ATOMIC WITHDRAWAL: Use database-level balance check to prevent race conditions
@@ -204,65 +205,85 @@ export class BalanceService {
     // OPTION 1: Execute on-chain if admin key is configured and requested
     if (executeOnChain && blockchainBetService.isAdminKeyConfigured()) {
       // Try atomic deduction first (prevents race condition)
-      const deductionSuccess = await storage.updateUserBalance(userId, -amount, 0);
+      const suiDelta = currency === 'SUI' ? -amount : 0;
+      const sbetsDelta = currency === 'SBETS' ? -amount : 0;
+      const deductionSuccess = await storage.updateUserBalance(userId, suiDelta, sbetsDelta);
       
       if (!deductionSuccess) {
-        return { success: false, message: `Insufficient balance. Available: ${balance.suiBalance} SUI`, status: 'pending_admin' };
+        return { success: false, message: `Insufficient ${currency} balance. Available: ${availableBalance.toFixed(4)} ${currency}`, status: 'pending_admin' };
       }
       
-      const payoutResult = await blockchainBetService.executePayoutOnChain(userId, amount);
+      // Execute payout based on currency
+      let payoutResult;
+      if (currency === 'SBETS') {
+        payoutResult = await blockchainBetService.executePayoutSbetsOnChain(userId, amount);
+      } else {
+        payoutResult = await blockchainBetService.executePayoutOnChain(userId, amount);
+      }
       
       if (payoutResult.success && payoutResult.txHash) {
         await storage.recordWalletOperation(userId, 'withdrawal', amount, payoutResult.txHash, { 
           status: 'completed',
-          onChain: true
+          onChain: true,
+          currency
         });
 
         // Update cache
-        balance.suiBalance -= amount;
+        if (currency === 'SBETS') {
+          balance.sbetsBalance -= amount;
+        } else {
+          balance.suiBalance -= amount;
+        }
         balance.lastUpdated = Date.now();
 
-        console.log(`💸 ON-CHAIN WITHDRAWAL: ${userId.slice(0, 8)}... - ${amount} SUI | TX: ${payoutResult.txHash}`);
+        console.log(`💸 ON-CHAIN ${currency} WITHDRAWAL: ${userId.slice(0, 8)}... - ${amount} ${currency} | TX: ${payoutResult.txHash}`);
         return {
           success: true,
           txHash: payoutResult.txHash,
-          message: `Successfully withdrawn ${amount} SUI on-chain`,
+          message: `Successfully withdrawn ${amount} ${currency} on-chain`,
           status: 'completed'
         };
       } else {
         // On-chain failed - refund the deducted amount
-        await storage.updateUserBalance(userId, amount, 0);
-        console.error(`❌ On-chain payout failed, refunded ${amount} SUI: ${payoutResult.error}`);
+        await storage.updateUserBalance(userId, -suiDelta, -sbetsDelta);
+        console.error(`❌ On-chain ${currency} payout failed, refunded ${amount} ${currency}: ${payoutResult.error}`);
         return { success: false, message: `On-chain payout failed: ${payoutResult.error}`, status: 'pending_admin' };
       }
     }
 
     // OPTION 2: Create pending withdrawal for manual admin processing
-    const withdrawalId = `wd-${userId.slice(0, 8)}-${Date.now()}`;
+    const withdrawalId = `wd-${currency.toLowerCase()}-${userId.slice(0, 8)}-${Date.now()}`;
 
     // ATOMIC DEDUCTION: Use database-level balance check to prevent race conditions
-    const deductionSuccess = await storage.updateUserBalance(userId, -amount, 0);
+    const suiDelta = currency === 'SUI' ? -amount : 0;
+    const sbetsDelta = currency === 'SBETS' ? -amount : 0;
+    const deductionSuccess = await storage.updateUserBalance(userId, suiDelta, sbetsDelta);
     
     if (!deductionSuccess) {
-      console.log(`❌ WITHDRAWAL REJECTED: Insufficient balance for ${userId.slice(0, 8)}...`);
-      return { success: false, message: `Insufficient balance. Available: ${balance.suiBalance} SUI`, status: 'pending_admin' };
+      console.log(`❌ ${currency} WITHDRAWAL REJECTED: Insufficient balance for ${userId.slice(0, 8)}...`);
+      return { success: false, message: `Insufficient ${currency} balance. Available: ${availableBalance.toFixed(4)} ${currency}`, status: 'pending_admin' };
     }
     
     await storage.recordWalletOperation(userId, 'withdrawal', amount, withdrawalId, { 
       status: 'pending_admin',
       recipientWallet: userId,
-      onChain: false
+      onChain: false,
+      currency
     });
 
     // Update cache
-    balance.suiBalance -= amount;
+    if (currency === 'SBETS') {
+      balance.sbetsBalance -= amount;
+    } else {
+      balance.suiBalance -= amount;
+    }
     balance.lastUpdated = Date.now();
 
-    console.log(`📋 WITHDRAWAL QUEUED: ${userId.slice(0, 8)}... - ${amount} SUI | ID: ${withdrawalId} (pending admin)`);
+    console.log(`📋 ${currency} WITHDRAWAL QUEUED: ${userId.slice(0, 8)}... - ${amount} ${currency} | ID: ${withdrawalId} (pending admin)`);
     return {
       success: true,
       txHash: withdrawalId,
-      message: `Withdrawal of ${amount} SUI queued for processing`,
+      message: `Withdrawal of ${amount} ${currency} queued for processing`,
       status: 'pending_admin'
     };
   }

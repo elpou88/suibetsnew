@@ -1570,7 +1570,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
 
-  // Withdraw SUI to wallet
+  // Withdraw SUI or SBETS to wallet
   app.post("/api/user/withdraw", async (req: Request, res: Response) => {
     try {
       // Validate request
@@ -1584,8 +1584,9 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
 
       const { userId, amount } = validation.data!;
       const executeOnChain = req.body.executeOnChain === true;
+      const currency: 'SUI' | 'SBETS' = req.body.currency === 'SBETS' ? 'SBETS' : 'SUI';
       
-      const result = await balanceService.withdraw(userId, amount, executeOnChain);
+      const result = await balanceService.withdraw(userId, amount, executeOnChain, currency);
 
       if (!result.success) {
         return res.status(400).json({ message: result.message });
@@ -1594,22 +1595,23 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       // Notify user based on withdrawal status
       if (result.status === 'completed') {
         notificationService.notifyWithdrawal(userId, amount, 'completed');
-        console.log(`✅ WITHDRAWAL COMPLETED: ${userId} - ${amount} SUI | TX: ${result.txHash}`);
+        console.log(`✅ ${currency} WITHDRAWAL COMPLETED: ${userId} - ${amount} ${currency} | TX: ${result.txHash}`);
       } else {
         notificationService.createNotification(
           userId,
           'withdrawal',
-          '📋 Withdrawal Queued',
-          `Your withdrawal of ${amount} SUI is being processed`,
-          { amount, status: 'pending_admin' }
+          `Withdrawal Queued`,
+          `Your withdrawal of ${amount} ${currency} is being processed`,
+          { amount, currency, status: 'pending_admin' }
         );
-        console.log(`📋 WITHDRAWAL QUEUED: ${userId} - ${amount} SUI`);
+        console.log(`📋 ${currency} WITHDRAWAL QUEUED: ${userId} - ${amount} ${currency}`);
       }
 
       res.json({
         success: true,
         withdrawal: {
           amount,
+          currency,
           txHash: result.txHash,
           status: result.status,
           timestamp: Date.now(),

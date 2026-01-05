@@ -397,6 +397,72 @@ export class BlockchainBetService {
     }
   }
 
+  /**
+   * Execute on-chain SBETS payout to recipient
+   * Requires admin wallet to have SBETS tokens
+   */
+  async executePayoutSbetsOnChain(
+    recipientAddress: string,
+    amountSbets: number
+  ): Promise<{ success: boolean; txHash?: string; error?: string }> {
+    const keypair = this.getAdminKeypair();
+    if (!keypair) {
+      const error = 'Admin private key not configured or invalid format';
+      console.error(`❌ SBETS PAYOUT BLOCKED: ${error}`);
+      return { success: false, error };
+    }
+
+    try {
+      const amountMist = Math.floor(amountSbets * 1e9);
+      const adminAddress = keypair.toSuiAddress();
+      
+      // Get admin's SBETS coins
+      const sbetsCoins = await this.client.getCoins({
+        owner: adminAddress,
+        coinType: SBETS_COIN_TYPE,
+      });
+
+      if (!sbetsCoins.data || sbetsCoins.data.length === 0) {
+        return { success: false, error: 'No SBETS coins available in admin wallet' };
+      }
+
+      const tx = new Transaction();
+      
+      // Merge all SBETS coins if multiple exist
+      if (sbetsCoins.data.length > 1) {
+        const primaryCoin = tx.object(sbetsCoins.data[0].coinObjectId);
+        const coinsToMerge = sbetsCoins.data.slice(1).map(c => tx.object(c.coinObjectId));
+        tx.mergeCoins(primaryCoin, coinsToMerge);
+        const [splitCoin] = tx.splitCoins(primaryCoin, [amountMist]);
+        tx.transferObjects([splitCoin], recipientAddress);
+      } else {
+        const primaryCoin = tx.object(sbetsCoins.data[0].coinObjectId);
+        const [splitCoin] = tx.splitCoins(primaryCoin, [amountMist]);
+        tx.transferObjects([splitCoin], recipientAddress);
+      }
+
+      const result = await this.client.signAndExecuteTransaction({
+        signer: keypair,
+        transaction: tx,
+        options: {
+          showEffects: true,
+          showEvents: true,
+        },
+      });
+
+      if (result.effects?.status?.status === 'success') {
+        console.log(`✅ ON-CHAIN SBETS PAYOUT: ${amountSbets} SBETS to ${recipientAddress} | TX: ${result.digest}`);
+        return { success: true, txHash: result.digest };
+      } else {
+        console.error(`❌ SBETS PAYOUT FAILED: ${result.effects?.status?.error || 'Unknown error'}`);
+        return { success: false, error: result.effects?.status?.error || 'Transaction failed' };
+      }
+    } catch (error: any) {
+      console.error('❌ SBETS Payout execution error:', error);
+      return { success: false, error: error.message || 'Failed to execute SBETS payout' };
+    }
+  }
+
   // Get treasury balance (admin wallet balance)
   async getTreasuryBalance(): Promise<{ sui: number; sbets: number }> {
     return this.getWalletBalance(PLATFORM_REVENUE_WALLET);
