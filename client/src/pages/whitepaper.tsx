@@ -5,8 +5,6 @@ const suibetsLogo = "/images/suibets-logo.png";
 import { 
   FileText, 
   Shield, 
-  Coins, 
-  Users, 
   Zap, 
   Lock,
   TrendingUp,
@@ -30,12 +28,6 @@ export default function WhitepaperPage() {
       content: 'SuiBets is a decentralized sports betting platform built on the Sui blockchain. Our platform leverages the speed, security, and low transaction costs of the Sui network to provide a seamless betting experience with complete transparency and fairness.'
     },
     {
-      id: 'tokenomics',
-      title: 'SBETS Tokenomics',
-      icon: <Coins className="h-5 w-5 text-purple-400" />,
-      content: 'The SBETS token is the native utility token of the SuiBets platform. Total supply: 1,000,000,000 SBETS. Distribution: 40% Community rewards, 25% Development, 20% Liquidity, 10% Team (vested), 5% Marketing.'
-    },
-    {
       id: 'security',
       title: 'Security & Transparency',
       icon: <Shield className="h-5 w-5 text-red-400" />,
@@ -46,12 +38,6 @@ export default function WhitepaperPage() {
       title: 'Betting Mechanics',
       icon: <TrendingUp className="h-5 w-5 text-green-400" />,
       content: 'SuiBets offers real-time odds on 30+ sports with multiple market types including Match Winner, Handicap, Over/Under, and more. Live betting is supported with instant settlement upon match completion.'
-    },
-    {
-      id: 'governance',
-      title: 'Governance',
-      icon: <Users className="h-5 w-5 text-orange-400" />,
-      content: 'SBETS token holders can participate in platform governance through voting on proposals. Stakers earn a share of platform fees and have enhanced voting power proportional to their stake duration.'
     },
     {
       id: 'technology',
@@ -194,7 +180,7 @@ export default function WhitepaperPage() {
               <div className="flex items-center gap-2">
                 <code className="text-cyan-400 text-sm">0x6a4d9c...1a7285</code>
                 <a 
-                  href="https://explorer.sui.io/object/0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285"
+                  href="https://suiscan.xyz/mainnet/object/0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-cyan-400 hover:text-cyan-300"
@@ -205,15 +191,30 @@ export default function WhitepaperPage() {
               </div>
             </div>
             <div className="flex items-center justify-between p-4 bg-black/50 rounded-xl">
-              <span className="text-gray-400">Betting Contract</span>
+              <span className="text-gray-400">Betting Platform</span>
               <div className="flex items-center gap-2">
-                <code className="text-cyan-400 text-sm">0x8b5e2f...3c9876</code>
+                <code className="text-cyan-400 text-sm">0xfb946f...a89e9c</code>
                 <a 
-                  href="https://explorer.sui.io"
+                  href="https://suiscan.xyz/mainnet/object/0xfb946f078082f42c93b7c1db30365f590338fd477ac20c564498d9315ca89e9c"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-cyan-400 hover:text-cyan-300"
                   data-testid="link-betting-contract"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-4 bg-black/50 rounded-xl">
+              <span className="text-gray-400">Betting Package</span>
+              <div className="flex items-center gap-2">
+                <code className="text-cyan-400 text-sm">0x9ca7d3...b6626</code>
+                <a 
+                  href="https://suiscan.xyz/mainnet/object/0x9ca7d3b57c018fb171724dc808a542d2ec27354f6526b75e968d308d29bb6626"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-cyan-400 hover:text-cyan-300"
+                  data-testid="link-betting-package"
                 >
                   <ExternalLink className="h-4 w-4" />
                 </a>
