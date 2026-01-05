@@ -829,7 +829,8 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         eventId,
         odds,
         amount: betAmount,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        status: 'pending'
       });
 
       console.log(`✅ BET PLACED (${paymentMethod}): ${betId} - ${prediction} @ ${odds} odds, Stake: ${betAmount} ${currency}, Potential: ${potentialPayout} ${currency}`);
@@ -925,12 +926,13 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       }
 
       const { userId, selections, betAmount, feeCurrency } = validation.data!;
+      const userIdStr = String(userId);
       
       // Determine currency (default to SUI)
       const currency: 'SUI' | 'SBETS' = feeCurrency === 'SBETS' ? 'SBETS' : 'SUI';
 
       // Check user balance (using async for accurate DB read)
-      const balance = await balanceService.getBalanceAsync(userId);
+      const balance = await balanceService.getBalanceAsync(userIdStr);
       
       // Calculate parlay odds (multiply all odds)
       const parlayOdds = selections.reduce((acc: number, sel: any) => acc * sel.odds, 1);
@@ -950,7 +952,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       }
 
       // Deduct bet from balance (with currency support)
-      const deductSuccess = await balanceService.deductForBet(userId, betAmount, platformFee, currency);
+      const deductSuccess = await balanceService.deductForBet(userIdStr, betAmount, platformFee, currency);
       if (!deductSuccess) {
         return res.status(400).json({ message: "Failed to deduct bet amount from balance" });
       }
@@ -961,7 +963,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
 
       const parlay = {
         id: parlayId,
-        userId,
+        userId: userIdStr,
         selections,
         odds: parlayOdds,
         betAmount,
@@ -979,9 +981,9 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
 
       // Notify user
       notificationService.createNotification(
-        userId,
+        userIdStr,
         'bet_placed',
-        `🔥 Parlay Placed: ${selections.length} Selections`,
+        `Parlay Placed: ${selections.length} Selections`,
         `${selections.length}-leg parlay @ ${parlayOdds.toFixed(2)} odds. Stake: ${betAmount} ${currency}, Potential: ${potentialPayout} ${currency}`,
         parlay
       );
@@ -990,11 +992,12 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       // Log to monitoring
       monitoringService.logBet({
         betId: parlayId,
-        userId,
+        userId: userIdStr,
         eventId: 'parlay',
         odds: parlayOdds,
         amount: betAmount,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        status: 'pending'
       });
 
       console.log(`🔥 PARLAY PLACED: ${parlayId} - ${selections.length} selections @ ${parlayOdds.toFixed(2)} odds, Stake: ${betAmount} ${currency}, Potential: ${potentialPayout} ${currency}`);
@@ -1121,9 +1124,13 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       }
 
       // Verify on-chain if txHash exists
-      let onChainVerification = { confirmed: false, blockHeight: 0 };
+      let onChainVerification: { confirmed: boolean; blockHeight: number } = { confirmed: false, blockHeight: 0 };
       if (bet.txHash) {
-        onChainVerification = await blockchainBetService.verifyTransaction(bet.txHash);
+        const verification = await blockchainBetService.verifyTransaction(bet.txHash);
+        onChainVerification = { 
+          confirmed: verification.confirmed, 
+          blockHeight: verification.blockHeight || 0 
+        };
       }
 
       res.json({
@@ -1583,10 +1590,11 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       }
 
       const { userId, amount } = validation.data!;
+      const userIdStr = String(userId);
       const executeOnChain = req.body.executeOnChain === true;
       const currency: 'SUI' | 'SBETS' = req.body.currency === 'SBETS' ? 'SBETS' : 'SUI';
       
-      const result = await balanceService.withdraw(userId, amount, executeOnChain, currency);
+      const result = await balanceService.withdraw(userIdStr, amount, executeOnChain, currency);
 
       if (!result.success) {
         return res.status(400).json({ message: result.message });
@@ -1594,17 +1602,17 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
 
       // Notify user based on withdrawal status
       if (result.status === 'completed') {
-        notificationService.notifyWithdrawal(userId, amount, 'completed');
-        console.log(`✅ ${currency} WITHDRAWAL COMPLETED: ${userId} - ${amount} ${currency} | TX: ${result.txHash}`);
+        notificationService.notifyWithdrawal(userIdStr, amount, 'completed');
+        console.log(`Withdrawal completed: ${userIdStr} - ${amount} ${currency} | TX: ${result.txHash}`);
       } else {
         notificationService.createNotification(
-          userId,
+          userIdStr,
           'withdrawal',
           `Withdrawal Queued`,
           `Your withdrawal of ${amount} ${currency} is being processed`,
           { amount, currency, status: 'pending_admin' }
         );
-        console.log(`📋 ${currency} WITHDRAWAL QUEUED: ${userId} - ${amount} ${currency}`);
+        console.log(`Withdrawal queued: ${userIdStr} - ${amount} ${currency}`);
       }
 
       res.json({
