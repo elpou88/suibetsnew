@@ -29,6 +29,7 @@ interface Bet {
   placedAt: string;
   settledAt?: string;
   txHash?: string;
+  currency?: 'SUI' | 'SBETS';
 }
 
 export default function BetHistoryPage() {
@@ -234,7 +235,7 @@ export default function BetHistoryPage() {
                   <div className="text-right">
                     <div className="flex items-center gap-2 justify-end mb-1">
                       <span className="text-gray-400 text-sm">Stake:</span>
-                      <span className="text-white font-medium">{bet.stake} SUI</span>
+                      <span className="text-white font-medium">{bet.stake} {bet.currency || 'SUI'}</span>
                     </div>
                     <div className="flex items-center gap-2 justify-end mb-1">
                       <span className="text-gray-400 text-sm">Odds:</span>
@@ -245,7 +246,7 @@ export default function BetHistoryPage() {
                       bet.status === 'lost' ? 'text-red-400' :
                       'text-yellow-400'
                     }`}>
-                      {bet.status === 'won' ? '+' : bet.status === 'pending' ? '' : '-'}{bet.potentialWin.toFixed(2)} SUI
+                      {bet.status === 'won' ? '+' : bet.status === 'pending' ? '' : '-'}{bet.potentialWin.toFixed(2)} {bet.currency || 'SUI'}
                     </p>
                     {bet.txHash && (
                       <a 
