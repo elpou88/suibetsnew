@@ -78,7 +78,7 @@ Preferred communication style: Simple, everyday language.
 ### Sports Data Providers
 - **API-Sports**: Primary sports data provider (`api-sports.io`).
 - **SportsData API**: Secondary data source.
-- **Fixed API Key**: `3ec255b133882788e32f6349eff77b21`
+- **API Key**: Stored in environment secret `API_SPORTS_KEY` (NEVER commit to repo)
 
 ### Blockchain Services
 - **Sui Network**: Layer 1 blockchain (mainnet).
