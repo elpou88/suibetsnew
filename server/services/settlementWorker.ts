@@ -357,6 +357,15 @@ class SettlementWorkerService {
         const hasOnChainBet = bet.betObjectId && blockchainBetService.isAdminKeyConfigured();
         const isSuiOnChainBet = bet.currency === 'SUI' && hasOnChainBet;
         const isSbetsOnChainBet = bet.currency === 'SBETS' && hasOnChainBet;
+        
+        // CRITICAL WARNING: Flag bets without betObjectId that will use off-chain fallback
+        if (!bet.betObjectId) {
+          console.warn(`⚠️ MISSING betObjectId: Bet ${bet.id} (${bet.currency}) has no on-chain object ID - will use OFF-CHAIN fallback`);
+          console.warn(`   This bet was likely placed before the betObjectId extraction fix or transaction failed to capture it`);
+        }
+        if (!blockchainBetService.isAdminKeyConfigured()) {
+          console.warn(`⚠️ ADMIN_PRIVATE_KEY not configured - all settlements will use OFF-CHAIN fallback`);
+        }
 
         if (isSuiOnChainBet) {
           // ============ ON-CHAIN SETTLEMENT (SUI via smart contract) ============
