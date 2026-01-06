@@ -2501,8 +2501,8 @@ export class ApiSportsService {
     
     const resultMap = new Map<string, any>();
     
-    // Batch fixtures into groups of 20 to avoid too many API calls
-    const batchSize = 20;
+    // Batch fixtures into groups of 10 to respect API rate limits (10 req/sec)
+    const batchSize = 10;
     const batches = [];
     for (let i = 0; i < fixtureIds.length; i += batchSize) {
       batches.push(fixtureIds.slice(i, i + batchSize));
@@ -2510,15 +2510,18 @@ export class ApiSportsService {
     
     console.log(`[ApiSportsService] 🎰 Fetching odds for ${fixtureIds.length} fixtures in ${batches.length} batch(es)`);
     
-    // Process ALL batches to ensure 100% odds coverage
-    for (const batch of batches) {
+    // Process ALL batches with rate limiting (max 10 requests per second for API-Sports)
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+      const batch = batches[batchIndex];
       const promises = batch.map(async (fixtureId) => {
         const cacheKey = `odds_fixture_${fixtureId}`;
         
         try {
           // Check cache first
           const cached = this.cache.get(cacheKey);
-          if (cached) return cached;
+          if (cached && Date.now() - cached.timestamp < this.mediumCacheExpiry) {
+            return cached.data;
+          }
           
           let apiUrl: string;
           let params: any = {};
@@ -2562,7 +2565,7 @@ export class ApiSportsService {
                 }
               }
               // Only cache successful results
-              this.cache.set(cacheKey, oddsValues, this.mediumCacheExpiry);
+              this.cache.set(cacheKey, { data: oddsValues, timestamp: Date.now() });
               return oddsValues;
             }
           }
@@ -2580,9 +2583,10 @@ export class ApiSportsService {
         }
       });
       
-      // Small delay between batches to avoid rate limiting
-      if (batches.indexOf(batch) < batches.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+      // Delay between batches to respect API rate limits (10 req/sec)
+      // With 20 concurrent requests per batch, wait 2 seconds between batches
+      if (batchIndex < batches.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
     
