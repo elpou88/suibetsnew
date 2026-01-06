@@ -1075,6 +1075,11 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       
       if (txHash) {
         console.log(`📦 With txHash: ${txHash}, betObjectId: ${onChainBetId}`);
+        // CRITICAL WARNING: On-chain bets should always have betObjectId for proper settlement
+        if (!onChainBetId) {
+          console.warn(`⚠️ MISSING betObjectId: On-chain bet (tx: ${txHash}) has no betObjectId - settlement will use OFF-CHAIN fallback!`);
+          console.warn(`   This indicates frontend extraction failed or wallet didn't return objectChanges`);
+        }
       }
 
       const betId = onChainBetId || `bet-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
