@@ -269,6 +269,7 @@ export default function HomeReal() {
                               {event.minute}'
                             </span>
                           )}
+                          <span className="text-xs text-gray-500 ml-1">ID:{event.id}</span>
                         </div>
                         <div className="text-xs text-right text-gray-400">
                           {sports.find((s: any) => s.id === event.sportId)?.name || 'Sport'}
@@ -386,7 +387,7 @@ export default function HomeReal() {
                         <div className="divide-y divide-[#1e3a3f]">
                           {sportEvents.slice(0, 3).map((event: any) => (
                             <div key={event.id} className="bg-[#061118] border-b border-[#1e3a3f] hover:bg-[#0b1618]">
-                              {/* Header with time and league */}
+                              {/* Header with time, date, and ID */}
                               <div className="px-3 py-2 flex justify-between items-center bg-[#061118] border-b border-[#1e3a3f]">
                                 <div className="flex items-center space-x-2">
                                   <Calendar className="w-3 h-3 text-cyan-400" />
@@ -397,6 +398,7 @@ export default function HomeReal() {
                                   <span className="text-xs font-semibold text-cyan-300">
                                     {format(new Date(event.startTime), 'HH:mm')}
                                   </span>
+                                  <span className="text-xs text-gray-500 ml-1">ID:{event.id}</span>
                                 </div>
                                 <div className="text-xs text-right text-gray-400 truncate max-w-[120px]">
                                   {event.leagueName || sport.name}

@@ -244,9 +244,12 @@ export default function UpcomingEventsPage() {
                       {event.league && (
                         <span className="text-gray-400">{event.league}</span>
                       )}
-                      <span className="text-cyan-400">
-                        {new Date(event.startTime).toLocaleDateString()} {new Date(event.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                      </span>
+                      <div className="flex items-center space-x-3">
+                        <span className="text-gray-500 text-xs">ID:{event.id}</span>
+                        <span className="text-cyan-400">
+                          {new Date(event.startTime).toLocaleDateString()} {new Date(event.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        </span>
+                      </div>
                     </div>
                   </CardHeader>
                   

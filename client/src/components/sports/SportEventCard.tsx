@@ -98,6 +98,7 @@ const SportEventCard: React.FC<SportEventCardProps> = ({ event, sportId }) => {
                 <>
                   <Clock className="h-3 w-3 mr-1" />
                   <span>{formatDate(event.startTime)}</span>
+                  <span className="text-gray-500 ml-2">ID:{event.id}</span>
                 </>
               )}
             </div>
