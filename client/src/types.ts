@@ -51,7 +51,7 @@ export interface SelectedBet {
   stake: number;
   market: string;
   marketId?: number;
-  outcomeId?: string | null;
+  outcomeId?: string | number; // Allow string or number for outcome IDs
   isLive?: boolean; // Indicates if this is a live betting event
   currency?: 'SUI' | 'SBETS'; // Currency for this specific bet
   uniqueId?: string; // Optional unique identifier to prevent duplicates

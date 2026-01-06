@@ -362,25 +362,39 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const authHeader = req.headers.authorization;
       const token = authHeader?.replace('Bearer ', '');
       
+      console.log(`[Admin] Withdraw SUI request: amount=${amount}, hasToken=${!!token}, hasPassword=${!!adminPassword}`);
+      
       const hasValidToken = token && isValidAdminSession(token);
       const actualPassword = process.env.ADMIN_PASSWORD || 'change-me-in-production';
       const hasValidPassword = adminPassword === actualPassword;
       
+      console.log(`[Admin] Auth check: validToken=${hasValidToken}, validPassword=${hasValidPassword}`);
+      
       if (!hasValidToken && !hasValidPassword) {
-        return res.status(401).json({ message: "Unauthorized" });
+        console.log(`[Admin] Unauthorized - no valid token or password`);
+        return res.status(401).json({ message: "Unauthorized - provide valid admin password or session token" });
       }
       
       if (!amount || amount <= 0) {
         return res.status(400).json({ message: "Valid amount required" });
       }
       
+      // Check if admin key is configured
+      if (!blockchainBetService.isAdminKeyConfigured()) {
+        return res.status(400).json({ success: false, error: "ADMIN_PRIVATE_KEY not configured on server" });
+      }
+      
+      console.log(`[Admin] Executing SUI withdrawal: ${amount} SUI`);
       const result = await blockchainBetService.withdrawFeesOnChain(amount);
       if (result.success) {
+        console.log(`[Admin] SUI withdrawal successful: ${result.txHash}`);
         res.json({ success: true, txHash: result.txHash, amount });
       } else {
+        console.log(`[Admin] SUI withdrawal failed: ${result.error}`);
         res.status(400).json({ success: false, error: result.error });
       }
     } catch (error: any) {
+      console.error(`[Admin] SUI withdrawal error:`, error);
       res.status(500).json({ message: error.message });
     }
   });
@@ -392,25 +406,39 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const authHeader = req.headers.authorization;
       const token = authHeader?.replace('Bearer ', '');
       
+      console.log(`[Admin] Withdraw SBETS request: amount=${amount}, hasToken=${!!token}, hasPassword=${!!adminPassword}`);
+      
       const hasValidToken = token && isValidAdminSession(token);
       const actualPassword = process.env.ADMIN_PASSWORD || 'change-me-in-production';
       const hasValidPassword = adminPassword === actualPassword;
       
+      console.log(`[Admin] Auth check: validToken=${hasValidToken}, validPassword=${hasValidPassword}`);
+      
       if (!hasValidToken && !hasValidPassword) {
-        return res.status(401).json({ message: "Unauthorized" });
+        console.log(`[Admin] Unauthorized - no valid token or password`);
+        return res.status(401).json({ message: "Unauthorized - provide valid admin password or session token" });
       }
       
       if (!amount || amount <= 0) {
         return res.status(400).json({ message: "Valid amount required" });
       }
       
+      // Check if admin key is configured
+      if (!blockchainBetService.isAdminKeyConfigured()) {
+        return res.status(400).json({ success: false, error: "ADMIN_PRIVATE_KEY not configured on server" });
+      }
+      
+      console.log(`[Admin] Executing SBETS withdrawal: ${amount} SBETS`);
       const result = await blockchainBetService.withdrawFeesSbetsOnChain(amount);
       if (result.success) {
+        console.log(`[Admin] SBETS withdrawal successful: ${result.txHash}`);
         res.json({ success: true, txHash: result.txHash, amount });
       } else {
+        console.log(`[Admin] SBETS withdrawal failed: ${result.error}`);
         res.status(400).json({ success: false, error: result.error });
       }
     } catch (error: any) {
+      console.error(`[Admin] SBETS withdrawal error:`, error);
       res.status(500).json({ message: error.message });
     }
   });
@@ -592,7 +620,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           
           // Deduplicate events by ID to prevent repeated matches
           const seenLiveIds = new Set<string>();
-          const allLiveEvents = allLiveEventsRaw.filter(event => {
+          let allLiveEvents = allLiveEventsRaw.filter(event => {
             const eventId = String(event.id);
             if (seenLiveIds.has(eventId)) return false;
             seenLiveIds.add(eventId);
@@ -600,6 +628,14 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           });
           
           console.log(`✅ LIVE: Fetched ${allLiveEvents.length} unique events (${allLiveEventsRaw.length} before dedup, ${sportsToFetch.length} sports)`);
+          
+          // Enrich events with real odds from API-Sports (football only for now)
+          try {
+            allLiveEvents = await apiSportsService.enrichEventsWithOdds(allLiveEvents, 'football');
+            console.log(`✅ LIVE: Enriched events with real odds`);
+          } catch (oddsError: any) {
+            console.warn(`⚠️ LIVE: Failed to enrich with odds: ${oddsError.message}`);
+          }
           
           // Filter by sport if requested
           if (reqSportId && allLiveEvents.length > 0) {
@@ -634,7 +670,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         
         // Deduplicate events by ID to prevent repeated matches
         const seenUpcomingIds = new Set<string>();
-        const allUpcomingEvents = allUpcomingEventsRaw.filter(event => {
+        let allUpcomingEvents = allUpcomingEventsRaw.filter(event => {
           const eventId = String(event.id);
           if (seenUpcomingIds.has(eventId)) return false;
           seenUpcomingIds.add(eventId);
@@ -642,6 +678,14 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         });
         
         console.log(`✅ UPCOMING: Fetched ${allUpcomingEvents.length} unique events (${allUpcomingEventsRaw.length} before dedup, ${sportsToFetch.length} sports)`);
+        
+        // Enrich events with real odds from API-Sports (football only for now)
+        try {
+          allUpcomingEvents = await apiSportsService.enrichEventsWithOdds(allUpcomingEvents, 'football');
+          console.log(`✅ UPCOMING: Enriched events with real odds`);
+        } catch (oddsError: any) {
+          console.warn(`⚠️ UPCOMING: Failed to enrich with odds: ${oddsError.message}`);
+        }
         
         // Filter by sport if requested
         if (reqSportId && allUpcomingEvents.length > 0) {

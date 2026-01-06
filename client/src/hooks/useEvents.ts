@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useRef, useMemo } from 'react';
 
 export interface SportEvent {
   id: string | number;
@@ -22,14 +23,43 @@ export interface SportEvent {
   markets?: any[];
 }
 
+// Stable merge function - preserves existing event objects when data is the same
+function mergeEventsStably(prevEvents: SportEvent[], newEvents: SportEvent[]): SportEvent[] {
+  if (!prevEvents || prevEvents.length === 0) return newEvents;
+  if (!newEvents || newEvents.length === 0) return prevEvents;
+  
+  // Create a map of previous events by ID for fast lookup
+  const prevMap = new Map(prevEvents.map(e => [String(e.id), e]));
+  
+  // Merge new events while preserving object identity where data is same
+  return newEvents.map(newEvent => {
+    const prevEvent = prevMap.get(String(newEvent.id));
+    if (!prevEvent) return newEvent;
+    
+    // Compare key fields - if same, return prev object to avoid re-render
+    const sameScore = prevEvent.homeScore === newEvent.homeScore && 
+                      prevEvent.awayScore === newEvent.awayScore;
+    const sameMinute = prevEvent.minute === newEvent.minute;
+    const sameStatus = prevEvent.status === newEvent.status;
+    
+    if (sameScore && sameMinute && sameStatus) {
+      // Return previous object to prevent re-render
+      return prevEvent;
+    }
+    
+    return newEvent;
+  });
+}
+
 export function useLiveEvents(sportId?: string | number | null) {
   const normalizedSportId = sportId ? String(sportId) : 'all';
+  const previousDataRef = useRef<SportEvent[]>([]);
   
   const url = normalizedSportId === 'all' 
     ? '/api/events?isLive=true' 
     : `/api/events?isLive=true&sportId=${normalizedSportId}`;
 
-  return useQuery<any[]>({
+  const query = useQuery<SportEvent[]>({
     queryKey: ['events', 'live', normalizedSportId],
     queryFn: async () => {
       const controller = new AbortController();
@@ -77,6 +107,21 @@ export function useLiveEvents(sportId?: string | number | null) {
     retry: 2,
     retryDelay: 1000,
   });
+  
+  // Use stable merging to prevent flickering
+  const stableData = useMemo(() => {
+    const rawData = query.data ?? [];
+    const merged = mergeEventsStably(previousDataRef.current, rawData);
+    if (merged.length > 0) {
+      previousDataRef.current = merged;
+    }
+    return merged;
+  }, [query.data]);
+  
+  return {
+    ...query,
+    data: stableData
+  };
 }
 
 export function useUpcomingEvents(sportId?: string | number | null) {

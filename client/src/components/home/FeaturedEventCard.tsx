@@ -51,7 +51,7 @@ const FeaturedEventCard: React.FC<FeaturedEventCardProps> = ({ event, getSportNa
       stake: 10, // Default stake
       market: event.markets[0]?.name || 'Match Result',
       marketId: event.markets[0]?.id ? parseInt(event.markets[0].id) : undefined,
-      outcomeId: outcome.id,
+      outcomeId: outcome.id || undefined,
       isLive: event.isLive,
       uniqueId: Math.random().toString(36).substring(2, 10)
     };

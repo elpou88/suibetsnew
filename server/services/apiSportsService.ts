@@ -2490,6 +2490,180 @@ export class ApiSportsService {
     
     return transformed;
   }
+
+  /**
+   * Get odds for all fixtures on a specific date (bulk fetch)
+   * This is more efficient than fetching odds per fixture
+   * @param date Date in YYYY-MM-DD format
+   * @param sport Sport slug
+   */
+  async getOddsForDate(date: string, sport: string = 'football'): Promise<Map<string, any>> {
+    const cacheKey = `bulk_odds_${sport}_${date}`;
+    
+    try {
+      const oddsMap = await this.getCachedOrFetch(cacheKey, async () => {
+        console.log(`[ApiSportsService] 🎰 Fetching bulk odds for ${sport} on ${date}`);
+        
+        let apiUrl: string;
+        let params: any = {};
+        
+        if (sport === 'football' || sport === 'soccer') {
+          apiUrl = 'https://v3.football.api-sports.io/odds';
+          params = { date };
+        } else if (sport === 'basketball') {
+          apiUrl = 'https://v1.basketball.api-sports.io/odds';
+          params = { date };
+        } else {
+          // For other sports, return empty map - odds may not be available
+          console.log(`[ApiSportsService] Bulk odds not supported for ${sport}`);
+          return new Map<string, any>();
+        }
+        
+        const response = await axios.get(apiUrl, {
+          params,
+          headers: {
+            'x-apisports-key': this.apiKey,
+            'Accept': 'application/json'
+          },
+          timeout: 30000
+        });
+        
+        const resultMap = new Map<string, any>();
+        
+        if (response.data && response.data.response && Array.isArray(response.data.response)) {
+          const oddsData = response.data.response;
+          console.log(`[ApiSportsService] 🎰 Found odds for ${oddsData.length} fixtures on ${date}`);
+          
+          // Index odds by fixture ID for quick lookup
+          for (const oddEntry of oddsData) {
+            const fixtureId = oddEntry.fixture?.id?.toString() || oddEntry.game?.id?.toString();
+            if (fixtureId && oddEntry.bookmakers && oddEntry.bookmakers.length > 0) {
+              // Get the first bookmaker's Match Winner odds
+              const bookmaker = oddEntry.bookmakers[0];
+              const matchWinner = bookmaker.bets?.find((b: any) => 
+                b.name === 'Match Winner' || b.name === 'Home/Away' || b.name === '1X2'
+              );
+              
+              if (matchWinner && matchWinner.values) {
+                const oddsValues: any = {};
+                for (const val of matchWinner.values) {
+                  const outcome = val.value?.toLowerCase();
+                  const oddValue = parseFloat(val.odd);
+                  if (outcome === 'home' || outcome === '1') {
+                    oddsValues.homeOdds = oddValue;
+                  } else if (outcome === 'draw' || outcome === 'x') {
+                    oddsValues.drawOdds = oddValue;
+                  } else if (outcome === 'away' || outcome === '2') {
+                    oddsValues.awayOdds = oddValue;
+                  }
+                }
+                resultMap.set(fixtureId, oddsValues);
+              }
+            }
+          }
+          
+          console.log(`[ApiSportsService] 🎰 Indexed odds for ${resultMap.size} fixtures`);
+        }
+        
+        return resultMap;
+      }, this.mediumCacheExpiry); // Cache odds for 2 minutes
+      
+      return oddsMap;
+    } catch (error: any) {
+      console.error(`[ApiSportsService] Failed to fetch bulk odds for ${sport} on ${date}:`, error.message);
+      return new Map<string, any>();
+    }
+  }
+
+  /**
+   * Enrich events with real odds from API-Sports
+   * @param events Array of SportEvents to enrich
+   * @param sport Sport slug
+   */
+  async enrichEventsWithOdds(events: SportEvent[], sport: string = 'football'): Promise<SportEvent[]> {
+    if (!events || events.length === 0) return events;
+    
+    // Get unique dates from events
+    const dates = new Set<string>();
+    for (const event of events) {
+      if (event.startTime) {
+        const date = new Date(event.startTime).toISOString().split('T')[0];
+        dates.add(date);
+      }
+    }
+    
+    // Also add today and tomorrow for live events
+    const today = new Date().toISOString().split('T')[0];
+    dates.add(today);
+    
+    console.log(`[ApiSportsService] 🎰 Enriching ${events.length} events with odds for dates: ${Array.from(dates).join(', ')}`);
+    
+    // Fetch odds for all relevant dates in parallel
+    const oddsPromises = Array.from(dates).slice(0, 5).map(date => 
+      this.getOddsForDate(date, sport).catch(() => new Map<string, any>())
+    );
+    
+    const oddsResults = await Promise.all(oddsPromises);
+    
+    // Merge all odds maps
+    const allOdds = new Map<string, any>();
+    for (const oddsMap of oddsResults) {
+      oddsMap.forEach((value, key) => {
+        allOdds.set(key, value);
+      });
+    }
+    
+    console.log(`[ApiSportsService] 🎰 Total odds available for ${allOdds.size} fixtures`);
+    
+    // Enrich events with odds
+    let enrichedCount = 0;
+    const enrichedEvents = events.map(event => {
+      const eventId = event.id?.toString();
+      const odds = allOdds.get(eventId);
+      
+      if (odds) {
+        enrichedCount++;
+        // Update markets with real odds
+        const updatedMarkets = event.markets?.map(market => {
+          if (market.name === 'Match Result' || market.name === 'Match Winner') {
+            return {
+              ...market,
+              outcomes: market.outcomes?.map(outcome => {
+                if (outcome.name === event.homeTeam || outcome.id?.includes('home')) {
+                  return { ...outcome, odds: odds.homeOdds || outcome.odds };
+                } else if (outcome.name === 'Draw' || outcome.id?.includes('draw')) {
+                  return { ...outcome, odds: odds.drawOdds || outcome.odds };
+                } else if (outcome.name === event.awayTeam || outcome.id?.includes('away')) {
+                  return { ...outcome, odds: odds.awayOdds || outcome.odds };
+                }
+                return outcome;
+              })
+            };
+          }
+          return market;
+        });
+        
+        return {
+          ...event,
+          markets: updatedMarkets,
+          homeOdds: odds.homeOdds,
+          drawOdds: odds.drawOdds,
+          awayOdds: odds.awayOdds,
+          oddsSource: 'api-sports'
+        };
+      }
+      
+      // Mark events without API odds
+      return {
+        ...event,
+        oddsSource: 'fallback'
+      };
+    });
+    
+    console.log(`[ApiSportsService] 🎰 Enriched ${enrichedCount}/${events.length} events with real API odds`);
+    
+    return enrichedEvents;
+  }
 }
 
 export default new ApiSportsService();

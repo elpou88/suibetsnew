@@ -527,19 +527,24 @@ export default function AdminPanel() {
     }
 
     const amount = platformInfo.accruedFeesSui;
-    if (!confirm(`Withdraw ${amount.toFixed(4)} SUI fees from contract?`)) {
+    
+    // Prompt for admin password for secure withdrawal
+    const adminPassword = prompt(`Enter admin password to withdraw ${amount.toFixed(4)} SUI fees:`);
+    if (!adminPassword) {
       return;
     }
 
     setWithdrawingSuiFees(true);
     try {
+      // Send both token and password for dual auth
+      const token = getToken();
       const response = await fetch('/api/admin/withdraw-fees', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${getToken()}`
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ amount })
+        body: JSON.stringify({ amount, adminPassword })
       });
 
       if (response.ok) {
@@ -567,19 +572,24 @@ export default function AdminPanel() {
     }
 
     const amount = platformInfo.accruedFeesSbets;
-    if (!confirm(`Withdraw ${amount.toFixed(4)} SBETS fees from contract?`)) {
+    
+    // Prompt for admin password for secure withdrawal
+    const adminPassword = prompt(`Enter admin password to withdraw ${amount.toFixed(4)} SBETS fees:`);
+    if (!adminPassword) {
       return;
     }
 
     setWithdrawingSbetsFees(true);
     try {
+      // Send both token and password for dual auth
+      const token = getToken();
       const response = await fetch('/api/admin/withdraw-fees-sbets', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${getToken()}`
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ amount })
+        body: JSON.stringify({ amount, adminPassword })
       });
 
       if (response.ok) {
