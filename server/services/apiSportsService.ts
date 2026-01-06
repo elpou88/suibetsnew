@@ -17,7 +17,7 @@ export class ApiSportsService {
   // Background prefetcher state
   private prefetcherRunning: boolean = false;
   private lastPrefetchTime: number = 0;
-  private prefetchInterval: number = 60 * 1000; // Refresh odds every 60 seconds
+  private prefetchInterval: number = 5 * 60 * 1000; // Refresh odds every 5 minutes (reduced from 60s to save API calls)
   
   // Pre-warmed odds cache - separate from main cache for guaranteed access
   private oddsCache: Map<string, { homeOdds: number; drawOdds?: number; awayOdds: number; timestamp: number }> = new Map();
@@ -2918,8 +2918,8 @@ export class ApiSportsService {
       console.log('[ApiSportsService] 🔄 Prefetching odds for all events...');
       const startTime = Date.now();
       
-      // Fetch upcoming events for football (main sport)
-      const events = await this.getUpcomingEvents('football', 250);
+      // Fetch upcoming events for football (main sport) - reduced from 250 to 100 to save API calls
+      const events = await this.getUpcomingEvents('football', 100);
       
       if (!events || events.length === 0) {
         console.log('[ApiSportsService] ⚠️ No events to prefetch odds for');

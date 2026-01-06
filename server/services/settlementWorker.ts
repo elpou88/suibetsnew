@@ -36,7 +36,7 @@ class SettlementWorkerService {
   private _isRunning = false;
   private intervalId: NodeJS.Timeout | null = null;
   private settledEventIdsCache = new Set<string>(); // In-memory cache, synced from DB
-  private checkInterval = 30 * 1000; // 30 seconds
+  private checkInterval = 2 * 60 * 1000; // 2 minutes (reduced from 30s to save API calls)
 
   async start() {
     if (this._isRunning) {
@@ -48,7 +48,7 @@ class SettlementWorkerService {
     await this.loadSettledEventsFromDB();
 
     this._isRunning = true;
-    console.log('🚀 SettlementWorker started - checking for finished matches every 30s');
+    console.log('🚀 SettlementWorker started - checking for finished matches every 2 minutes');
 
     this.intervalId = setInterval(async () => {
       try {
@@ -120,6 +120,15 @@ class SettlementWorkerService {
     console.log('🔍 SettlementWorker: Checking for finished matches...');
 
     try {
+      // Check for unsettled bets FIRST to avoid unnecessary API calls
+      const unsettledBets = await this.getUnsettledBets();
+      
+      if (unsettledBets.length === 0) {
+        console.log('📭 SettlementWorker: No unsettled bets - skipping API fetch');
+        return;
+      }
+
+      // Only fetch finished matches if we have bets to settle
       const finishedMatches = await this.getFinishedMatches();
       
       if (finishedMatches.length === 0) {
@@ -128,14 +137,6 @@ class SettlementWorkerService {
       }
 
       console.log(`📋 SettlementWorker: Found ${finishedMatches.length} finished matches`);
-
-      const unsettledBets = await this.getUnsettledBets();
-      
-      if (unsettledBets.length === 0) {
-        console.log('📭 SettlementWorker: No unsettled bets to process');
-        return;
-      }
-
       console.log(`🎯 SettlementWorker: Processing ${unsettledBets.length} unsettled bets`);
       
       // Debug: Log unsettled bet details for matching
@@ -205,7 +206,8 @@ class SettlementWorkerService {
     const finishedMatches: FinishedMatch[] = [];
     
     try {
-      const sportsToCheck = ['football', 'basketball', 'baseball', 'hockey', 'handball', 'volleyball', 'rugby'];
+      // Only check sports with API endpoints to save API calls
+      const sportsToCheck = ['football', 'basketball', 'baseball', 'hockey'];
       
       for (const sport of sportsToCheck) {
         try {
