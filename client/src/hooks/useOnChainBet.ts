@@ -228,11 +228,7 @@ export function useOnChainBet() {
 
       const result = await signAndExecute({
         transaction: tx,
-        execute: {
-          showObjectChanges: true,
-          showEffects: true,
-        },
-      });
+      } as any);
       console.log('[useOnChainBet] Transaction signed, result:', JSON.stringify(result, null, 2));
 
       if (!result.digest) {
