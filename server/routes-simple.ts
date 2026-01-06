@@ -716,6 +716,13 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
             console.warn(`⚠️ LIVE: Failed to enrich with odds: ${oddsError.message}`);
           }
           
+          // Sort by startTime (earliest first, events without startTime go to end)
+          allLiveEvents.sort((a, b) => {
+            const timeA = a.startTime ? new Date(a.startTime).getTime() : Infinity;
+            const timeB = b.startTime ? new Date(b.startTime).getTime() : Infinity;
+            return timeA - timeB;
+          });
+          
           // Filter by sport if requested
           if (reqSportId && allLiveEvents.length > 0) {
             const filtered = allLiveEvents.filter(e => e.sportId === reqSportId);
@@ -765,6 +772,13 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         } catch (oddsError: any) {
           console.warn(`⚠️ UPCOMING: Failed to enrich with odds: ${oddsError.message}`);
         }
+        
+        // Sort by startTime (earliest first, events without startTime go to end)
+        allUpcomingEvents.sort((a, b) => {
+          const timeA = a.startTime ? new Date(a.startTime).getTime() : Infinity;
+          const timeB = b.startTime ? new Date(b.startTime).getTime() : Infinity;
+          return timeA - timeB;
+        });
         
         // Filter by sport if requested
         if (reqSportId && allUpcomingEvents.length > 0) {
@@ -826,7 +840,14 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         filteredEvents = allLiveEvents.filter(e => e.sportId === sportId);
       }
       
-      // Return minimal data for performance
+      // Sort by startTime (earliest first, events without startTime go to end)
+      filteredEvents.sort((a, b) => {
+        const timeA = a.startTime ? new Date(a.startTime).getTime() : Infinity;
+        const timeB = b.startTime ? new Date(b.startTime).getTime() : Infinity;
+        return timeA - timeB;
+      });
+      
+      // Return minimal data for performance (including startTime)
       const liteEvents = filteredEvents.map(e => ({
         id: e.id,
         sportId: e.sportId,
@@ -836,7 +857,8 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         awayScore: e.awayScore,
         status: e.status,
         isLive: e.isLive,
-        leagueName: e.leagueName
+        leagueName: e.leagueName,
+        startTime: e.startTime
       }));
       
       res.json(liteEvents);
