@@ -101,6 +101,8 @@ export default function AdminPanel() {
   const [triggeringSettlement, setTriggeringSettlement] = useState(false);
   const [withdrawingSuiFees, setWithdrawingSuiFees] = useState(false);
   const [withdrawingSbetsFees, setWithdrawingSbetsFees] = useState(false);
+  const [legacyBets, setLegacyBets] = useState<any[]>([]);
+  const [loadingLegacy, setLoadingLegacy] = useState(false);
 
   const isAdminWallet = currentAccount?.address?.toLowerCase() === ADMIN_WALLET.toLowerCase();
 
@@ -656,6 +658,24 @@ export default function AdminPanel() {
     setLoading(false);
   };
 
+  // Fetch legacy bets without betObjectId (stuck liability)
+  const fetchLegacyBets = async () => {
+    setLoadingLegacy(true);
+    try {
+      const response = await fetch('/api/admin/legacy-bets', {
+        headers: { 'Authorization': `Bearer ${getToken()}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setLegacyBets(data.legacyBets || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch legacy bets:', error);
+    }
+    setLoadingLegacy(false);
+  };
+
   const settleBet = async (betId: string, outcome: 'won' | 'lost' | 'void') => {
     setSettling(betId);
     try {
@@ -732,6 +752,7 @@ export default function AdminPanel() {
   useEffect(() => {
     if (isAuthenticated) {
       fetchBets();
+      fetchLegacyBets();
     }
   }, [isAuthenticated, filter]);
 
@@ -882,6 +903,82 @@ export default function AdminPanel() {
                     Total Bets: {platformInfo.totalBets}
                   </Badge>
                 </div>
+
+                {/* Legacy Bets Section - Stuck Liability */}
+                {legacyBets.length > 0 && (
+                  <div className="mt-6 p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+                    <h4 className="text-md font-semibold text-orange-400 mb-3 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4" />
+                      Legacy Bets - Stuck On-Chain Liability
+                    </h4>
+                    <p className="text-gray-400 text-sm mb-3">
+                      These bets were placed on-chain but settled via database credits (before betObjectId tracking). 
+                      Their liability remains on-chain because the smart contract was never called to settle them.
+                      This is phantom liability - it doesn't affect real operations since these bets are already settled.
+                    </p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                      <div className="bg-black/40 rounded p-3">
+                        <p className="text-xs text-gray-500">Legacy Bets</p>
+                        <p className="text-lg font-bold text-orange-400">{legacyBets.length}</p>
+                      </div>
+                      <div className="bg-black/40 rounded p-3">
+                        <p className="text-xs text-gray-500">Stuck SUI Liability</p>
+                        <p className="text-lg font-bold text-cyan-400">
+                          {legacyBets.filter(b => b.currency === 'SUI').reduce((sum, b) => sum + (b.potentialWin || 0), 0).toFixed(4)}
+                        </p>
+                      </div>
+                      <div className="bg-black/40 rounded p-3">
+                        <p className="text-xs text-gray-500">Stuck SBETS Liability</p>
+                        <p className="text-lg font-bold text-purple-400">
+                          {legacyBets.filter(b => b.currency === 'SBETS').reduce((sum, b) => sum + (b.potentialWin || 0), 0).toFixed(0)}
+                        </p>
+                      </div>
+                      <div className="bg-black/40 rounded p-3">
+                        <p className="text-xs text-gray-500">Settlement Status</p>
+                        <p className="text-lg font-bold text-gray-400">Off-chain</p>
+                      </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-gray-500 border-b border-gray-700">
+                            <th className="text-left py-2 px-2">ID</th>
+                            <th className="text-left py-2 px-2">Event</th>
+                            <th className="text-left py-2 px-2">Status</th>
+                            <th className="text-right py-2 px-2">Stake</th>
+                            <th className="text-right py-2 px-2">Potential Payout</th>
+                            <th className="text-left py-2 px-2">Currency</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {legacyBets.map((bet: any) => (
+                            <tr key={bet.id} className="border-b border-gray-800 text-gray-300">
+                              <td className="py-2 px-2">{bet.dbId || bet.id}</td>
+                              <td className="py-2 px-2 max-w-[150px] truncate">{bet.eventName}</td>
+                              <td className="py-2 px-2">
+                                <Badge variant="outline" className={
+                                  bet.status === 'won' ? 'border-green-500 text-green-400' :
+                                  bet.status === 'lost' ? 'border-red-500 text-red-400' :
+                                  'border-gray-500 text-gray-400'
+                                }>
+                                  {bet.status}
+                                </Badge>
+                              </td>
+                              <td className="py-2 px-2 text-right">{bet.stake?.toFixed(2)}</td>
+                              <td className="py-2 px-2 text-right text-orange-400">{bet.potentialWin?.toFixed(2)}</td>
+                              <td className="py-2 px-2">{bet.currency}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-3">
+                      Note: The smart contract does not have a direct "adjust liability" function. 
+                      To reduce this phantom liability, a contract upgrade would be required to add an admin function for liability adjustment.
+                      All new bets (with betObjectId) settle correctly on-chain with proper liability tracking.
+                    </p>
+                  </div>
+                )}
 
                 {/* Deposit Section - Only for Admin Wallet */}
                 {currentAccount?.address ? (

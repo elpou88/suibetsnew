@@ -361,6 +361,39 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
 
+  // Admin get legacy bets (without betObjectId - stuck liability)
+  app.get("/api/admin/legacy-bets", async (req: Request, res: Response) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace('Bearer ', '');
+      
+      if (!token || !isValidAdminSession(token)) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      // Get all bets and filter for those without betObjectId (legacy bets causing stuck liability)
+      const allBets = await storage.getAllBets();
+      const legacyBets = allBets.filter(b => !b.betObjectId && b.status !== 'pending');
+      
+      // Calculate stuck liability based on potential payouts
+      const stuckLiabilitySui = legacyBets
+        .filter(b => b.currency === 'SUI')
+        .reduce((sum, b) => sum + (b.potentialWin || 0), 0);
+      const stuckLiabilitySbets = legacyBets
+        .filter(b => b.currency === 'SBETS')
+        .reduce((sum, b) => sum + (b.potentialWin || 0), 0);
+      
+      res.json({ 
+        legacyBets,
+        stuckLiabilitySui,
+        stuckLiabilitySbets,
+        count: legacyBets.length
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch legacy bets" });
+    }
+  });
+
   // Admin settle all pending bets endpoint
   app.post("/api/admin/settle-all", async (req: Request, res: Response) => {
     try {
