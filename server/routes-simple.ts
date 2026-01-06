@@ -1272,6 +1272,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const bets = await storage.getUserBets(lookupId);
       const filtered = status ? bets.filter(b => b.status === status) : bets;
       
+      // Storage already provides currency field properly mapped
       res.json(filtered);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch bets" });

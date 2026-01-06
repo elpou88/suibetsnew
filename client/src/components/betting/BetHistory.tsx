@@ -235,10 +235,10 @@ export function BetHistory() {
                   <CardContent className="pb-2">
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div className="text-gray-400">Stake:</div>
-                      <div className="text-right">{bet.stake || bet.betAmount} {bet.currency || 'SUI'}</div>
+                      <div className="text-right">{bet.stake || bet.betAmount} {bet.currency || bet.feeCurrency || 'SUI'}</div>
                       
                       <div className="text-gray-400">Potential Win:</div>
-                      <div className="text-right">{(bet.potentialWin || bet.potentialPayout || 0).toFixed(2)} {bet.currency || 'SUI'}</div>
+                      <div className="text-right">{(bet.potentialWin || bet.potentialPayout || 0).toFixed(2)} {bet.currency || bet.feeCurrency || 'SUI'}</div>
                       
                       <div className="text-gray-400">Placed:</div>
                       <div className="text-right">
@@ -270,7 +270,7 @@ export function BetHistory() {
                         onClick={() => handleCashOut(bet.id)}
                       >
                         <RotateCcw className="w-4 h-4 mr-2" />
-                        Cash Out - {(bet.cashOutAmount || ((bet.stake || bet.betAmount) * 0.8)).toFixed(2)} {bet.currency || 'SUI'}
+                        Cash Out - {(bet.cashOutAmount || ((bet.stake || bet.betAmount) * 0.8)).toFixed(2)} {bet.currency || bet.feeCurrency || 'SUI'}
                       </Button>
                     ) : bet.status === 'won' && !bet.winningsWithdrawn ? (
                       <Button 
