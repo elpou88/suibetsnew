@@ -26,28 +26,6 @@ function saveFavorites(favorites: Set<string>) {
   localStorage.setItem(FAVORITES_KEY, JSON.stringify([...favorites]));
 }
 
-// Get team initials for logo placeholder
-function getTeamInitials(teamName: string): string {
-  const words = teamName.split(' ').filter(w => w.length > 0);
-  if (words.length >= 2) {
-    return (words[0][0] + words[1][0]).toUpperCase();
-  }
-  return teamName.substring(0, 2).toUpperCase();
-}
-
-// Generate consistent color from team name
-function getTeamColor(teamName: string): string {
-  const colors = [
-    'bg-red-600', 'bg-blue-600', 'bg-green-600', 'bg-yellow-600', 
-    'bg-purple-600', 'bg-pink-600', 'bg-indigo-600', 'bg-cyan-600',
-    'bg-orange-600', 'bg-teal-600', 'bg-rose-600', 'bg-emerald-600'
-  ];
-  let hash = 0;
-  for (let i = 0; i < teamName.length; i++) {
-    hash = teamName.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return colors[Math.abs(hash) % colors.length];
-}
 const suibetsLogo = "/images/suibets-logo.png";
 const suibetsHeroBg = "/images/hero-bg.png";
 
@@ -697,18 +675,6 @@ function LeagueGroupedEvents({ events, favorites, toggleFavorite }: LeagueGroupe
   );
 }
 
-// Team Logo Placeholder Component
-function TeamLogo({ teamName }: { teamName: string }) {
-  return (
-    <div 
-      className={`w-6 h-6 rounded-full ${getTeamColor(teamName)} flex items-center justify-center flex-shrink-0`}
-      title={teamName}
-    >
-      <span className="text-white text-[10px] font-bold">{getTeamInitials(teamName)}</span>
-    </div>
-  );
-}
-
 // Odds Movement Indicator Component
 function OddsMovement({ direction }: { direction: 'up' | 'down' | 'stable' }) {
   if (direction === 'stable') return null;
@@ -825,7 +791,6 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
         <div className="flex-1 min-w-0">
           {/* Home Team */}
           <div className="flex items-center gap-2">
-            <TeamLogo teamName={event.homeTeam} />
             <span className="text-white text-sm truncate flex-1">{event.homeTeam}</span>
             <button
               onClick={(e) => { e.stopPropagation(); toggleFavorite(event.homeTeam); }}
@@ -842,7 +807,6 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
           </div>
           {/* Away Team */}
           <div className="flex items-center gap-2 mt-1">
-            <TeamLogo teamName={event.awayTeam} />
             <span className="text-gray-400 text-sm truncate flex-1">{event.awayTeam}</span>
             <button
               onClick={(e) => { e.stopPropagation(); toggleFavorite(event.awayTeam); }}
