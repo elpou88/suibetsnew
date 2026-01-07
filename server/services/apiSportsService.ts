@@ -2723,10 +2723,16 @@ export class ApiSportsService {
           if (response.data?.response?.[0]?.bookmakers?.[0]) {
             const bookmaker = response.data.response[0].bookmakers[0];
             // Accept any bookmaker's win/draw/loss market with common names
+            // Comprehensive list of market aliases used by different bookmakers
+            const matchWinnerNames = [
+              'Match Winner', 'Winner', 'Home/Away', '1X2', 'Fulltime Result', 
+              '3Way', 'To Win', 'Money Line', 'Moneyline', 'Full Time Result',
+              'Match Result', 'Game Winner', 'Final Result', 'Regular Time',
+              '1x2 - Full Time', '3-Way Result', 'Match Odds', 'Win/Draw/Win',
+              'Home Draw Away', 'Three Way', '3 Way', 'Full-Time Result'
+            ];
             const matchWinner = bookmaker.bets?.find((b: any) => 
-              b.name === 'Match Winner' || b.name === 'Winner' || b.name === 'Home/Away' || 
-              b.name === '1X2' || b.name === 'Fulltime Result' || b.name === '3Way' ||
-              b.name === 'To Win' || b.name === 'Money Line'
+              matchWinnerNames.some(name => b.name?.toLowerCase() === name.toLowerCase())
             );
             
             if (matchWinner?.values) {
