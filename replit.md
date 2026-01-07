@@ -29,6 +29,7 @@ Preferred communication style: Simple, everyday language.
 ### Data Storage
 - **Primary Database**: PostgreSQL with Drizzle ORM
 - **Caching**: In-memory for performance, with specific strategies for odds and event data.
+- **Odds Fetching**: Fetches odds for ALL fixtures (not just mapping) with batch rate limiting (5 requests/batch, 1.5s delay) to avoid 429 errors.
 
 ### Key Features
 - **Sports Data Integration**: Aggregates data from multiple providers for real-time scores and odds, with event tracking and API resilience.

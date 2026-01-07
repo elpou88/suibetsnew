@@ -2844,8 +2844,9 @@ export class ApiSportsService {
       return resultMap;
     }
     
-    // Batch fixtures into groups of 10 to respect API rate limits (10 req/sec)
-    const batchSize = 10;
+    // Batch fixtures into groups of 5 to avoid rate limiting (API-Sports allows 10 req/sec)
+    // Using smaller batches with longer delays helps avoid 429 errors
+    const batchSize = 5;
     const batches = [];
     for (let i = 0; i < remainingFixtures.length; i += batchSize) {
       batches.push(remainingFixtures.slice(i, i + batchSize));
@@ -2983,9 +2984,9 @@ export class ApiSportsService {
       });
       
       // Delay between batches to respect API rate limits (10 req/sec)
-      // With 10 concurrent requests per batch, wait 1 second between batches (faster response)
+      // With 5 concurrent requests per batch, wait 1.5 seconds between batches to avoid 429s
       if (batchIndex < batches.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 1500));
       }
     }
     
@@ -3003,8 +3004,8 @@ export class ApiSportsService {
     
     // For LIVE events, always fetch fresh odds (no caching) to maximize coverage
     // For upcoming events, use cache for speed
-    // v3: Added country disambiguation to transformFootballEvent (Jan 7, 2026)
-    const cacheKey = `enriched_events_${sport}_${events.length}_${events[0]?.id}_v3`;
+    // v4: Fetch ALL fixtures for odds, not just mapping (Jan 7, 2026)
+    const cacheKey = `enriched_events_${sport}_${events.length}_${events[0]?.id}_v4`;
     if (!isLive) {
       const cachedEnriched = this.cache.get(cacheKey);
       if (cachedEnriched) {
@@ -3050,17 +3051,15 @@ export class ApiSportsService {
       console.log(`[ApiSportsService] 🚀 Using pre-warmed cache for instant response`);
       allOdds = preWarmedOdds;
     } else {
-      // For LIVE events: Use /odds/live endpoint directly (no mapping needed)
-      // For UPCOMING events: Use mapping to optimize API calls
+      // For BOTH live and upcoming: Fetch odds for ALL fixtures (not just mapping)
+      // The mapping endpoint is incomplete and misses many major leagues like La Liga
       if (isLive) {
         console.log(`[ApiSportsService] 🔴 LIVE: Fetching live odds for ALL ${fixtureIds.length} fixtures`);
         allOdds = await this.getOddsForFixtures(fixtureIds, sport, true);
       } else {
-        // OPTIMIZATION: Only fetch odds for fixtures that are in the mapping (have odds available)
-        // This avoids wasting API calls on fixtures without bookmaker coverage
-        const fixturesToFetch = fixturesInMapping.length > 0 ? fixturesInMapping : fixtureIds;
-        console.log(`[ApiSportsService] 🎰 Enriching ${fixturesToFetch.length} events with real odds (${fixturesInMapping.length} from mapping)`);
-        allOdds = await this.getOddsForFixtures(fixturesToFetch, sport, false);
+        // Fetch odds for ALL fixtures - mapping is incomplete and misses major leagues
+        console.log(`[ApiSportsService] 🎰 Fetching odds for ALL ${fixtureIds.length} fixtures (mapping had ${fixturesInMapping.length})`);
+        allOdds = await this.getOddsForFixtures(fixtureIds, sport, false);
       }
       
       // Update the odds cache with fresh data
@@ -3127,7 +3126,7 @@ export class ApiSportsService {
     console.log(`[ApiSportsService] 🎰 Enriched ${enrichedCount}/${events.length} events with real API odds`);
     
     // Cache the enriched events for 3 minutes (longer since we fetch ALL odds)
-    this.cache.set(cacheKey, enrichedEvents, 180);
+    this.cache.set(cacheKey, { data: enrichedEvents, timestamp: Date.now() });
     
     return enrichedEvents;
   }
