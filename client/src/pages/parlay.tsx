@@ -79,7 +79,12 @@ export default function ParlayPage() {
   }));
 
   const totalOdds = parlayLegs.reduce((acc, leg) => acc * leg.odds, 1);
-  const potentialPayout = parseFloat(stake || '0') * totalOdds;
+  const stakeAmount = parseFloat(stake || '0');
+  const grossPayout = stakeAmount * totalOdds;
+  const profit = grossPayout - stakeAmount;
+  // Contract charges 1% fee on PROFIT only (not on stake)
+  const platformFee = profit > 0 ? profit * 0.01 : 0;
+  const potentialPayout = grossPayout - platformFee;
 
 
   const handleRemoveLeg = (id: string) => {
@@ -97,8 +102,16 @@ export default function ParlayPage() {
       return;
     }
     const stakeAmount = parseFloat(stake);
-    if (stakeAmount <= 0) {
-      toast({ title: 'Invalid Stake', description: 'Please enter a valid stake amount', variant: 'destructive' });
+    // Validate stake against min/max limits per currency
+    const minBet = betCurrency === 'SUI' ? 0.05 : 1000;
+    const maxBet = betCurrency === 'SUI' ? 400 : 50000000;
+    
+    if (stakeAmount < minBet) {
+      toast({ title: 'Stake Too Low', description: `Minimum bet is ${minBet} ${betCurrency}`, variant: 'destructive' });
+      return;
+    }
+    if (stakeAmount > maxBet) {
+      toast({ title: 'Stake Too High', description: `Maximum bet is ${maxBet.toLocaleString()} ${betCurrency}`, variant: 'destructive' });
       return;
     }
     // Use on-chain wallet balance for direct betting
