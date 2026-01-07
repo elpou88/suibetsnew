@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { Link, useLocation } from "wouter";
-import { Search, Clock, TrendingUp, Wallet, LogOut, RefreshCw } from "lucide-react";
+import { Search, Clock, TrendingUp, Wallet, LogOut, RefreshCw, Menu, X } from "lucide-react";
 import { useBetting } from "@/context/BettingContext";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentAccount, useDisconnectWallet, useSuiClientQuery } from "@mysten/dapp-kit";
@@ -75,6 +75,7 @@ export default function CleanHome() {
   const [selectedSport, setSelectedSport] = useState<number | null>(1);
   const [activeTab, setActiveTab] = useState<"live" | "upcoming">("live");
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const matchesSectionRef = useRef<HTMLDivElement>(null);
 
   const scrollToMatches = () => {
@@ -153,14 +154,22 @@ export default function CleanHome() {
   return (
     <div className="min-h-screen" data-testid="clean-home">
       {/* Top Navigation Bar */}
-      <nav className="bg-black/40 backdrop-blur-md border-b border-cyan-900/30 px-4 py-3">
+      <nav className="bg-black/40 backdrop-blur-md border-b border-cyan-900/30 px-4 py-3 relative z-50">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           {/* Logo */}
-          <div className="flex items-center">
+          <div className="flex items-center gap-2">
+            {/* Mobile Menu Toggle */}
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="md:hidden p-2 text-gray-400 hover:text-cyan-400 transition-colors"
+              data-testid="btn-mobile-menu"
+            >
+              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
             <img src={suibetsLogo} alt="SuiBets" className="h-10 w-auto" />
           </div>
 
-          {/* Center Navigation */}
+          {/* Center Navigation - Desktop Only */}
           <div className="hidden md:flex items-center gap-6">
             <Link href="/" className="text-cyan-400 hover:text-cyan-300 transition-colors text-sm font-medium" data-testid="nav-bets">Bets</Link>
             <Link href="/dashboard" className="text-gray-400 hover:text-cyan-400 transition-colors text-sm font-medium" data-testid="nav-dashboard">Dashboard</Link>
@@ -172,10 +181,16 @@ export default function CleanHome() {
           </div>
 
           {/* Right Side - Wallet */}
-          <div className="flex items-center gap-4">
-            <button className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold px-4 py-2 rounded-lg text-sm transition-colors" data-testid="btn-buy-now">
+          <div className="flex items-center gap-2 md:gap-4">
+            <a 
+              href="https://app.turbos.finance/#/trade?input=0x2::sui::SUI&output=0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285::sbets::SBETS"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold px-3 md:px-4 py-2 rounded-lg text-sm transition-colors"
+              data-testid="btn-buy-now"
+            >
               Buy Now
-            </button>
+            </a>
             {isConnected && walletAddress ? (
               <>
                 <div className="text-right">
@@ -215,6 +230,21 @@ export default function CleanHome() {
             )}
           </div>
         </div>
+
+        {/* Mobile Navigation Menu */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden absolute top-full left-0 right-0 bg-black/95 backdrop-blur-md border-b border-cyan-900/30 py-4 px-4 z-50" data-testid="mobile-menu">
+            <div className="flex flex-col gap-3">
+              <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="text-cyan-400 hover:text-cyan-300 transition-colors text-base font-medium py-2 border-b border-cyan-900/20" data-testid="mobile-nav-bets">Bets</Link>
+              <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-cyan-400 transition-colors text-base font-medium py-2 border-b border-cyan-900/20" data-testid="mobile-nav-dashboard">Dashboard</Link>
+              <Link href="/bet-history" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-cyan-400 transition-colors text-base font-medium py-2 border-b border-cyan-900/20" data-testid="mobile-nav-my-bets">My Bets</Link>
+              <Link href="/activity" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-cyan-400 transition-colors text-base font-medium py-2 border-b border-cyan-900/20" data-testid="mobile-nav-activity">Activity</Link>
+              <Link href="/deposits-withdrawals" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-cyan-400 transition-colors text-base font-medium py-2 border-b border-cyan-900/20" data-testid="mobile-nav-withdraw">Withdraw</Link>
+              <Link href="/parlay" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-cyan-400 transition-colors text-base font-medium py-2 border-b border-cyan-900/20" data-testid="mobile-nav-parlays">Parlays</Link>
+              <Link href="/whitepaper" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-cyan-400 transition-colors text-base font-medium py-2" data-testid="mobile-nav-whitepaper">Whitepaper</Link>
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* Hero Banner */}
