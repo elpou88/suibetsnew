@@ -771,10 +771,10 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
             console.warn(`⚠️ LIVE: Failed to enrich with odds: ${oddsError.message}`);
           }
           
-          // CRITICAL: Filter to only show events with REAL odds from API (100% real odds requirement)
-          const liveBeforeFilter = allLiveEvents.length;
-          allLiveEvents = allLiveEvents.filter(e => e.oddsSource === 'api-sports');
-          console.log(`✅ LIVE: Filtered to ${allLiveEvents.length}/${liveBeforeFilter} events with REAL API odds`);
+          // For LIVE events: Show ALL matches, even without odds (users want to see every live game)
+          // Odds filtering only applies to upcoming events where we have time to fetch odds
+          const liveWithOdds = allLiveEvents.filter(e => e.oddsSource === 'api-sports').length;
+          console.log(`✅ LIVE: Showing ALL ${allLiveEvents.length} events (${liveWithOdds} have real odds)`);
           
           // Sort by startTime (earliest first, events without startTime go to end)
           allLiveEvents.sort((a, b) => {
