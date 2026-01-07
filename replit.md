@@ -177,3 +177,17 @@ Preferred communication style: Simple, everyday language.
   2. Legacy bets WITHOUT `betObjectId` → Off-chain fallback (database credits - acceptable for transition)
 - **Verified On-Chain Settlements**: 2 SBETS bets settled from treasury with TX hashes logged
 - **Treasury Status**: SUI ~2.95 SUI, SBETS ~5.0M (check `/api/contract/info` for current)
+
+### All Events Display - Show All, Bet Where Available (January 7, 2026)
+- **Architecture Decision**: Show ALL matches from paid API, disable betting only where bookmaker odds unavailable
+- **API-Sports Odds Limitation**: Odds endpoint only returns data for fixtures with bookmaker coverage
+  - Major leagues (Premier League, La Liga, etc.): ~100% coverage
+  - Youth cups, regional leagues, lower divisions: ~0-20% coverage
+  - This is an API-Sports design, not a bug - odds come from bookmakers, not the API
+- **Live Events**: All 9 live matches displayed (was filtered to 1)
+- **Upcoming Events**: All 250 upcoming matches displayed (was filtered to 47)
+- **Frontend UX**:
+  - Events WITH odds (`oddsSource: 'api-sports'`): Full betting UI enabled
+  - Events WITHOUT odds (`oddsSource: 'fallback'`): "Odds Not Available" message, betting disabled
+- **User Communication**: Clear messaging that betting unavailable due to no bookmaker coverage
+- **Files Changed**: `server/routes-simple.ts`, `client/src/pages/clean-home.tsx`

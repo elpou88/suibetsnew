@@ -771,10 +771,10 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
             console.warn(`⚠️ LIVE: Failed to enrich with odds: ${oddsError.message}`);
           }
           
-          // STRICT: Only show LIVE events with REAL API odds - no mock odds ever
-          const liveBeforeFilter = allLiveEvents.length;
-          allLiveEvents = allLiveEvents.filter(e => e.oddsSource === 'api-sports');
-          console.log(`✅ LIVE: Filtered to ${allLiveEvents.length}/${liveBeforeFilter} events with REAL API odds (API-Sports limitation - not all matches have bookmaker coverage)`);
+          // RELAXED: Show ALL live events, but flag which have betting available
+          // Previously filtered out events without odds, but users want to see all live matches
+          const eventsWithOdds = allLiveEvents.filter(e => e.oddsSource === 'api-sports').length;
+          console.log(`✅ LIVE: Returning ${allLiveEvents.length} events (${eventsWithOdds} with real odds, ${allLiveEvents.length - eventsWithOdds} without - betting disabled on those)`);
           
           // Sort by startTime (earliest first, events without startTime go to end)
           allLiveEvents.sort((a, b) => {
@@ -833,10 +833,10 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           console.warn(`⚠️ UPCOMING: Failed to enrich with odds: ${oddsError.message}`);
         }
         
-        // CRITICAL: Filter to only show events with REAL odds from API (100% real odds requirement)
-        const upcomingBeforeFilter = allUpcomingEvents.length;
-        allUpcomingEvents = allUpcomingEvents.filter(e => e.oddsSource === 'api-sports');
-        console.log(`✅ UPCOMING: Filtered to ${allUpcomingEvents.length}/${upcomingBeforeFilter} events with REAL API odds`);
+        // Show ALL events - betting will be disabled on frontend for events without odds
+        // Previously filtered out events without odds, but users want to see all matches
+        const eventsWithOdds = allUpcomingEvents.filter(e => e.oddsSource === 'api-sports').length;
+        console.log(`✅ UPCOMING: Returning ${allUpcomingEvents.length} events (${eventsWithOdds} with real odds, ${allUpcomingEvents.length - eventsWithOdds} without - betting disabled on those)`);
         
         // Sort by startTime (earliest first, events without startTime go to end)
         allUpcomingEvents.sort((a, b) => {

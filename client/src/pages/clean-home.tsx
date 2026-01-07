@@ -387,6 +387,9 @@ function EventCard({ event }: EventCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const { addBet } = useBetting();
   const { toast } = useToast();
+  
+  // Check if this event has real odds from API (betting enabled)
+  const hasRealOdds = (event as any).oddsSource === 'api-sports';
 
   const getOddsFromMarkets = () => {
     const defaultOdds = { home: 2.05, draw: 3.40, away: 3.00 };
@@ -552,67 +555,84 @@ function EventCard({ event }: EventCardProps) {
 
           {/* Odds Cards */}
           <div className="flex gap-2">
-            <div 
-              className={`bg-[#1a1a1a] rounded-lg p-3 min-w-[70px] text-center cursor-pointer transition-all ${
-                selectedOutcome === "draw" ? "ring-2 ring-yellow-500" : "hover:bg-[#222222]"
-              }`}
-              onClick={(e) => handleOutcomeClick("draw", e)}
-              data-testid={`odds-draw-${event.id}`}
-            >
-              <div className="text-yellow-400 text-xs mb-1">Draw</div>
-              <div className="text-yellow-400 text-xl font-bold">{odds.draw.toFixed(2)}</div>
-            </div>
-            <div 
-              className={`bg-[#1a1a1a] rounded-lg p-3 min-w-[70px] text-center cursor-pointer transition-all ${
-                selectedOutcome === "home" ? "ring-2 ring-cyan-500" : "hover:bg-[#222222]"
-              }`}
-              onClick={(e) => handleOutcomeClick("home", e)}
-              data-testid={`odds-home-${event.id}`}
-            >
-              <div className="text-cyan-400 text-xs mb-1">Home</div>
-              <div className="text-cyan-400 text-xl font-bold">{odds.home.toFixed(2)}</div>
-              <div className="text-gray-500 text-xs">{event.homeTeam?.split(' ')[0]}</div>
-            </div>
-            <div 
-              className={`bg-[#1a1a1a] rounded-lg p-3 min-w-[70px] text-center cursor-pointer transition-all ${
-                selectedOutcome === "away" ? "ring-2 ring-cyan-500" : "hover:bg-[#222222]"
-              }`}
-              onClick={(e) => handleOutcomeClick("away", e)}
-              data-testid={`odds-away-${event.id}`}
-            >
-              <div className="text-white text-xs mb-1">Away</div>
-              <div className="text-white text-xl font-bold">{odds.away.toFixed(2)}</div>
-              <div className="text-gray-500 text-xs">{event.awayTeam?.split(' ')[0]}</div>
-            </div>
+            {hasRealOdds ? (
+              <>
+                <div 
+                  className={`bg-[#1a1a1a] rounded-lg p-3 min-w-[70px] text-center cursor-pointer transition-all ${
+                    selectedOutcome === "draw" ? "ring-2 ring-yellow-500" : "hover:bg-[#222222]"
+                  }`}
+                  onClick={(e) => handleOutcomeClick("draw", e)}
+                  data-testid={`odds-draw-${event.id}`}
+                >
+                  <div className="text-yellow-400 text-xs mb-1">Draw</div>
+                  <div className="text-yellow-400 text-xl font-bold">{odds.draw.toFixed(2)}</div>
+                </div>
+                <div 
+                  className={`bg-[#1a1a1a] rounded-lg p-3 min-w-[70px] text-center cursor-pointer transition-all ${
+                    selectedOutcome === "home" ? "ring-2 ring-cyan-500" : "hover:bg-[#222222]"
+                  }`}
+                  onClick={(e) => handleOutcomeClick("home", e)}
+                  data-testid={`odds-home-${event.id}`}
+                >
+                  <div className="text-cyan-400 text-xs mb-1">Home</div>
+                  <div className="text-cyan-400 text-xl font-bold">{odds.home.toFixed(2)}</div>
+                  <div className="text-gray-500 text-xs">{event.homeTeam?.split(' ')[0]}</div>
+                </div>
+                <div 
+                  className={`bg-[#1a1a1a] rounded-lg p-3 min-w-[70px] text-center cursor-pointer transition-all ${
+                    selectedOutcome === "away" ? "ring-2 ring-cyan-500" : "hover:bg-[#222222]"
+                  }`}
+                  onClick={(e) => handleOutcomeClick("away", e)}
+                  data-testid={`odds-away-${event.id}`}
+                >
+                  <div className="text-white text-xs mb-1">Away</div>
+                  <div className="text-white text-xl font-bold">{odds.away.toFixed(2)}</div>
+                  <div className="text-gray-500 text-xs">{event.awayTeam?.split(' ')[0]}</div>
+                </div>
+              </>
+            ) : (
+              <div className="bg-[#1a1a1a] rounded-lg p-3 text-center">
+                <div className="text-gray-500 text-xs mb-1">Odds</div>
+                <div className="text-gray-400 text-sm font-medium">Not Available</div>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Bet Button */}
         <div className="flex justify-center mb-4">
-          <button 
-            className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold px-6 py-2 rounded-lg flex items-center gap-2 transition-all"
-            onClick={handleBetClick}
-            data-testid={`btn-bet-${event.id}`}
-          >
-            ✓ Bet
-          </button>
-          <button 
-            className={`text-sm ml-4 transition-all ${selectedOutcome ? 'text-cyan-400' : 'text-gray-500 hover:text-cyan-400'}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!selectedOutcome) {
-                toast({
-                  title: "Select a team first",
-                  description: "Click on Home, Draw, or Away odds above to select your pick",
-                });
-              } else {
-                handleBetClick(e);
-              }
-            }}
-            data-testid={`btn-select-team-${event.id}`}
-          >
-            {selectedOutcome ? '+ Add to slip' : '+ Select team'}
-          </button>
+          {hasRealOdds ? (
+            <>
+              <button 
+                className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold px-6 py-2 rounded-lg flex items-center gap-2 transition-all"
+                onClick={handleBetClick}
+                data-testid={`btn-bet-${event.id}`}
+              >
+                ✓ Bet
+              </button>
+              <button 
+                className={`text-sm ml-4 transition-all ${selectedOutcome ? 'text-cyan-400' : 'text-gray-500 hover:text-cyan-400'}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!selectedOutcome) {
+                    toast({
+                      title: "Select a team first",
+                      description: "Click on Home, Draw, or Away odds above to select your pick",
+                    });
+                  } else {
+                    handleBetClick(e);
+                  }
+                }}
+                data-testid={`btn-select-team-${event.id}`}
+              >
+                {selectedOutcome ? '+ Add to slip' : '+ Select team'}
+              </button>
+            </>
+          ) : (
+            <div className="text-gray-500 text-sm py-2">
+              Betting unavailable - no bookmaker coverage
+            </div>
+          )}
         </div>
 
         {/* Betting Panel (shown when outcome selected) */}
