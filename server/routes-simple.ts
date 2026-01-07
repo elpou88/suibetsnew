@@ -772,11 +772,9 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
             console.warn(`⚠️ LIVE: Failed to enrich with odds: ${oddsError.message}`);
           }
           
-          // FILTER to only show events WITH real bookmaker odds
-          // This ensures 100% of displayed events have betting available
-          const totalEvents = allLiveEvents.length;
-          allLiveEvents = allLiveEvents.filter(e => e.oddsSource === 'api-sports');
-          console.log(`✅ LIVE: Filtered to ${allLiveEvents.length}/${totalEvents} events with real bookmaker odds (100% bettable)`);
+          // Log odds coverage stats but DON'T filter - show all events
+          const eventsWithOdds = allLiveEvents.filter(e => e.oddsSource === 'api-sports').length;
+          console.log(`✅ LIVE: ${eventsWithOdds}/${allLiveEvents.length} events have real bookmaker odds`);
           
           // Sort by startTime (earliest first, events without startTime go to end)
           allLiveEvents.sort((a, b) => {
@@ -836,11 +834,9 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           console.warn(`⚠️ UPCOMING: Failed to enrich with odds: ${oddsError.message}`);
         }
         
-        // FILTER to only show events WITH real bookmaker odds
-        // This ensures 100% of displayed events have betting available
-        const totalUpcoming = allUpcomingEvents.length;
-        allUpcomingEvents = allUpcomingEvents.filter(e => e.oddsSource === 'api-sports');
-        console.log(`✅ UPCOMING: Filtered to ${allUpcomingEvents.length}/${totalUpcoming} events with real bookmaker odds (100% bettable)`);
+        // Log odds coverage stats but DON'T filter - show all events
+        const eventsWithOdds = allUpcomingEvents.filter(e => e.oddsSource === 'api-sports').length;
+        console.log(`✅ UPCOMING: ${eventsWithOdds}/${allUpcomingEvents.length} events have real bookmaker odds`);
         
         // Sort by startTime (earliest first, events without startTime go to end)
         allUpcomingEvents.sort((a, b) => {
