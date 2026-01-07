@@ -2667,23 +2667,151 @@ export class ApiSportsService {
   }
 
   /**
+   * Get the mapping of all fixtures that have odds available (from /odds/mapping endpoint)
+   * This is the most efficient way to know which fixtures have bookmaker coverage
+   * @returns Set of fixture IDs that have odds available
+   */
+  async getOddsMapping(): Promise<Set<string>> {
+    const cacheKey = 'odds_mapping';
+    const cached = this.cache.get(cacheKey);
+    
+    // Cache mapping for 5 minutes
+    if (cached && Date.now() - cached.timestamp < 5 * 60 * 1000) {
+      console.log(`[ApiSportsService] 🗺️ Using cached odds mapping (${cached.data.size} fixtures)`);
+      return cached.data;
+    }
+    
+    const fixturesWithOdds = new Set<string>();
+    
+    try {
+      // The mapping endpoint returns all fixtures that have pre-match odds
+      const response = await axios.get('https://v3.football.api-sports.io/odds/mapping', {
+        headers: {
+          'x-apisports-key': this.apiKey,
+          'Accept': 'application/json'
+        },
+        timeout: 15000
+      });
+      
+      if (response.data?.response && Array.isArray(response.data.response)) {
+        for (const item of response.data.response) {
+          if (item.fixture?.id) {
+            fixturesWithOdds.add(String(item.fixture.id));
+          }
+        }
+        console.log(`[ApiSportsService] 🗺️ Loaded odds mapping: ${fixturesWithOdds.size} fixtures have pre-match odds available`);
+      }
+      
+      // Also get live odds mapping
+      try {
+        const liveResponse = await axios.get('https://v3.football.api-sports.io/odds/live', {
+          headers: {
+            'x-apisports-key': this.apiKey,
+            'Accept': 'application/json'
+          },
+          timeout: 10000
+        });
+        
+        if (liveResponse.data?.response && Array.isArray(liveResponse.data.response)) {
+          let liveCount = 0;
+          for (const item of liveResponse.data.response) {
+            if (item.fixture?.id) {
+              fixturesWithOdds.add(String(item.fixture.id));
+              liveCount++;
+            }
+          }
+          console.log(`[ApiSportsService] 🗺️ Added ${liveCount} fixtures with live in-play odds`);
+        }
+      } catch (liveError) {
+        console.log(`[ApiSportsService] ⚠️ Could not fetch live odds mapping`);
+      }
+      
+      this.cache.set(cacheKey, { data: fixturesWithOdds, timestamp: Date.now() });
+      return fixturesWithOdds;
+    } catch (error: any) {
+      console.error(`[ApiSportsService] ❌ Error fetching odds mapping: ${error.message}`);
+      return fixturesWithOdds;
+    }
+  }
+
+  /**
    * Get odds for specific fixture IDs (direct fetch by fixture)
    * @param fixtureIds Array of fixture IDs to fetch odds for  
    * @param sport Sport slug
+   * @param isLive If true, uses /odds/live endpoint first (for live events)
    */
-  async getOddsForFixtures(fixtureIds: string[], sport: string = 'football'): Promise<Map<string, any>> {
+  async getOddsForFixtures(fixtureIds: string[], sport: string = 'football', isLive: boolean = false): Promise<Map<string, any>> {
     if (!fixtureIds || fixtureIds.length === 0) return new Map<string, any>();
     
     const resultMap = new Map<string, any>();
     
+    // For LIVE events, first try to get all live odds in one call (more efficient)
+    if (isLive && (sport === 'football' || sport === 'soccer')) {
+      try {
+        const liveResponse = await axios.get('https://v3.football.api-sports.io/odds/live', {
+          headers: {
+            'x-apisports-key': this.apiKey,
+            'Accept': 'application/json'
+          },
+          timeout: 10000
+        });
+        
+        if (liveResponse.data?.response && Array.isArray(liveResponse.data.response)) {
+          for (const item of liveResponse.data.response) {
+            const fixtureId = String(item.fixture?.id);
+            if (fixtureIds.includes(fixtureId) && item.odds && item.odds.length > 0) {
+              // Find Match Winner odds in the live data
+              const matchWinner = item.odds.find((o: any) => 
+                o.name?.toLowerCase().includes('winner') || 
+                o.name?.toLowerCase().includes('1x2') ||
+                o.name?.toLowerCase() === 'match winner'
+              );
+              if (matchWinner?.values) {
+                const oddsValues: any = { fixtureId, source: 'live' };
+                for (const val of matchWinner.values) {
+                  const outcome = val.value?.toLowerCase();
+                  const oddValue = parseFloat(val.odd);
+                  if (outcome === 'home' || outcome === '1') {
+                    oddsValues.homeOdds = oddValue;
+                  } else if (outcome === 'draw' || outcome === 'x') {
+                    oddsValues.drawOdds = oddValue;
+                  } else if (outcome === 'away' || outcome === '2') {
+                    oddsValues.awayOdds = oddValue;
+                  }
+                }
+                if (oddsValues.homeOdds && oddsValues.awayOdds) {
+                  resultMap.set(fixtureId, oddsValues);
+                  console.log(`[ApiSportsService] 🔴 LIVE odds for fixture ${fixtureId}`);
+                }
+              }
+            }
+          }
+          console.log(`[ApiSportsService] 🔴 Got ${resultMap.size}/${fixtureIds.length} live odds from /odds/live endpoint`);
+          
+          // If we got all fixtures, return early
+          if (resultMap.size === fixtureIds.length) {
+            return resultMap;
+          }
+        }
+      } catch (liveError: any) {
+        console.log(`[ApiSportsService] ⚠️ Live odds bulk fetch failed: ${liveError.message}`);
+      }
+    }
+    
+    // For fixtures not found in live odds, fall back to individual fetches
+    const remainingFixtures = fixtureIds.filter(id => !resultMap.has(id));
+    if (remainingFixtures.length === 0) {
+      return resultMap;
+    }
+    
     // Batch fixtures into groups of 10 to respect API rate limits (10 req/sec)
     const batchSize = 10;
     const batches = [];
-    for (let i = 0; i < fixtureIds.length; i += batchSize) {
-      batches.push(fixtureIds.slice(i, i + batchSize));
+    for (let i = 0; i < remainingFixtures.length; i += batchSize) {
+      batches.push(remainingFixtures.slice(i, i + batchSize));
     }
     
-    console.log(`[ApiSportsService] 🎰 Fetching odds for ${fixtureIds.length} fixtures in ${batches.length} batch(es)`);
+    console.log(`[ApiSportsService] 🎰 Fetching odds for ${remainingFixtures.length} remaining fixtures in ${batches.length} batch(es)`);
     
     // Process ALL batches with rate limiting (max 10 requests per second for API-Sports)
     for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
@@ -2846,12 +2974,21 @@ export class ApiSportsService {
       console.log(`[ApiSportsService] 🔴 LIVE MODE: Always fetching fresh odds for maximum coverage`);
     }
     
+    // OPTIMIZATION: First get the odds mapping to know which fixtures have odds available
+    // This is more efficient than fetching odds for ALL fixtures
+    const oddsMapping = await this.getOddsMapping();
+    console.log(`[ApiSportsService] 🗺️ Odds mapping has ${oddsMapping.size} fixtures with odds`);
+    
     // Try to use pre-warmed odds cache first for instant responses
     const preWarmedOdds = new Map<string, { homeOdds: number; drawOdds?: number; awayOdds: number }>();
     let cacheHits = 0;
     const fixtureIds = events
       .map(e => e.id?.toString())
       .filter((id): id is string => !!id);
+    
+    // Check which of our events have odds in the mapping
+    const fixturesInMapping = fixtureIds.filter(id => oddsMapping.has(id));
+    console.log(`[ApiSportsService] 🎯 ${fixturesInMapping.length}/${fixtureIds.length} fixtures have odds in mapping`);
     
     // Check pre-warmed cache for each fixture
     for (const fixtureId of fixtureIds) {
@@ -2865,16 +3002,25 @@ export class ApiSportsService {
     console.log(`[ApiSportsService] 🎰 Pre-warmed cache hits: ${cacheHits}/${fixtureIds.length}`);
     
     // If we have good cache coverage (>80%), use cached data for speed
-    // Otherwise fetch fresh odds for ALL fixtures
+    // Otherwise fetch fresh odds for fixtures that have odds in mapping
     let allOdds: Map<string, { homeOdds: number; drawOdds?: number; awayOdds: number }>;
     
     if (cacheHits >= fixtureIds.length * 0.8) {
       console.log(`[ApiSportsService] 🚀 Using pre-warmed cache for instant response`);
       allOdds = preWarmedOdds;
     } else {
-      console.log(`[ApiSportsService] 🎰 Enriching ALL ${events.length} events with real odds`);
-      // Fetch odds by fixture ID
-      allOdds = await this.getOddsForFixtures(fixtureIds, sport);
+      // For LIVE events: Use /odds/live endpoint directly (no mapping needed)
+      // For UPCOMING events: Use mapping to optimize API calls
+      if (isLive) {
+        console.log(`[ApiSportsService] 🔴 LIVE: Fetching live odds for ALL ${fixtureIds.length} fixtures`);
+        allOdds = await this.getOddsForFixtures(fixtureIds, sport, true);
+      } else {
+        // OPTIMIZATION: Only fetch odds for fixtures that are in the mapping (have odds available)
+        // This avoids wasting API calls on fixtures without bookmaker coverage
+        const fixturesToFetch = fixturesInMapping.length > 0 ? fixturesInMapping : fixtureIds;
+        console.log(`[ApiSportsService] 🎰 Enriching ${fixturesToFetch.length} events with real odds (${fixturesInMapping.length} from mapping)`);
+        allOdds = await this.getOddsForFixtures(fixturesToFetch, sport, false);
+      }
       
       // Update the odds cache with fresh data
       allOdds.forEach((odds, fixtureId) => {

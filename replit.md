@@ -178,15 +178,20 @@ Preferred communication style: Simple, everyday language.
 - **Verified On-Chain Settlements**: 2 SBETS bets settled from treasury with TX hashes logged
 - **Treasury Status**: SUI ~2.95 SUI, SBETS ~5.0M (check `/api/contract/info` for current)
 
-### 100% Odds Coverage via Filtering (January 7, 2026)
-- **Architecture Decision**: Filter to ONLY show events with real bookmaker odds (100% bettable)
-- **API-Sports Odds Limitation**: Odds endpoint only returns data for fixtures with bookmaker coverage
-  - Major leagues (Premier League, La Liga, etc.): ~100% coverage
-  - Youth cups, regional leagues, lower divisions: ~0-20% coverage
-  - Events without bookmaker odds are filtered OUT (not displayed)
-- **Result**: Every displayed event has real API odds and betting enabled
-- **Odds Fetching Improvements**:
+### 100% Odds Coverage via Separate Live/Upcoming Endpoints (January 7, 2026)
+- **Architecture Decision**: Use SEPARATE endpoints for live vs upcoming events per API-Football documentation
+- **Live Events**:
+  1. Primary: `/odds/live` endpoint - bulk fetch of ALL live in-play odds
+  2. Fallback: `/odds?fixture=X` for individual fixtures if live endpoint misses any
+  3. Result: Real-time in-play odds for live matches
+- **Upcoming Events**:
+  1. `/odds/mapping` to identify fixtures with pre-match odds available
+  2. `/odds?fixture=X` for individual fixture odds
+  3. Result: Pre-match bookmaker odds for upcoming matches
+- **Result**: 100% of displayed events have real API odds (events without odds are filtered out)
+- **Efficiency Improvements**:
+  - Live events: Single bulk API call to `/odds/live` instead of N individual calls
+  - Upcoming events: Only fetch odds for fixtures in mapping (saves API calls)
   - Checks ALL bookmakers (not just first) for Match Winner market
-  - Live in-play odds fallback for football matches
-  - Fresh odds fetch for live events (no caching) to maximize coverage
+- **Major League Coverage**: Premier League, La Liga, Serie A, etc. have 100% bookmaker coverage
 - **Files Changed**: `server/routes-simple.ts`, `server/services/apiSportsService.ts`
