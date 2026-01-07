@@ -1820,7 +1820,12 @@ export class ApiSportsService {
     const homeTeam = event.teams?.home?.name || 'Home Team';
     const awayTeam = event.teams?.away?.name || 'Away Team';
     const eventId = event.fixture?.id?.toString() || `api-sports-football-${index}`;
-    const leagueName = event.league?.name || 'Unknown League';
+    // Add country to disambiguate leagues with same name (e.g., "Premier League")
+    let leagueName = event.league?.name || 'Unknown League';
+    const country = event.league?.country;
+    if (country && leagueName === 'Premier League' && country !== 'England') {
+      leagueName = `${leagueName} (${country})`;
+    }
     const status = this.mapEventStatus(event.fixture?.status?.short || '');
     
     // Get the sport ID - use injected _sportId if available, otherwise the sport parameter to determine ID
@@ -2441,6 +2446,11 @@ export class ApiSportsService {
     
     if (event.league) {
       leagueName = event.league.name || 'Unknown League';
+      // Add country to disambiguate leagues with same name (e.g., "Premier League")
+      const country = event.league.country;
+      if (country && leagueName === 'Premier League' && country !== 'England') {
+        leagueName = `${leagueName} (${country})`;
+      }
     } else if (event.tournament) {
       leagueName = event.tournament.name || 'Unknown League';
     }
@@ -2993,7 +3003,8 @@ export class ApiSportsService {
     
     // For LIVE events, always fetch fresh odds (no caching) to maximize coverage
     // For upcoming events, use cache for speed
-    const cacheKey = `enriched_events_${sport}_${events.length}_${events[0]?.id}`;
+    // v3: Added country disambiguation to transformFootballEvent (Jan 7, 2026)
+    const cacheKey = `enriched_events_${sport}_${events.length}_${events[0]?.id}_v3`;
     if (!isLive) {
       const cachedEnriched = this.cache.get(cacheKey);
       if (cachedEnriched) {
