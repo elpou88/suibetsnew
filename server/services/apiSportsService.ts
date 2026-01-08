@@ -3285,6 +3285,64 @@ export class ApiSportsService {
     globalPrefetcherInterval = setInterval(() => {
       this.prefetchOdds();
     }, this.prefetchInterval);
+    
+    // Also run a faster refresh for imminent matches (every 2 minutes)
+    setInterval(() => {
+      this.prefetchImminentOdds();
+    }, 2 * 60 * 1000);
+  }
+  
+  /**
+   * Fast refresh for matches starting within 2 hours
+   * These are most likely to have newly available odds
+   */
+  private async prefetchImminentOdds(): Promise<void> {
+    try {
+      const events = await this.getUpcomingEvents('football', 400);
+      if (!events || events.length === 0) return;
+      
+      const now = Date.now();
+      const twoHoursMs = 2 * 60 * 60 * 1000;
+      
+      // Filter to matches starting within 2 hours that don't have odds yet
+      const imminentWithoutOdds = events.filter(e => {
+        const startTime = new Date(e.startTime).getTime();
+        const startsWithin2Hours = startTime - now < twoHoursMs && startTime > now;
+        const hasNoOdds = !this.oddsCache.has(e.id?.toString() || '');
+        return startsWithin2Hours && hasNoOdds;
+      });
+      
+      if (imminentWithoutOdds.length === 0) {
+        return; // No imminent matches without odds
+      }
+      
+      console.log(`[ApiSportsService] ⏰ Fast-checking odds for ${imminentWithoutOdds.length} imminent matches...`);
+      
+      const fixtureIds = imminentWithoutOdds
+        .map(e => e.id?.toString())
+        .filter((id): id is string => !!id);
+      
+      const newOdds = await this.getOddsForFixtures(fixtureIds, 'football');
+      
+      // Store newly found odds
+      let newlyFound = 0;
+      newOdds.forEach((odds, fixtureId) => {
+        if (!this.oddsCache.has(fixtureId)) {
+          newlyFound++;
+        }
+        this.oddsCache.set(fixtureId, {
+          ...odds,
+          timestamp: Date.now()
+        });
+      });
+      
+      if (newlyFound > 0) {
+        console.log(`[ApiSportsService] ✨ Found ${newlyFound} NEW odds for imminent matches!`);
+      }
+      
+    } catch (error) {
+      // Silent fail - this is a background optimization
+    }
   }
   
   /**
