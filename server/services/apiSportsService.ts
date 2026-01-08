@@ -3370,42 +3370,94 @@ export class ApiSportsService {
   }
   
   /**
-   * Prefetch odds for all events and warm the cache
+   * Prefetch odds for all events using DATE-BASED BULK endpoint (1-2 calls vs 400+)
+   * AGGRESSIVE API SAVING: Uses /odds?date=YYYY-MM-DD instead of individual fixture calls
    */
   private async prefetchOdds(): Promise<void> {
     try {
-      console.log('[ApiSportsService] 🔄 Prefetching odds for all events...');
+      console.log('[ApiSportsService] 🔄 Prefetching odds using DATE-BASED BULK endpoint...');
       const startTime = Date.now();
       
-      // Fetch upcoming events for football (main sport) - increased to 400 for full coverage
-      const events = await this.getUpcomingEvents('football', 400);
+      // Get today and tomorrow dates
+      const today = new Date();
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
       
-      if (!events || events.length === 0) {
-        console.log('[ApiSportsService] ⚠️ No events to prefetch odds for');
-        return;
+      const formatDate = (d: Date) => d.toISOString().split('T')[0];
+      const dates = [formatDate(today), formatDate(tomorrow)];
+      
+      let totalOdds = 0;
+      
+      // Fetch odds by DATE (1 call gets ALL odds for that day!)
+      for (const date of dates) {
+        try {
+          console.log(`[ApiSportsService] 📅 Fetching ALL odds for date: ${date}`);
+          
+          const response = await axios.get('https://v3.football.api-sports.io/odds', {
+            params: { date },
+            headers: {
+              'x-apisports-key': this.apiKey,
+              'Accept': 'application/json'
+            },
+            timeout: 30000 // Longer timeout for bulk data
+          });
+          
+          if (response.data?.response && Array.isArray(response.data.response)) {
+            const oddsData = response.data.response;
+            console.log(`[ApiSportsService] 📅 Got ${oddsData.length} fixture odds for ${date}`);
+            
+            // Process each fixture's odds
+            for (const item of oddsData) {
+              const fixtureId = String(item.fixture?.id);
+              if (!fixtureId) continue;
+              
+              // Find Match Winner odds from any bookmaker
+              const bookmakers = item.bookmakers || [];
+              for (const bookmaker of bookmakers) {
+                const matchWinner = bookmaker.bets?.find((b: any) => 
+                  b.name?.toLowerCase().includes('winner') ||
+                  b.name?.toLowerCase() === '1x2' ||
+                  b.name?.toLowerCase().includes('match winner')
+                );
+                
+                if (matchWinner?.values) {
+                  const oddsValues: any = { fixtureId, bookmakerName: bookmaker.name, timestamp: Date.now() };
+                  for (const val of matchWinner.values) {
+                    const outcome = val.value?.toLowerCase();
+                    const oddValue = parseFloat(val.odd);
+                    if (outcome === 'home' || outcome === '1') {
+                      oddsValues.homeOdds = oddValue;
+                    } else if (outcome === 'draw' || outcome === 'x') {
+                      oddsValues.drawOdds = oddValue;
+                    } else if (outcome === 'away' || outcome === '2') {
+                      oddsValues.awayOdds = oddValue;
+                    }
+                  }
+                  
+                  if (oddsValues.homeOdds && oddsValues.awayOdds) {
+                    this.oddsCache.set(fixtureId, oddsValues);
+                    totalOdds++;
+                    break; // Got odds from this bookmaker, move to next fixture
+                  }
+                }
+              }
+            }
+          }
+          
+          // Small delay between date calls
+          if (date !== dates[dates.length - 1]) {
+            await new Promise(r => setTimeout(r, 500));
+          }
+          
+        } catch (dateError: any) {
+          console.log(`[ApiSportsService] ⚠️ Failed to fetch odds for ${date}: ${dateError.message}`);
+        }
       }
-      
-      const fixtureIds = events
-        .map(e => e.id?.toString())
-        .filter((id): id is string => !!id);
-      
-      console.log(`[ApiSportsService] 🔄 Prefetching odds for ${fixtureIds.length} fixtures...`);
-      
-      // Fetch odds for ALL fixtures
-      const allOdds = await this.getOddsForFixtures(fixtureIds, 'football');
-      
-      // Store in dedicated odds cache
-      allOdds.forEach((odds, fixtureId) => {
-        this.oddsCache.set(fixtureId, {
-          ...odds,
-          timestamp: Date.now()
-        });
-      });
       
       const elapsed = Date.now() - startTime;
       this.lastPrefetchTime = Date.now();
       
-      console.log(`[ApiSportsService] ✅ Prefetched ${allOdds.size}/${fixtureIds.length} odds in ${elapsed}ms`);
+      console.log(`[ApiSportsService] ✅ BULK prefetched ${totalOdds} odds in ${elapsed}ms (2 API calls vs 400+)`);
       console.log(`[ApiSportsService] 📊 Odds cache now has ${this.oddsCache.size} entries`);
       
     } catch (error) {
