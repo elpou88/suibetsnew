@@ -97,7 +97,7 @@ export default function CleanHome() {
   const [isBetSlipOpen, setIsBetSlipOpen] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(() => getFavorites());
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
-  const [showOddsOnly, setShowOddsOnly] = useState(true); // Default to showing only matches with odds
+  const [showOddsOnly, setShowOddsOnly] = useState(false); // Default to showing all matches, toggle ON to filter
   const [searchQuery, setSearchQuery] = useState("");
   const matchesSectionRef = useRef<HTMLDivElement>(null);
   
