@@ -719,11 +719,11 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
   const { addBet } = useBetting();
   const { toast } = useToast();
   
-  const hasRealOdds = (event as any).oddsSource === 'api-sports';
+  const hasRealOdds = event.homeOdds !== null && event.homeOdds !== undefined && event.homeOdds > 0;
   const odds = {
-    home: event.homeOdds || 2.00,
-    draw: event.drawOdds || 3.40,
-    away: event.awayOdds || 2.00
+    home: event.homeOdds || null,
+    draw: event.drawOdds || null,
+    away: event.awayOdds || null
   };
   
   // Simulated odds movement (in real app, this would compare to previous odds)
@@ -856,8 +856,8 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
               }`}
               data-testid={`compact-odds-home-${event.id}`}
             >
-              <OddsMovement direction={getOddsMovement(odds.home)} />
-              {odds.home.toFixed(2)}
+              <OddsMovement direction={getOddsMovement(odds.home!)} />
+              {odds.home!.toFixed(2)}
             </button>
             {/* Draw Odds */}
             <button
@@ -869,8 +869,8 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
               }`}
               data-testid={`compact-odds-draw-${event.id}`}
             >
-              <OddsMovement direction={getOddsMovement(odds.draw)} />
-              {odds.draw.toFixed(2)}
+              <OddsMovement direction={getOddsMovement(odds.draw!)} />
+              {odds.draw!.toFixed(2)}
             </button>
             {/* Away Odds */}
             <button
@@ -882,8 +882,8 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
               }`}
               data-testid={`compact-odds-away-${event.id}`}
             >
-              <OddsMovement direction={getOddsMovement(odds.away)} />
-              {odds.away.toFixed(2)}
+              <OddsMovement direction={getOddsMovement(odds.away!)} />
+              {odds.away!.toFixed(2)}
             </button>
             {selectedOutcome && (
               <button

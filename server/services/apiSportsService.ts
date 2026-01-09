@@ -3264,9 +3264,11 @@ export class ApiSportsService {
         const newOdds = await this.getOddsForFixtures(toFetch, sport);
         // Store in cache and add to cachedOdds map
         newOdds.forEach((odds, fixtureId) => {
-          // Store in oddsCache for future requests
+          // Store in oddsCache with FLAT format (homeOdds, drawOdds, awayOdds, timestamp)
           this.oddsCache.set(fixtureId, {
-            data: odds,
+            homeOdds: odds.homeOdds,
+            drawOdds: odds.drawOdds,
+            awayOdds: odds.awayOdds,
             timestamp: Date.now()
           });
           cachedOdds.set(fixtureId, odds);
@@ -3419,12 +3421,12 @@ export class ApiSportsService {
   }
   
   /**
-   * Prefetch odds for all events using DATE-BASED BULK endpoint (1-2 calls vs 400+)
-   * AGGRESSIVE API SAVING: Uses /odds?date=YYYY-MM-DD instead of individual fixture calls
+   * Prefetch odds for all events using DATE-BASED BULK endpoint with ALL PAGES
+   * Fetches ALL available odds from API to maximize coverage
    */
   private async prefetchOdds(): Promise<void> {
     try {
-      console.log('[ApiSportsService] 🔄 Prefetching odds using DATE-BASED BULK endpoint...');
+      console.log('[ApiSportsService] 🔄 Prefetching ALL odds (with pagination)...');
       const startTime = Date.now();
       
       // Get today and tomorrow dates
@@ -3436,24 +3438,31 @@ export class ApiSportsService {
       const dates = [formatDate(today), formatDate(tomorrow)];
       
       let totalOdds = 0;
+      let totalApiCalls = 0;
       
-      // Fetch odds by DATE (1 call gets ALL odds for that day!)
+      // Fetch ALL pages of odds for each date
       for (const date of dates) {
-        try {
-          console.log(`[ApiSportsService] 📅 Fetching ALL odds for date: ${date}`);
-          
-          const response = await axios.get('https://v3.football.api-sports.io/odds', {
-            params: { date },
-            headers: {
-              'x-apisports-key': this.apiKey,
-              'Accept': 'application/json'
-            },
-            timeout: 30000 // Longer timeout for bulk data
-          });
-          
-          if (response.data?.response && Array.isArray(response.data.response)) {
-            const oddsData = response.data.response;
-            console.log(`[ApiSportsService] 📅 Got ${oddsData.length} fixture odds for ${date}`);
+        let page = 1;
+        let hasMore = true;
+        
+        while (hasMore && page <= 20) { // Max 20 pages per date to avoid infinite loops
+          try {
+            console.log(`[ApiSportsService] 📅 Fetching odds for ${date} (page ${page})...`);
+            
+            const response = await axios.get('https://v3.football.api-sports.io/odds', {
+              params: { date, page },
+              headers: {
+                'x-apisports-key': this.apiKey,
+                'Accept': 'application/json'
+              },
+              timeout: 30000
+            });
+            
+            totalApiCalls++;
+            const oddsData = response.data?.response || [];
+            const paging = response.data?.paging;
+            
+            console.log(`[ApiSportsService] 📅 Got ${oddsData.length} fixture odds for ${date} (page ${page}/${paging?.total || '?'})`);
             
             // Process each fixture's odds
             for (const item of oddsData) {
@@ -3486,27 +3495,34 @@ export class ApiSportsService {
                   if (oddsValues.homeOdds && oddsValues.awayOdds) {
                     this.oddsCache.set(fixtureId, oddsValues);
                     totalOdds++;
-                    break; // Got odds from this bookmaker, move to next fixture
+                    break;
                   }
                 }
               }
             }
+            
+            // Check if there are more pages
+            if (paging && paging.current < paging.total) {
+              page++;
+              await new Promise(r => setTimeout(r, 300)); // Rate limit delay
+            } else {
+              hasMore = false;
+            }
+            
+          } catch (dateError: any) {
+            console.log(`[ApiSportsService] ⚠️ Failed to fetch odds for ${date} page ${page}: ${dateError.message}`);
+            hasMore = false;
           }
-          
-          // Small delay between date calls
-          if (date !== dates[dates.length - 1]) {
-            await new Promise(r => setTimeout(r, 500));
-          }
-          
-        } catch (dateError: any) {
-          console.log(`[ApiSportsService] ⚠️ Failed to fetch odds for ${date}: ${dateError.message}`);
         }
+        
+        // Delay between dates
+        await new Promise(r => setTimeout(r, 500));
       }
       
       const elapsed = Date.now() - startTime;
       this.lastPrefetchTime = Date.now();
       
-      console.log(`[ApiSportsService] ✅ BULK prefetched ${totalOdds} odds in ${elapsed}ms (2 API calls vs 400+)`);
+      console.log(`[ApiSportsService] ✅ BULK prefetched ${totalOdds} odds in ${elapsed}ms (${totalApiCalls} API calls)`);
       console.log(`[ApiSportsService] 📊 Odds cache now has ${this.oddsCache.size} entries`);
       
     } catch (error) {
