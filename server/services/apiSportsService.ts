@@ -2995,6 +2995,13 @@ export class ApiSportsService {
                 }
                 // Only cache successful results - short cache for live events
                 this.cache.set(cacheKey, { data: oddsValues, timestamp: Date.now() });
+                // Also store in oddsCache for cross-request consistency
+                this.oddsCache.set(fixtureId, {
+                  homeOdds: oddsValues.homeOdds,
+                  drawOdds: oddsValues.drawOdds,
+                  awayOdds: oddsValues.awayOdds,
+                  timestamp: Date.now()
+                });
                 console.log(`[ApiSportsService] 🎰 Found odds for fixture ${fixtureId} from ${bookmaker.name}`);
                 return oddsValues;
               }
@@ -3035,6 +3042,13 @@ export class ApiSportsService {
                   if (oddsValues.homeOdds && oddsValues.awayOdds) {
                     console.log(`[ApiSportsService] 🎰 Found LIVE odds for fixture ${fixtureId}`);
                     this.cache.set(cacheKey, { data: oddsValues, timestamp: Date.now() });
+                    // Also store in oddsCache for cross-request consistency
+                    this.oddsCache.set(fixtureId, {
+                      homeOdds: oddsValues.homeOdds,
+                      drawOdds: oddsValues.drawOdds,
+                      awayOdds: oddsValues.awayOdds,
+                      timestamp: Date.now()
+                    });
                     return oddsValues;
                   }
                 }
