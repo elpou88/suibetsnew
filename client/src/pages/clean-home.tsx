@@ -726,6 +726,10 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
     away: event.awayOdds || null
   };
   
+  // Check if betting is closed (last 10 minutes of live match - minute >= 80)
+  const minuteNum = event.minute ? parseInt(event.minute.toString().replace(/[^0-9]/g, '')) : 0;
+  const isBettingClosed = event.isLive && minuteNum >= 80;
+  
   // Simulated odds movement (in real app, this would compare to previous odds)
   const getOddsMovement = (oddsValue: number): 'up' | 'down' | 'stable' => {
     // Simple deterministic logic based on odds value for visual effect
@@ -844,7 +848,12 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
         </div>
         
         {/* Odds Buttons with Movement Indicators */}
-        {hasRealOdds ? (
+        {isBettingClosed ? (
+          <div className="flex items-center gap-1 px-3 py-1.5 bg-red-900/30 border border-red-800/50 rounded">
+            <Clock size={12} className="text-red-400" />
+            <span className="text-red-400 text-xs font-medium">Betting closed</span>
+          </div>
+        ) : hasRealOdds ? (
           <div className="flex gap-1">
             {/* Home Odds */}
             <button
