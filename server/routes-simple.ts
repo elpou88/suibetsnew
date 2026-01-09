@@ -1131,11 +1131,15 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         });
       }
       
-      // Check stale cache
-      const MAX_CACHE_AGE_MS = 2 * 60 * 1000;
-      if (eventLookup.cacheAgeMs > MAX_CACHE_AGE_MS) {
+      // DYNAMIC CACHE AGE: Strict for live (60s), relaxed for upcoming (15min)
+      const MAX_LIVE_CACHE_AGE_MS = 60 * 1000;
+      const MAX_UPCOMING_CACHE_AGE_MS = 15 * 60 * 1000;
+      const isEventLive = eventLookup.source === 'live';
+      const maxCacheAge = isEventLive ? MAX_LIVE_CACHE_AGE_MS : MAX_UPCOMING_CACHE_AGE_MS;
+      
+      if (eventLookup.cacheAgeMs > maxCacheAge) {
         return res.status(400).json({ 
-          message: "Event data is stale - please refresh and try again",
+          message: isEventLive ? "Match data is stale - please refresh" : "Event data is stale - please refresh and try again",
           code: "STALE_EVENT_DATA"
         });
       }
@@ -1188,13 +1192,12 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       // SERVER-SIDE VALIDATION: Unified event registry lookup
       // CRITICAL: Server is authoritative about event status - never trust client isLive/matchMinute
       // Security: FAIL-CLOSED - Event must exist in server cache (live or upcoming) to accept bet
-      const MAX_CACHE_AGE_MS = 60 * 1000; // Reject stale cache (>60 seconds) for live events
+      const MAX_LIVE_CACHE_AGE_MS = 60 * 1000; // Reject stale cache (>60 seconds) for live events
+      const MAX_UPCOMING_CACHE_AGE_MS = 15 * 60 * 1000; // 15 minutes for upcoming (pre-match) events - match hasn't started, status is stable
       
       try {
         // Unified lookup: checks BOTH live and upcoming event caches
         const eventLookup = apiSportsService.lookupEventSync(eventId);
-        // Maximum cache age for ANY bet - after this, cache is too stale to trust
-        const MAX_UNIVERSAL_CACHE_AGE_MS = 2 * 60 * 1000; // 2 minutes - reject ALL stale cache bets
         
         if (!eventLookup.found) {
           // FAIL-CLOSED: Event not found in ANY cache - reject bet
@@ -1205,27 +1208,22 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           });
         }
         
-        // UNIVERSAL STALE CHECK: Reject ANY bet with stale cache, regardless of source or client claims
-        // This prevents bypass via stale upcoming cache + isLive=false manipulation
-        if (eventLookup.cacheAgeMs > MAX_UNIVERSAL_CACHE_AGE_MS) {
-          console.log(`❌ Bet rejected (stale cache): Cache is ${Math.round(eventLookup.cacheAgeMs/1000)}s old (max ${MAX_UNIVERSAL_CACHE_AGE_MS/1000}s), eventId: ${eventId}, source: ${eventLookup.source}`);
+        // DYNAMIC CACHE AGE CHECK: Different thresholds for live vs upcoming events
+        // Live events need strict freshness (60s) because match state changes rapidly
+        // Upcoming events can have relaxed threshold (15min) because match hasn't started
+        const isEventLive = eventLookup.source === 'live';
+        const maxCacheAge = isEventLive ? MAX_LIVE_CACHE_AGE_MS : MAX_UPCOMING_CACHE_AGE_MS;
+        
+        if (eventLookup.cacheAgeMs > maxCacheAge) {
+          console.log(`❌ Bet rejected (stale cache): Cache is ${Math.round(eventLookup.cacheAgeMs/1000)}s old (max ${maxCacheAge/1000}s), eventId: ${eventId}, source: ${eventLookup.source}`);
           return res.status(400).json({ 
-            message: "Event data is stale - please refresh and try again",
+            message: isEventLive ? "Match data is stale - please refresh" : "Event data is stale - please refresh and try again",
             code: "STALE_EVENT_DATA"
           });
         }
         
         // Event found with fresh cache - check if it's live (server determines this, not client)
         if (eventLookup.source === 'live') {
-          // Event is LIVE according to server cache - additional freshness check for live events
-          if (eventLookup.cacheAgeMs > MAX_CACHE_AGE_MS) {
-            console.log(`❌ Bet rejected (stale live cache): Cache is ${Math.round(eventLookup.cacheAgeMs/1000)}s old, eventId: ${eventId}, cached minute: ${eventLookup.minute}`);
-            return res.status(400).json({ 
-              message: "Match data is stale - please refresh and try again",
-              code: "STALE_MATCH_DATA"
-            });
-          }
-          
           // FAIL-CLOSED: If we have no minute data for a live match, we cannot verify it's under 80 min
           // API-Sports may omit minute during halftime, glitches, or for non-football sports
           if (eventLookup.minute === undefined || eventLookup.minute === null) {
