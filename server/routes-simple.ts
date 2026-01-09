@@ -877,6 +877,13 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
             return timeA - timeB;
           });
           
+          // CRITICAL: Filter out events that have already started
+          const now = Date.now();
+          allUpcomingEvents = allUpcomingEvents.filter(e => {
+            if (!e.startTime) return true;
+            return new Date(e.startTime).getTime() > now;
+          });
+          
           // Filter by sport if requested
           if (reqSportId && allUpcomingEvents.length > 0) {
             const filtered = allUpcomingEvents.filter(e => e.sportId === reqSportId);
@@ -944,6 +951,18 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           const timeB = b.startTime ? new Date(b.startTime).getTime() : Infinity;
           return timeA - timeB;
         });
+        
+        // CRITICAL: Filter out events that have already started (startTime in the past)
+        // These should appear in live matches, not upcoming - prevents betting errors
+        const now = Date.now();
+        const beforeFilter = allUpcomingEvents.length;
+        allUpcomingEvents = allUpcomingEvents.filter(e => {
+          if (!e.startTime) return true; // Keep events without startTime
+          return new Date(e.startTime).getTime() > now;
+        });
+        if (beforeFilter !== allUpcomingEvents.length) {
+          console.log(`📦 Filtered out ${beforeFilter - allUpcomingEvents.length} already-started events from upcoming`);
+        }
         
         // Filter by sport if requested
         if (reqSportId && allUpcomingEvents.length > 0) {
@@ -1153,6 +1172,15 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
             code: "MATCH_CUTOFF"
           });
         }
+      }
+      
+      // Check if upcoming event SHOULD be live (start time passed but not in live cache)
+      if (eventLookup.source === 'upcoming' && eventLookup.shouldBeLive) {
+        console.log(`[validate] Event ${eventId} rejected: startTime passed (${eventLookup.startTime}) but not in live cache`);
+        return res.status(400).json({ 
+          message: "This match has started - please check live matches instead",
+          code: "MATCH_STARTED"
+        });
       }
       
       // Event is valid for betting
