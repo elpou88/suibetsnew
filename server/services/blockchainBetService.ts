@@ -820,9 +820,29 @@ export class BlockchainBetService {
 
       if (platformObj.data?.content?.dataType === 'moveObject') {
         const fields = (platformObj.data.content as any).fields;
+        
+        // Debug: log the raw fields structure
+        console.log('[BlockchainBetService] Platform fields treasury_sui:', fields.treasury_sui);
+        console.log('[BlockchainBetService] Platform fields treasury_sbets:', fields.treasury_sbets);
+        
+        // Balance objects in Sui can be stored as direct numbers or nested in .fields.value
+        // Try both formats for compatibility
+        const getTreasuryValue = (field: any): number => {
+          if (!field) return 0;
+          // Direct number format
+          if (typeof field === 'string' || typeof field === 'number') {
+            return parseInt(String(field)) / 1e9;
+          }
+          // Nested .fields.value format (Balance object)
+          if (field?.fields?.value) {
+            return parseInt(field.fields.value) / 1e9;
+          }
+          return 0;
+        };
+        
         return {
-          treasuryBalanceSui: parseInt(fields.treasury_sui?.fields?.value || '0') / 1e9,
-          treasuryBalanceSbets: parseInt(fields.treasury_sbets?.fields?.value || '0') / 1e9,
+          treasuryBalanceSui: getTreasuryValue(fields.treasury_sui),
+          treasuryBalanceSbets: getTreasuryValue(fields.treasury_sbets),
           totalBets: parseInt(fields.total_bets || '0'),
           totalVolumeSui: parseInt(fields.total_volume_sui || '0') / 1e9,
           totalVolumeSbets: parseInt(fields.total_volume_sbets || '0') / 1e9,
