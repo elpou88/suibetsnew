@@ -3206,9 +3206,8 @@ export class ApiSportsService {
   }
   
   /**
-   * FAST PATH: Enrich events with ONLY cached odds - NO API calls
-   * Used for upcoming events to ensure fast response times
-   * The background prefetcher handles warming the cache asynchronously
+   * FAST PATH: Enrich events with cached odds FIRST, then batch-fetch missing major league odds
+   * Used for upcoming events to ensure fast response times while maximizing odds coverage
    */
   async enrichEventsWithCachedOddsOnly(events: SportEvent[], sport: string = 'football'): Promise<SportEvent[]> {
     if (!events || events.length === 0) return events;
@@ -3217,7 +3216,22 @@ export class ApiSportsService {
       .map(e => e.id?.toString())
       .filter((id): id is string => !!id);
     
-    // Only use pre-warmed cache - NO API calls
+    // Major league names that should ALWAYS have odds fetched (case-insensitive matching)
+    const majorLeaguePatterns = [
+      /premier league/i, /la liga/i, /serie a/i, /bundesliga/i, /ligue 1/i,
+      /champions league/i, /europa league/i, /conference league/i,
+      /eredivisie/i, /primeira liga/i, /super lig/i, /mls/i,
+      /world cup/i, /euro 202/i, /copa america/i, /nations league/i,
+      /championship/i, /fa cup/i, /copa del rey/i, /dfb pokal/i, /coppa italia/i,
+      /saudi pro league/i, /brazilian/i, /argentinian/i,
+    ];
+    
+    const isMajorLeague = (leagueName: string | undefined): boolean => {
+      if (!leagueName) return false;
+      return majorLeaguePatterns.some(pattern => pattern.test(leagueName));
+    };
+    
+    // Step 1: Check cached odds
     const cachedOdds = new Map<string, { homeOdds: number; drawOdds?: number; awayOdds: number }>();
     for (const fixtureId of fixtureIds) {
       const cached = this.getOddsFromCache(fixtureId);
@@ -3227,6 +3241,41 @@ export class ApiSportsService {
     }
     
     console.log(`[ApiSportsService] 🚀 Fast path: ${cachedOdds.size}/${fixtureIds.length} odds from cache`);
+    
+    // Step 2: Find major league fixtures WITHOUT cached odds (by league NAME)
+    const missingMajorLeagueFixtures = events
+      .filter(e => {
+        const eventId = e.id?.toString();
+        if (!eventId) return false;
+        // Skip if already cached
+        if (cachedOdds.has(eventId)) return false;
+        // Check if it's a major league by NAME
+        return isMajorLeague(e.leagueName);
+      })
+      .map(e => e.id?.toString())
+      .filter((id): id is string => !!id);
+    
+    // Step 3: Batch fetch odds for missing major league fixtures (max 30 to stay API-friendly)
+    if (missingMajorLeagueFixtures.length > 0) {
+      const toFetch = missingMajorLeagueFixtures.slice(0, 30);
+      console.log(`[ApiSportsService] 🏆 Fetching odds for ${toFetch.length} major league fixtures missing from cache...`);
+      
+      try {
+        const newOdds = await this.getOddsForFixtures(toFetch, sport);
+        // Store in cache and add to cachedOdds map
+        newOdds.forEach((odds, fixtureId) => {
+          // Store in oddsCache for future requests
+          this.oddsCache.set(fixtureId, {
+            data: odds,
+            timestamp: Date.now()
+          });
+          cachedOdds.set(fixtureId, odds);
+        });
+        console.log(`[ApiSportsService] 🏆 Fetched ${newOdds.size} new major league odds`);
+      } catch (error) {
+        console.log(`[ApiSportsService] ⚠️ Could not fetch major league odds: ${(error as Error).message}`);
+      }
+    }
     
     // Enrich events with cached odds only
     let enrichedCount = 0;
