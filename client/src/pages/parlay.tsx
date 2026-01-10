@@ -249,9 +249,17 @@ export default function ParlayPage() {
 
       if (response.ok) {
         const betType = parlayLegs.length === 1 ? 'Bet' : 'Parlay';
+        const txLink = `https://suiscan.xyz/mainnet/tx/${onChainResult.txDigest}`;
         toast({ 
           title: `${betType} Placed On-Chain!`, 
-          description: `TX: ${onChainResult.txDigest?.slice(0, 12)}... - ${parlayLegs.length === 1 ? parlayLegs[0].selection : `${parlayLegs.length} legs`} @ ${totalOdds.toFixed(2)}x` 
+          description: (
+            <div className="flex flex-col gap-1">
+              <span>{parlayLegs.length === 1 ? parlayLegs[0].selection : `${parlayLegs.length} legs`} @ {totalOdds.toFixed(2)}x</span>
+              <a href={txLink} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline flex items-center gap-1">
+                View TX: {onChainResult.txDigest?.slice(0, 12)}...
+              </a>
+            </div>
+          )
         });
         clearBets();
         setStake('10');
@@ -261,9 +269,17 @@ export default function ParlayPage() {
       } else {
         // On-chain succeeded but database failed - still show success since bet is on-chain
         const betType = parlayLegs.length === 1 ? 'Bet' : 'Parlay';
+        const txLink = `https://suiscan.xyz/mainnet/tx/${onChainResult.txDigest}`;
         toast({ 
           title: `${betType} On-Chain!`, 
-          description: `TX: ${onChainResult.txDigest?.slice(0, 12)}... (DB save pending)` 
+          description: (
+            <div className="flex flex-col gap-1">
+              <span>DB save pending</span>
+              <a href={txLink} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline">
+                View TX: {onChainResult.txDigest?.slice(0, 12)}...
+              </a>
+            </div>
+          )
         });
         clearBets();
       }

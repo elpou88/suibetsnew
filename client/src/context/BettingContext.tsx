@@ -363,17 +363,30 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
             });
             window.dispatchEvent(betConfirmedEvent);
             
+            const txLink = `https://suiscan.xyz/mainnet/tx/${onChainResult.txDigest}`;
             toast({
-              title: "✅ Bet Placed On-Chain!",
-              description: `TX: ${onChainResult.txDigest?.slice(0, 12)}...`,
+              title: "Bet Placed On-Chain!",
+              description: (
+                <a href={txLink} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline">
+                  View TX: {onChainResult.txDigest?.slice(0, 12)}...
+                </a>
+              ),
             });
             // Bets cleared when user dismisses confirmation
             return true;
           } else {
             // Database failed but bet is on-chain - keep in slip for retry
+            const txLink = `https://suiscan.xyz/mainnet/tx/${onChainResult.txDigest}`;
             toast({
               title: "Database Error",
-              description: `Bet is on-chain (TX: ${onChainResult.txDigest?.slice(0, 12)}...) but failed to save. Retry or contact support.`,
+              description: (
+                <div className="flex flex-col gap-1">
+                  <span>Bet on-chain but failed to save. Retry or contact support.</span>
+                  <a href={txLink} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline">
+                    View TX: {onChainResult.txDigest?.slice(0, 12)}...
+                  </a>
+                </div>
+              ),
               variant: "destructive",
             });
             // Store txHash locally for recovery
@@ -388,9 +401,17 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
           }
         } catch (dbError: any) {
           // Database error but bet is on-chain
+          const txLink = `https://suiscan.xyz/mainnet/tx/${onChainResult.txDigest}`;
           toast({
             title: "Database Error",
-            description: `Bet is on-chain (TX: ${onChainResult.txDigest?.slice(0, 12)}...) but failed to save. Retry or contact support.`,
+            description: (
+              <div className="flex flex-col gap-1">
+                <span>Bet on-chain but failed to save.</span>
+                <a href={txLink} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline">
+                  View TX: {onChainResult.txDigest?.slice(0, 12)}...
+                </a>
+              </div>
+            ),
             variant: "destructive",
           });
           localStorage.setItem('pendingOnChainBet', JSON.stringify({
@@ -479,17 +500,33 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
         });
 
         if (response.ok) {
+          const txLink = `https://suiscan.xyz/mainnet/tx/${onChainResult.txDigest}`;
           toast({
             title: "Parlay Placed On-Chain!",
-            description: `TX: ${onChainResult.txDigest?.slice(0, 12)}... - ${selectedBets.length} legs @ ${parlayOdds.toFixed(2)}x`,
+            description: (
+              <div className="flex flex-col gap-1">
+                <span>{selectedBets.length} legs @ {parlayOdds.toFixed(2)}x</span>
+                <a href={txLink} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline">
+                  View TX: {onChainResult.txDigest?.slice(0, 12)}...
+                </a>
+              </div>
+            ),
           });
           clearBets();
           return true;
         } else {
           // On-chain succeeded but DB failed - still success
+          const txLink = `https://suiscan.xyz/mainnet/tx/${onChainResult.txDigest}`;
           toast({
             title: "Parlay On-Chain!",
-            description: `TX: ${onChainResult.txDigest?.slice(0, 12)}... (DB save pending)`,
+            description: (
+              <div className="flex flex-col gap-1">
+                <span>DB save pending</span>
+                <a href={txLink} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline">
+                  View TX: {onChainResult.txDigest?.slice(0, 12)}...
+                </a>
+              </div>
+            ),
           });
           clearBets();
           return true;
