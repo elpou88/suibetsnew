@@ -43,6 +43,11 @@ Preferred communication style: Simple, everyday language.
 - **Full On-Chain Model**: Bets are placed directly on the smart contract, tracked in PostgreSQL for UI, and settlements are automated on-chain.
 - **Capability-Based Security**: Smart contracts use AdminCap and OracleCap for access control, enhancing security and operational management.
 
+### Liability Tracking
+- **Currency Column**: Each bet explicitly stores `currency` ('SUI' or 'SBETS') to track which token was used for the bet.
+- **Reconciliation Endpoint**: `/api/admin/liability-reconciliation` (GET, requires X-Admin-Password header) compares on-chain liability vs database-tracked liability.
+- **Settlement Worker**: Only calls on-chain settlement when bet has valid `betObjectId` - prevents orphaned on-chain liability from DB-only settlements.
+
 ## External Dependencies
 
 ### Sports Data Providers
