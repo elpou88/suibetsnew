@@ -45,8 +45,8 @@ export async function initDb() {
     
     console.log('Connecting to database...');
     
-    // Uncomment the following line to run migrations
-    // await migrate(db, { migrationsFolder: './migrations' });
+    // Run automatic schema migrations
+    await runAutoMigrations();
     
     console.log('Database connection established');
     return db;
@@ -55,6 +55,35 @@ export async function initDb() {
     // Don't throw error, just log it and continue
     console.log('Continuing with blockchain-based storage as fallback');
     return db;
+  }
+}
+
+/**
+ * Run automatic migrations to add missing columns
+ */
+async function runAutoMigrations() {
+  if (!client) return;
+  
+  try {
+    console.log('Checking for schema updates...');
+    
+    // Add currency column to bets table if it doesn't exist
+    await client`
+      DO $$ 
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name = 'bets' AND column_name = 'currency'
+        ) THEN
+          ALTER TABLE bets ADD COLUMN currency VARCHAR(10) DEFAULT 'SUI';
+          RAISE NOTICE 'Added currency column to bets table';
+        END IF;
+      END $$;
+    `;
+    
+    console.log('Schema check complete');
+  } catch (error) {
+    console.error('Auto-migration error (non-fatal):', error);
   }
 }
 
