@@ -420,9 +420,11 @@ class SettlementWorkerService {
 
           if (settlementResult.success) {
             // Update database status to reflect on-chain settlement
-            const statusUpdated = await storage.updateBetStatus(bet.id, status, grossPayout);
+            // Use 'paid_out' for winners since payout was sent, 'lost' for losers
+            const finalStatus = isWinner ? 'paid_out' : 'lost';
+            const statusUpdated = await storage.updateBetStatus(bet.id, finalStatus, grossPayout);
             if (statusUpdated) {
-              console.log(`✅ ON-CHAIN SUI SETTLED: ${bet.id} ${status} | TX: ${settlementResult.txHash}`);
+              console.log(`✅ ON-CHAIN SUI SETTLED: ${bet.id} ${finalStatus} | TX: ${settlementResult.txHash}`);
               this.settledBetIds.add(bet.id);
             }
           } else {
@@ -441,9 +443,11 @@ class SettlementWorkerService {
           );
 
           if (settlementResult.success) {
-            const statusUpdated = await storage.updateBetStatus(bet.id, status, grossPayout);
+            // Use 'paid_out' for winners since payout was sent, 'lost' for losers
+            const finalStatus = isWinner ? 'paid_out' : 'lost';
+            const statusUpdated = await storage.updateBetStatus(bet.id, finalStatus, grossPayout);
             if (statusUpdated) {
-              console.log(`✅ ON-CHAIN SBETS SETTLED: ${bet.id} ${status} | TX: ${settlementResult.txHash}`);
+              console.log(`✅ ON-CHAIN SBETS SETTLED: ${bet.id} ${finalStatus} | TX: ${settlementResult.txHash}`);
               this.settledBetIds.add(bet.id);
             }
           } else {
@@ -456,7 +460,9 @@ class SettlementWorkerService {
           console.log(`📊 OFF-CHAIN SETTLEMENT: Bet ${bet.id} (${bet.currency}) via database`);
 
           // DOUBLE PAYOUT PREVENTION: Only process winnings if status update succeeded
-          const statusUpdated = await storage.updateBetStatus(bet.id, status, grossPayout);
+          // Use 'paid_out' for winners after successful payout, 'lost' for losers
+          const initialStatus = isWinner ? 'won' : 'lost'; // Start as 'won', upgrade to 'paid_out' after payout
+          const statusUpdated = await storage.updateBetStatus(bet.id, initialStatus, grossPayout);
 
           if (statusUpdated) {
             if (isWinner && netPayout > 0) {
@@ -469,13 +475,15 @@ class SettlementWorkerService {
               }
               // CRITICAL: Record 1% platform fee as revenue
               await balanceService.addRevenue(platformFee, bet.currency as 'SUI' | 'SBETS');
-              console.log(`💰 WINNER (DB): ${bet.userId} won ${netPayout} ${bet.currency} (fee: ${platformFee} ${bet.currency} -> revenue)`);
+              // Now upgrade status to 'paid_out' since payout succeeded
+              await storage.updateBetStatus(bet.id, 'paid_out', grossPayout);
+              console.log(`💰 WINNER (DB): ${bet.userId} won ${netPayout} ${bet.currency} (fee: ${platformFee} ${bet.currency} -> revenue) - PAID OUT`);
             } else {
               // Lost bet - add full stake to platform revenue
               await balanceService.addRevenue(bet.stake, bet.currency as 'SUI' | 'SBETS');
               console.log(`📉 LOST (DB): ${bet.userId} lost ${bet.stake} ${bet.currency} - added to platform revenue`);
             }
-            console.log(`✅ Settled bet ${bet.id}: ${status} (${match.homeTeam} ${match.homeScore}-${match.awayScore} ${match.awayTeam})`);
+            console.log(`✅ Settled bet ${bet.id}: ${isWinner ? 'paid_out' : 'lost'} (${match.homeTeam} ${match.homeScore}-${match.awayScore} ${match.awayTeam})`);
             
             // ONLY mark as settled after successful payout processing
             this.settledBetIds.add(bet.id);

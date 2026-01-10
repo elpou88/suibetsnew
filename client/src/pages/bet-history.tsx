@@ -25,7 +25,7 @@ interface Bet {
   odds: number;
   stake: number;
   potentialWin: number;
-  status: 'pending' | 'won' | 'lost';
+  status: 'pending' | 'won' | 'lost' | 'paid_out';
   placedAt: string;
   settledAt?: string;
   txHash?: string;
@@ -54,11 +54,11 @@ export default function BetHistoryPage() {
 
   const stats = {
     total: bets.length,
-    won: bets.filter(b => b.status === 'won').length,
+    won: bets.filter(b => b.status === 'won' || b.status === 'paid_out').length,
     lost: bets.filter(b => b.status === 'lost').length,
     pending: bets.filter(b => b.status === 'pending').length,
     totalStaked: bets.reduce((acc, b) => acc + (b.stake || 0), 0),
-    totalWon: bets.filter(b => b.status === 'won').reduce((acc, b) => acc + (b.potentialWin || 0), 0),
+    totalWon: bets.filter(b => b.status === 'won' || b.status === 'paid_out').reduce((acc, b) => acc + (b.potentialWin || 0), 0),
   };
 
   const winRate = stats.won + stats.lost > 0 ? ((stats.won / (stats.won + stats.lost)) * 100).toFixed(0) : 0;
@@ -85,9 +85,20 @@ export default function BetHistoryPage() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'won': return <CheckCircle className="h-5 w-5 text-green-400" />;
+      case 'paid_out': return <CheckCircle className="h-5 w-5 text-emerald-400" />;
       case 'lost': return <XCircle className="h-5 w-5 text-red-400" />;
       case 'pending': return <Clock className="h-5 w-5 text-yellow-400 animate-pulse" />;
       default: return null;
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'won': return 'Won';
+      case 'paid_out': return 'Paid Out';
+      case 'lost': return 'Lost';
+      case 'pending': return 'Pending';
+      default: return status;
     }
   };
 
@@ -269,11 +280,14 @@ export default function BetHistoryPage() {
                 >
                   <div className="flex items-center gap-4">
                     <div className={`p-3 rounded-xl ${
-                      bet.status === 'won' ? 'bg-green-500/20' :
+                      bet.status === 'won' || bet.status === 'paid_out' ? 'bg-green-500/20' :
                       bet.status === 'lost' ? 'bg-red-500/20' :
                       'bg-yellow-500/20'
                     }`}>
                       {getStatusIcon(bet.status)}
+                      {bet.status === 'paid_out' && (
+                        <span className="text-xs text-emerald-400 ml-1">Paid</span>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-white font-medium">{getBetDisplayName(bet)}</p>
@@ -303,13 +317,13 @@ export default function BetHistoryPage() {
                       <span className="text-green-400 font-bold">{bet.odds.toFixed(2)}</span>
                     </div>
                     <div className="flex items-center gap-2 justify-end">
-                      <span className="text-gray-400 text-sm">To Win:</span>
+                      <span className="text-gray-400 text-sm">{bet.status === 'paid_out' ? 'Paid Out:' : 'To Win:'}</span>
                       <span className={`font-bold text-lg ${
-                        bet.status === 'won' ? 'text-green-400' :
+                        bet.status === 'won' || bet.status === 'paid_out' ? 'text-green-400' :
                         bet.status === 'lost' ? 'text-red-400' :
                         'text-cyan-400'
                       }`}>
-                        {bet.status === 'won' ? '+' : bet.status === 'lost' ? '-' : ''}{bet.potentialWin.toFixed(2)} {bet.currency || 'SUI'}
+                        {bet.status === 'won' || bet.status === 'paid_out' ? '+' : bet.status === 'lost' ? '-' : ''}{bet.potentialWin.toFixed(2)} {bet.currency || 'SUI'}
                       </span>
                     </div>
                     {bet.txHash && (

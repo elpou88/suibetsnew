@@ -51,7 +51,7 @@ export function BetHistory() {
   // Filter bets based on active tab
   const filteredBets = userBets.filter((bet: any) => {
     if (activeTab === 'active') return bet.status === 'pending' || bet.status === 'in_progress';
-    if (activeTab === 'settled') return bet.status === 'won' || bet.status === 'lost';
+    if (activeTab === 'settled') return bet.status === 'won' || bet.status === 'lost' || bet.status === 'paid_out';
     return true; // 'all' tab
   });
 
@@ -179,6 +179,13 @@ export function BetHistory() {
           <div className="flex items-center text-green-500">
             <CheckCircle className="w-4 h-4 mr-1" />
             <span>Won</span>
+          </div>
+        );
+      case 'paid_out':
+        return (
+          <div className="flex items-center text-emerald-400">
+            <ArrowDownToLine className="w-4 h-4 mr-1" />
+            <span>Paid Out</span>
           </div>
         );
       case 'lost':
