@@ -158,8 +158,8 @@ export function BetHistory() {
   const getPredictionDisplay = (bet: any): string => {
     if (isParlay(bet)) {
       const selections = getParlaySelections(bet);
-      // Show the actual selection/team name (e.g., "Real Madrid", "Barcelona") 
-      return selections.map(s => s.selection || s.eventName?.split(' vs ')[0] || 'Pick').join(' + ');
+      // Show the actual selection/team name - check both 'selection' and 'prediction' fields
+      return selections.map(s => s.selection || (s as any).prediction || s.eventName?.split(' vs ')[0] || 'Pick').join(' + ');
     }
     return bet.prediction || bet.selection || 'Unknown';
   };
@@ -168,7 +168,8 @@ export function BetHistory() {
   const getParlayTeamNames = (bet: any): string => {
     const selections = getParlaySelections(bet);
     if (selections.length === 0) return '';
-    return selections.map(s => s.selection || 'Pick').join(', ');
+    // Check both 'selection' and 'prediction' fields for team names
+    return selections.map(s => s.selection || (s as any).prediction || 'Pick').join(', ');
   };
 
   // Get status badge based on bet status

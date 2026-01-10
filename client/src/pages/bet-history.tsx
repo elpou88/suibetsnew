@@ -145,8 +145,8 @@ export default function BetHistoryPage() {
   const getSelectionDisplay = (bet: Bet): string => {
     if (isParlay(bet)) {
       const selections = getParlaySelections(bet);
-      // Show the team names selected
-      return selections.map(s => s.selection || 'Pick').join(', ');
+      // Show the team names selected - check both 'selection' and 'prediction' fields
+      return selections.map(s => s.selection || (s as any).prediction || 'Pick').join(', ');
     }
     return bet.selection || 'Unknown';
   };
@@ -296,7 +296,7 @@ export default function BetHistoryPage() {
                         <div className="mt-1 space-y-0.5">
                           {getParlaySelections(bet).slice(0, 3).map((leg, idx) => (
                             <p key={idx} className="text-gray-400 text-xs truncate">
-                              {leg.eventName}: {leg.selection} @ {leg.odds?.toFixed(2)}
+                              {leg.eventName}: {leg.selection || (leg as any).prediction || 'Pick'} @ {leg.odds?.toFixed(2)}
                             </p>
                           ))}
                           {getParlaySelections(bet).length > 3 && (
