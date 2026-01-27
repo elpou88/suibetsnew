@@ -2608,7 +2608,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
   
-  // Get user's claimable revenue
+  // Get user's claimable revenue  
   app.get("/api/revenue/claimable/:walletAddress", async (req: Request, res: Response) => {
     try {
       const { walletAddress } = req.params;
@@ -2617,13 +2617,17 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         return res.status(400).json({ message: 'Wallet address required' });
       }
       
-      // Get user's SBETS balance from blockchain
+      // Get user's SBETS balance from blockchain (real-time)
       const userBalance = await blockchainBetService.getWalletBalance(walletAddress);
       const userSbets = userBalance.sbets;
       
+      // CRITICAL: Get all known holders to calculate fair share
+      // User's share = their SBETS / total SBETS held by ALL known holders
       const holdersData = await fetchSbetsHolders();
-      const totalSupply = holdersData.totalSupply;
-      const sharePercentage = totalSupply > 0 ? (userSbets / totalSupply) * 100 : 0;
+      const totalCirculating = holdersData.totalSupply; // This is now circulating among known holders
+      const sharePercentage = totalCirculating > 0 ? (userSbets / totalCirculating) * 100 : 0;
+      
+      console.log(`[Revenue] User ${walletAddress.slice(0,10)}... has ${userSbets} SBETS = ${sharePercentage.toFixed(4)}% share`);
       
       const settledBets = await getSettledBetsForRevenue();
       
@@ -2648,7 +2652,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       }, 0);
       
       const holderPool = weeklyRevenue * REVENUE_SHARE_PERCENTAGE;
-      const userClaimable = totalSupply > 0 ? holderPool * (userSbets / totalSupply) : 0;
+      const userClaimable = totalCirculating > 0 ? holderPool * (userSbets / totalCirculating) : 0;
       
       const userClaims = await getRevenueClaims(walletAddress);
       const thisWeekClaim = userClaims.find(c => c.weekStart >= startOfWeek);
@@ -2763,31 +2767,82 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
   });
   
   // Helper function to fetch SBETS holders
+  // Cache for SBETS holders data (refresh every 5 minutes)
+  let sbetsHoldersCache: { totalSupply: number; holders: Array<{ address: string; balance: number; percentage: number }>; lastUpdated: number } | null = null;
+  const SBETS_HOLDERS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  
+  // Platform wallets to EXCLUDE from revenue distribution (these are platform-owned, not circulating)
+  const PLATFORM_WALLETS = [
+    '0x20850db591c4d575b5238baf975e54580d800e69b8b5b421de796a311d3bea50', // Admin wallet (platform treasury)
+  ];
+  
+  // Known SBETS holder wallets to check for balances
+  const KNOWN_SBETS_WALLETS = [
+    '0x798e8bb6db3f9c0233ca3521a7b5431af39350b3092144c74be033b468e48426', // Known user
+  ];
+  
   async function fetchSbetsHolders(): Promise<{ totalSupply: number; holders: Array<{ address: string; balance: number; percentage: number }> }> {
+    // Return cached data if still fresh
+    if (sbetsHoldersCache && (Date.now() - sbetsHoldersCache.lastUpdated) < SBETS_HOLDERS_CACHE_TTL) {
+      return { totalSupply: sbetsHoldersCache.totalSupply, holders: sbetsHoldersCache.holders };
+    }
+    
     try {
       const { SuiClient, getFullnodeUrl } = await import('@mysten/sui/client');
       const suiClient = new SuiClient({ url: getFullnodeUrl('mainnet') });
       
       const coinType = SBETS_TOKEN_TYPE;
-      let totalSupply = 50_000_000;
+      let totalSupply = 50_000_000; // Default 50M SBETS
       
+      // Get actual total supply from blockchain
       try {
         const supplyInfo = await suiClient.getTotalSupply({ coinType });
         totalSupply = parseInt(supplyInfo.value) / 1e9;
+        console.log(`[Revenue] SBETS total supply from chain: ${totalSupply.toLocaleString()}`);
       } catch (e) {
-        console.log('Using default SBETS supply');
+        console.log('[Revenue] Using default SBETS supply: 50M');
       }
       
-      // Get all users from database and check their SBETS balance
-      const allBets = await storage.getAllBets();
+      // Collect unique wallets from multiple sources
       const uniqueWallets = new Set<string>();
+      
+      // 1. Add known SBETS wallets
+      KNOWN_SBETS_WALLETS.forEach(w => uniqueWallets.add(w));
+      
+      // 2. Add all wallets from database (users who placed bets)
+      const allBets = await storage.getAllBets();
       allBets.forEach((bet: any) => {
-        if (bet.walletAddress) uniqueWallets.add(bet.walletAddress);
+        if (bet.walletAddress && bet.walletAddress.startsWith('0x')) {
+          uniqueWallets.add(bet.walletAddress);
+        }
+        if (bet.userId && bet.userId.startsWith('0x')) {
+          uniqueWallets.add(bet.userId);
+        }
       });
       
-      const holders: Array<{ address: string; balance: number; percentage: number }> = [];
+      // 3. Get all users from database
+      try {
+        const { users } = await import('@shared/schema');
+        const { db } = await import('./db');
+        const allUsers = await db.select().from(users);
+        allUsers.forEach((u: any) => {
+          if (u.walletAddress && u.walletAddress.startsWith('0x')) {
+            uniqueWallets.add(u.walletAddress);
+          }
+        });
+      } catch (e) {
+        // Skip if can't get users
+      }
       
-      for (const wallet of Array.from(uniqueWallets).slice(0, 100)) {
+      console.log(`[Revenue] Checking SBETS balance for ${uniqueWallets.size} unique wallets`);
+      
+      const holders: Array<{ address: string; balance: number; percentage: number }> = [];
+      let circulatingSupply = 0; // Track actual circulating supply
+      
+      // Check balance for each wallet (limit to prevent rate limiting)
+      const walletsToCheck = Array.from(uniqueWallets).slice(0, 200);
+      
+      for (const wallet of walletsToCheck) {
         try {
           const balance = await suiClient.getBalance({ owner: wallet, coinType });
           const sbetsBalance = parseInt(balance.totalBalance) / 1e9;
@@ -2795,16 +2850,35 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
             holders.push({
               address: wallet,
               balance: sbetsBalance,
-              percentage: (sbetsBalance / totalSupply) * 100
+              percentage: 0 // Will calculate after
             });
+            circulatingSupply += sbetsBalance;
           }
         } catch (e) {
-          // Skip wallets with errors
+          // Skip wallets with errors (may not exist or have no SBETS)
         }
       }
       
+      // Calculate percentages based on total circulating supply among known holders
+      // This ensures shares add up properly for revenue distribution
+      for (const holder of holders) {
+        holder.percentage = circulatingSupply > 0 
+          ? (holder.balance / circulatingSupply) * 100 
+          : 0;
+      }
+      
       holders.sort((a, b) => b.balance - a.balance);
-      return { totalSupply, holders };
+      
+      console.log(`[Revenue] Found ${holders.length} SBETS holders with total ${circulatingSupply.toLocaleString()} SBETS`);
+      
+      // Update cache
+      sbetsHoldersCache = { 
+        totalSupply: circulatingSupply > 0 ? circulatingSupply : totalSupply, 
+        holders, 
+        lastUpdated: Date.now() 
+      };
+      
+      return { totalSupply: sbetsHoldersCache.totalSupply, holders };
     } catch (error) {
       console.error('Error fetching SBETS holders:', error);
       return { totalSupply: 50_000_000, holders: [] };

@@ -61,13 +61,19 @@ export default function RevenuePage() {
 
   const { data: revenueStats, isLoading: statsLoading } = useQuery<RevenueStats>({
     queryKey: ['/api/revenue/stats'],
-    refetchInterval: 60000,
+    refetchInterval: 30000, // Refresh every 30 seconds for real-time treasury updates
   });
 
   const { data: claimableData, isLoading: claimableLoading, refetch: refetchClaimable } = useQuery<ClaimableData>({
     queryKey: ['/api/revenue/claimable', walletAddress],
+    queryFn: async () => {
+      if (!walletAddress) return null;
+      const res = await fetch(`/api/revenue/claimable/${walletAddress}`);
+      if (!res.ok) throw new Error('Failed to fetch claimable');
+      return res.json();
+    },
     enabled: !!walletAddress,
-    refetchInterval: 30000,
+    refetchInterval: 15000, // Refresh every 15 seconds for real-time updates
   });
 
   const claimMutation = useMutation({
