@@ -718,8 +718,35 @@ class SettlementWorkerService {
             // ONLY mark as settled after successful payout processing
             this.settledBetIds.add(bet.id);
           } else {
-            // Bet was already settled (by concurrent process) - mark to skip future attempts
-            console.log(`⚠️ DUPLICATE SETTLEMENT PREVENTED: Bet ${bet.id} already settled - no payout applied`);
+            // Bet was already settled - but still try auto-payout for 'won' bets that may not have received on-chain funds
+            console.log(`⚠️ DUPLICATE SETTLEMENT PREVENTED: Bet ${bet.id} already settled - checking for pending auto-payout`);
+            
+            // STILL ATTEMPT AUTO-PAYOUT: For bets stuck in 'won' status, try to send on-chain payout
+            if (isWinner && netPayout > 0) {
+              const userWallet = bet.userId;
+              if (userWallet && userWallet.startsWith('0x') && userWallet.length >= 64) {
+                try {
+                  console.log(`🔄 AUTO-PAYOUT RETRY: Sending ${netPayout} ${bet.currency} to ${userWallet.slice(0,10)}...`);
+                  let payoutResult;
+                  if (bet.currency === 'SUI') {
+                    payoutResult = await blockchainBetService.sendSuiToUser(userWallet, netPayout);
+                  } else if (bet.currency === 'SBETS') {
+                    payoutResult = await blockchainBetService.sendSbetsToUser(userWallet, netPayout);
+                  }
+                  
+                  if (payoutResult?.success) {
+                    console.log(`✅ AUTO-PAYOUT RETRY SUCCESS: ${netPayout} ${bet.currency} sent to ${userWallet.slice(0,10)}... | TX: ${payoutResult.txHash}`);
+                    // Upgrade status to paid_out since on-chain payout succeeded
+                    await storage.updateBetStatus(bet.id, 'paid_out', grossPayout);
+                  } else {
+                    console.warn(`⚠️ AUTO-PAYOUT RETRY FAILED: ${payoutResult?.error || 'Unknown error'}`);
+                  }
+                } catch (payoutError: any) {
+                  console.warn(`⚠️ AUTO-PAYOUT RETRY ERROR: ${payoutError.message}`);
+                }
+              }
+            }
+            
             this.settledBetIds.add(bet.id);
           }
         }
