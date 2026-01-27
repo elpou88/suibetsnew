@@ -83,12 +83,13 @@ export function useOnChainBet() {
         };
       }
       
-      // Only block if potential payout exceeds ACTUAL treasury balance (not available after liability)
-      if (potentialPayout > treasury.treasury) {
+      // Block if potential payout exceeds on-chain available balance (treasury minus on-chain liability)
+      // Note: On-chain liability is tracked by the smart contract and can't be modified
+      if (potentialPayout > treasury.available) {
         return {
           canBet: false,
-          available: treasury.treasury,
-          message: `Bet too large - maximum potential payout is ${treasury.treasury.toLocaleString()} ${coinType}`
+          available: treasury.available,
+          message: `Bet too large - on-chain available is ${treasury.available.toFixed(4)} ${coinType}. The on-chain liability from pending bets limits available funds.`
         };
       }
       
