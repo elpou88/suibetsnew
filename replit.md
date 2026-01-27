@@ -59,12 +59,11 @@ Preferred communication style: Simple, everyday language.
 - **Prediction Extraction**: Sync reads prediction/selection from on-chain bet object (stored as vector<u8> bytes decoded to string).
 - **Smart Contract Status Codes**: 0=pending, 1=won, 2=lost, 3=void (defined in betting.move lines 28-31).
 
-### CRITICAL: Contract Settlement Fix Required
-- **Problem**: Current deployed contract creates bets as OWNED objects (transferred to bettor). Admin cannot settle them because only the owner can provide mutable access.
-- **Error**: "Transaction was not signed by the correct sender: Object is owned by account address [bettor]..."
-- **Fix Applied**: Updated `betting.move` to use `transfer::share_object(bet)` instead of `transfer::transfer(bet, bettor)` for both SUI and SBETS bets (lines 282 and 537).
-- **Action Required**: A NEW CONTRACT DEPLOYMENT is required for this fix to take effect. After redeployment, update the Package ID, BettingPlatform ID, and AdminCap ID in the code.
-- **Existing Bets**: Bets placed with the old contract cannot be settled by admin - they remain owned by bettors. Manual resolution may be required.
+### Contract Settlement Fix (Deployed January 27, 2026)
+- **Problem (FIXED)**: Previous contract created bets as OWNED objects (transferred to bettor). Admin could not settle them.
+- **Solution**: Contract now uses `transfer::share_object(bet)` to create SHARED bet objects that admin can settle.
+- **Status**: New contract deployed and active. All NEW bets will be settleable by admin.
+- **Legacy Bets**: Bets placed on OLD contract (0xfaf371c3c9fe...) remain owned by bettors and require manual payout resolution.
 
 ## External Dependencies
 
@@ -77,9 +76,9 @@ Preferred communication style: Simple, everyday language.
 - **Move Language**: For smart contract development.
 - **SBETS Token (Mainnet)**: `0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285::sbets::SBETS`
 - **Deployed Contract (Mainnet)**:
-    - Package ID: `0x[PENDING_REDEPLOYMENT]`
-    - BettingPlatform (Shared): `0x[PENDING_REDEPLOYMENT]`
-    - AdminCap: `0x[PENDING_REDEPLOYMENT]`
+    - Package ID: `0x936e79b406296551171bc148b0e1fe7d32534c446a93f5a18766569d8cc736a6`
+    - BettingPlatform (Shared): `0x94a14c61edc4e51b39775b811f42c8a8af96488005af9179315ddb80389f480b`
+    - AdminCap: `0x2b4ace9a99fc6ccc09695cf58b6a317be6f219d76a22e1f099bd505141e270ee`
     - Admin Wallet (owns AdminCap): `0x20850db591c4d575b5238baf975e54580d800e69b8b5b421de796a311d3bea50`
 
 ### Payment Integration
