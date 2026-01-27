@@ -905,6 +905,97 @@ export class BlockchainBetService {
       return null;
     }
   }
+
+  /**
+   * Sync on-chain bets to database - finds bets placed directly on contract that aren't tracked
+   */
+  async syncOnChainBetsToDatabase(): Promise<{ synced: number; errors: string[] }> {
+    const errors: string[] = [];
+    let synced = 0;
+
+    try {
+      console.log('🔄 Starting on-chain bet sync...');
+
+      // Query all BetPlaced events from the smart contract
+      const eventsResponse = await this.client.queryEvents({
+        query: {
+          MoveEventType: `${BETTING_PACKAGE_ID}::betting::BetPlaced`
+        },
+        limit: 100,
+        order: 'descending'
+      });
+
+      console.log(`📊 Found ${eventsResponse.data.length} BetPlaced events on-chain`);
+
+      for (const event of eventsResponse.data) {
+        try {
+          const parsed = event.parsedJson as any;
+          const betObjectId = parsed.bet_id;
+          const bettor = parsed.bettor;
+          const stake = parseInt(parsed.stake) / 1e9;
+          const odds = parseInt(parsed.odds) / 100;
+          const potentialPayout = parseInt(parsed.potential_payout) / 1e9;
+          const coinType = parsed.coin_type === 0 ? 'SUI' : 'SBETS';
+          const timestamp = parseInt(parsed.timestamp);
+          
+          // Decode event_id from byte array
+          const eventIdBytes = parsed.event_id as number[];
+          const eventId = String.fromCharCode(...eventIdBytes);
+
+          // Check if this bet already exists in database by bet_object_id
+          const { storage } = await import('../storage');
+          const existingBets = await storage.getBetsByBetObjectId(betObjectId);
+          
+          if (existingBets && existingBets.length > 0) {
+            continue; // Already tracked
+          }
+
+          // Get current on-chain status
+          const onChainInfo = await this.getOnChainBetInfo(betObjectId);
+          const onChainStatus = onChainInfo?.status || 'pending';
+
+          // Create bet record in database
+          const betId = `sync_${betObjectId.slice(0, 16)}_${Date.now()}`;
+          const newBet = {
+            id: betId,
+            oddsId: `onchain_${eventId}`,
+            oddsValue: odds,
+            eventId: eventId,
+            externalEventId: eventId,
+            homeTeam: 'Unknown',
+            awayTeam: 'Unknown',
+            marketId: 'match_winner',
+            outcomeId: 'unknown',
+            odds: odds,
+            betAmount: stake,
+            currency: coinType,
+            status: onChainStatus === 'won' ? 'won' : onChainStatus === 'lost' ? 'lost' : 'confirmed',
+            prediction: 'unknown',
+            placedAt: timestamp,
+            potentialPayout: potentialPayout,
+            platformFee: 0,
+            totalDebit: stake,
+            paymentMethod: 'wallet' as const,
+            onChainBetId: betObjectId,
+            userId: bettor,
+          };
+
+          await storage.createBet(newBet);
+          synced++;
+          console.log(`✅ Synced bet ${betObjectId.slice(0, 12)}... from ${bettor.slice(0, 12)}... (${stake} ${coinType})`);
+        } catch (betError: any) {
+          errors.push(`Bet sync error: ${betError.message}`);
+        }
+      }
+
+      console.log(`🔄 On-chain sync complete: ${synced} bets synced, ${errors.length} errors`);
+      return { synced, errors };
+    } catch (error: any) {
+      console.error('❌ On-chain bet sync failed:', error);
+      errors.push(`Sync failed: ${error.message}`);
+      return { synced, errors };
+    }
+  }
 }
 
 export const blockchainBetService = new BlockchainBetService();

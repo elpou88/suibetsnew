@@ -27,6 +27,7 @@ export interface IStorage {
   // Betting methods
   getBet(betId: number | string): Promise<any | undefined>;
   getBetByStringId(betId: string): Promise<any | undefined>;
+  getBetsByBetObjectId(betObjectId: string): Promise<any[]>;
   createBet(bet: any): Promise<any>;
   createParlay(parlay: any): Promise<any>;
   getUserBets(userId: string): Promise<any[]>;
@@ -452,6 +453,16 @@ export class DatabaseStorage implements IStorage {
       }));
     } catch (error) {
       console.error('Error getting user bets:', error);
+      return [];
+    }
+  }
+
+  async getBetsByBetObjectId(betObjectId: string): Promise<any[]> {
+    try {
+      const result = await db.select().from(bets).where(eq(bets.betObjectId, betObjectId));
+      return result;
+    } catch (error) {
+      console.error('Error getting bet by bet_object_id:', error);
       return [];
     }
   }
