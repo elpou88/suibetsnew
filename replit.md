@@ -105,7 +105,7 @@ Preferred communication style: Simple, everyday language.
     - AdminCap: `0x2b4ace9a99fc6ccc09695cf58b6a317be6f219d76a22e1f099bd505141e270ee`
     - Admin Wallet (owns AdminCap): `0x20850db591c4d575b5238baf975e54580d800e69b8b5b421de796a311d3bea50`
 
-### Betting Promotion System (Active: January 27 - February 3, 2026)
+### Betting Promotion System (Active: January 27 - February 10, 2026)
 - **Promotion**: Bet $15 (in SUI or SBETS) → Get $5 FREE bonus
 - **Tracking**: All on-chain bets are tracked and converted to USD value
 - **Price Conversion**: SUI = $3.50 USD, SBETS = $0.000001 USD (configurable)

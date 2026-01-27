@@ -6,7 +6,8 @@ import { storage } from '../storage';
 // Promotion constants
 const PROMO_THRESHOLD_USD = 15; // $15 in bets to qualify
 const PROMO_BONUS_USD = 5; // $5 bonus reward
-const PROMO_DURATION_DAYS = 7; // 1 week promotion
+const PROMO_DURATION_DAYS = 14; // 2 weeks promotion
+const PROMO_END_DATE = '2026-02-10T23:59:59Z'; // 2 weeks from Jan 27, 2026
 
 // Price estimates (can be updated with real-time prices)
 const SUI_PRICE_USD = 3.50; // Approximate SUI price in USD
@@ -29,7 +30,7 @@ export class PromotionService {
   }
 
   isPromotionActive(): boolean {
-    const promoEnd = new Date('2026-02-03T23:59:59Z'); // 1 week from Jan 27
+    const promoEnd = new Date(PROMO_END_DATE); // 2 weeks from Jan 27, 2026
     return new Date() < promoEnd;
   }
 
@@ -50,7 +51,7 @@ export class PromotionService {
     isActive: boolean;
   }> {
     const now = new Date();
-    const promoEnd = new Date('2026-02-03T23:59:59Z');
+    const promoEnd = new Date(PROMO_END_DATE);
 
     if (now > promoEnd) {
       return {
@@ -108,35 +109,47 @@ export class PromotionService {
     currency: 'SUI' | 'SBETS'
   ): Promise<{ bonusAwarded: boolean; bonusAmount: number; newBonusBalance: number }> {
     if (!this.isPromotionActive()) {
+      console.log(`[PROMO] Promotion not active, skipping bonus tracking`);
       return { bonusAwarded: false, bonusAmount: 0, newBonusBalance: 0 };
     }
 
     const betUsd = this.convertToUsd(betAmount, currency);
+    console.log(`[PROMO] Tracking bet: ${betAmount} ${currency} = $${betUsd.toFixed(2)} USD for wallet ${walletAddress.slice(0, 10)}...`);
+    
     const promo = await this.getOrCreatePromotion(walletAddress);
 
     if (!promo.isActive) {
+      console.log(`[PROMO] User promo not active`);
       return { bonusAwarded: false, bonusAmount: 0, newBonusBalance: promo.bonusBalance };
     }
 
     const newTotalBetUsd = promo.totalBetUsd + betUsd;
-    const currentThreshold = (promo.bonusesAwarded + 1) * PROMO_THRESHOLD_USD;
+    
+    // Calculate how many bonuses they should have based on total amount bet
+    // Every $15 = 1 bonus, so someone with $45 total should have 3 bonuses
+    const totalBonusesEarned = Math.floor(newTotalBetUsd / PROMO_THRESHOLD_USD);
+    const newBonusesToAward = totalBonusesEarned - promo.bonusesAwarded;
 
     let bonusAwarded = false;
     let bonusAmount = 0;
     let newBonusesAwarded = promo.bonusesAwarded;
     let newBonusBalance = promo.bonusBalance;
 
-    // Check if we crossed the threshold
-    if (newTotalBetUsd >= currentThreshold) {
+    // Award ALL new bonuses (handles large bets that cross multiple thresholds)
+    if (newBonusesToAward > 0) {
       bonusAwarded = true;
-      bonusAmount = PROMO_BONUS_USD;
-      newBonusesAwarded = promo.bonusesAwarded + 1;
+      bonusAmount = newBonusesToAward * PROMO_BONUS_USD;
+      newBonusesAwarded = totalBonusesEarned;
       newBonusBalance = promo.bonusBalance + bonusAmount;
 
-      console.log(`🎁 PROMOTION BONUS: ${walletAddress.slice(0, 10)}... earned $${bonusAmount} bonus! Total bet: $${newTotalBetUsd.toFixed(2)}`);
+      console.log(`🎁🎁🎁 PROMOTION BONUS AWARDED! 🎁🎁🎁`);
+      console.log(`   Wallet: ${walletAddress.slice(0, 10)}...`);
+      console.log(`   Total bet USD: $${newTotalBetUsd.toFixed(2)}`);
+      console.log(`   New bonuses earned: ${newBonusesToAward} x $${PROMO_BONUS_USD} = $${bonusAmount}`);
+      console.log(`   New bonus balance: $${newBonusBalance.toFixed(2)}`);
     }
 
-    // Update promotion record
+    // Update promotion record in database
     await db.update(bettingPromotions)
       .set({
         totalBetUsd: newTotalBetUsd,
@@ -145,6 +158,8 @@ export class PromotionService {
         lastBetAt: new Date()
       })
       .where(eq(bettingPromotions.walletAddress, walletAddress));
+
+    console.log(`[PROMO] Updated DB: totalBetUsd=$${newTotalBetUsd.toFixed(2)}, bonusesAwarded=${newBonusesAwarded}, bonusBalance=$${newBonusBalance.toFixed(2)}`);
 
     return { bonusAwarded, bonusAmount, newBonusBalance };
   }
