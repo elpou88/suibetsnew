@@ -83,11 +83,12 @@ export function useOnChainBet() {
         };
       }
       
-      if (potentialPayout > treasury.available) {
+      // Only block if potential payout exceeds ACTUAL treasury balance (not available after liability)
+      if (potentialPayout > treasury.treasury) {
         return {
           canBet: false,
-          available: treasury.available,
-          message: `Bet too large - maximum potential payout is ${treasury.available.toLocaleString()} ${coinType}`
+          available: treasury.treasury,
+          message: `Bet too large - maximum potential payout is ${treasury.treasury.toLocaleString()} ${coinType}`
         };
       }
       
