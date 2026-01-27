@@ -59,6 +59,13 @@ Preferred communication style: Simple, everyday language.
 - **Prediction Extraction**: Sync reads prediction/selection from on-chain bet object (stored as vector<u8> bytes decoded to string).
 - **Smart Contract Status Codes**: 0=pending, 1=won, 2=lost, 3=void (defined in betting.move lines 28-31).
 
+### CRITICAL: Contract Settlement Fix Required
+- **Problem**: Current deployed contract creates bets as OWNED objects (transferred to bettor). Admin cannot settle them because only the owner can provide mutable access.
+- **Error**: "Transaction was not signed by the correct sender: Object is owned by account address [bettor]..."
+- **Fix Applied**: Updated `betting.move` to use `transfer::share_object(bet)` instead of `transfer::transfer(bet, bettor)` for both SUI and SBETS bets (lines 282 and 537).
+- **Action Required**: A NEW CONTRACT DEPLOYMENT is required for this fix to take effect. After redeployment, update the Package ID, BettingPlatform ID, and AdminCap ID in the code.
+- **Existing Bets**: Bets placed with the old contract cannot be settled by admin - they remain owned by bettors. Manual resolution may be required.
+
 ## External Dependencies
 
 ### Sports Data Providers
