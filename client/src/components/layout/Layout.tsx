@@ -60,9 +60,14 @@ const Layout: React.FC<LayoutProps> = ({
   };
   
   const topNavItems = [
-    { label: 'Sports', i18nKey: 'sports', icon: <TrendingUp />, href: '/' },
-    { label: 'Live', i18nKey: 'live', icon: <TrendingDown />, href: '/live-events' },
-    { label: 'Results', i18nKey: 'results', icon: <Trophy />, href: '/results' },
+    { label: 'Bets', href: '/' },
+    { label: 'Dashboard', href: '/wallet-dashboard' },
+    { label: 'My Bets', href: '/bet-history' },
+    { label: 'Activity', href: '/results' },
+    { label: 'Withdraw', href: '/wallet-dashboard' },
+    { label: 'Parlays', href: '/parlays' },
+    { label: 'Revenue', href: '/revenue' },
+    { label: 'Whitepaper', href: '/whitepaper' },
   ];
 
   const bottomNavItems = [
@@ -131,51 +136,21 @@ const Layout: React.FC<LayoutProps> = ({
           </div>
         </div>
 
-        {/* Navigation items in header like bet365 */}
-        <div className="flex items-center overflow-x-auto custom-scrollbar border-t border-[#1e3a3f] bg-[#0b1618]">
+        {/* Navigation items - dapp style */}
+        <div className="hidden md:flex items-center overflow-x-auto custom-scrollbar bg-[#0b1618]">
           {topNavItems.map((item, index) => (
-            <Button
+            <button
               key={index}
-              variant="ghost"
-              size="sm"
-              className={`rounded-none border-r border-[#1e3a3f] h-12 px-4 flex items-center transition-colors ${
+              className={`px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
                 location === item.href 
-                  ? 'text-cyan-400 border-b-2 border-b-cyan-400 bg-[#112225]' 
-                  : 'text-cyan-200 hover:text-cyan-400 hover:bg-[#112225]'
+                  ? 'text-cyan-400' 
+                  : 'text-gray-300 hover:text-white'
               }`}
               onClick={() => setLocation(item.href)}
             >
-              {React.cloneElement(item.icon as React.ReactElement, { 
-                className: `h-4 w-4 mr-2 ${location === item.href ? 'text-cyan-400' : 'text-cyan-400/70'}` 
-              })}
-              <span data-i18n={item.i18nKey}>{item.label}</span>
-            </Button>
+              {item.label}
+            </button>
           ))}
-
-          {/* Scrolling News Ticker with Live Events */}
-          <div className="flex-1 mx-4 overflow-hidden bg-gradient-to-r from-cyan-900/20 to-cyan-900/10 border border-cyan-700/30 rounded-lg h-8 shadow-lg shadow-cyan-500/10">
-            <div className="animate-marquee whitespace-nowrap text-xs text-cyan-300 py-1.5 px-3 font-medium">
-              {getTickerText()}
-            </div>
-          </div>
-
-          <div className="ml-auto flex items-center p-2">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="p-1 rounded-full text-cyan-400 hover:bg-[#1e3a3f] hover:text-cyan-300 transition-colors"
-              onClick={() => setLocation('/notifications')}
-            >
-              <Bell className="h-5 w-5" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="p-1 rounded-full text-cyan-400 hover:bg-[#1e3a3f] hover:text-cyan-300 transition-colors md:hidden"
-            >
-              <MenuIcon className="h-5 w-5" />
-            </Button>
-          </div>
         </div>
       </header>
       
