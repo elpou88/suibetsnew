@@ -2662,9 +2662,9 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         return sum;
       }, 0);
       
-      const holderShare = weeklyRevenue * REVENUE_SHARE_PERCENTAGE;
-      const treasuryShare = weeklyRevenue * 0.70;
-      const liquidityShare = 0; // Removed - now goes to holders
+      const holderShare = weeklyRevenue * 0.30;      // 30% to SBETS holders
+      const treasuryShare = weeklyRevenue * 0.40;   // 40% treasury buffer (liquidity)
+      const profitShare = weeklyRevenue * 0.30;     // 30% platform profit (admin withdrawable)
       
       res.json({
         success: true,
@@ -2673,8 +2673,8 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         totalRevenue: weeklyRevenue,
         distribution: {
           holders: { percentage: 30, amount: holderShare },
-          treasury: { percentage: 70, amount: treasuryShare },
-          liquidity: { percentage: 0, amount: liquidityShare }
+          treasury: { percentage: 40, amount: treasuryShare },
+          liquidity: { percentage: 30, amount: profitShare }
         },
         onChainData: {
           treasuryBalance: platformInfo?.treasuryBalanceSui || 0,

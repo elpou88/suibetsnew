@@ -232,12 +232,27 @@ export default function RevenuePage() {
                     <div 
                       className="h-full flex items-center justify-start pl-4 text-sm font-medium text-white"
                       style={{ 
-                        width: '70%',
+                        width: '40%',
                         background: 'linear-gradient(90deg, #3b82f6, #2563eb)'
                       }}
                     >
                       <Wallet className="w-4 h-4 mr-2" />
-                      Platform Treasury: {formatCurrency(revenueStats?.distribution?.treasury?.amount || 0)} (70%)
+                      Treasury Buffer: {formatCurrency(revenueStats?.distribution?.treasury?.amount || 0)} (40%)
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="relative">
+                  <div className="h-10 rounded-lg overflow-hidden bg-gray-800/50 flex">
+                    <div 
+                      className="h-full flex items-center justify-start pl-4 text-sm font-medium text-white"
+                      style={{ 
+                        width: '30%',
+                        background: 'linear-gradient(90deg, #10b981, #059669)'
+                      }}
+                    >
+                      <Coins className="w-4 h-4 mr-2" />
+                      Platform Profit: {formatCurrency(revenueStats?.distribution?.liquidity?.amount || 0)} (30%)
                     </div>
                   </div>
                 </div>
