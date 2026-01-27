@@ -815,6 +815,53 @@ export default function AdminPanel() {
           </div>
         </div>
 
+        {/* Contract Info Section */}
+        <Card className="bg-gradient-to-r from-purple-900/20 to-indigo-900/20 border-purple-500/30 mb-4">
+          <CardContent className="py-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Shield className="w-5 h-5 text-purple-400" />
+              <span className="text-sm font-semibold text-white">Contract Info (January 27, 2026 - Shared Object Fix)</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+              <div className="bg-black/40 rounded p-2">
+                <p className="text-gray-500 mb-1">Package ID</p>
+                <p className="text-purple-300 font-mono break-all" data-testid="contract-package-id">
+                  {BETTING_PACKAGE_ID}
+                </p>
+                <a 
+                  href={`https://suivision.xyz/package/${BETTING_PACKAGE_ID}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-cyan-400 hover:underline text-xs mt-1 inline-block"
+                >
+                  View on SuiVision
+                </a>
+              </div>
+              <div className="bg-black/40 rounded p-2">
+                <p className="text-gray-500 mb-1">Platform ID (Treasury)</p>
+                <p className="text-cyan-300 font-mono break-all" data-testid="contract-platform-id">
+                  {BETTING_PLATFORM_ID}
+                </p>
+                <a 
+                  href={`https://suivision.xyz/object/${BETTING_PLATFORM_ID}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-cyan-400 hover:underline text-xs mt-1 inline-block"
+                >
+                  View on SuiVision
+                </a>
+              </div>
+              <div className="bg-black/40 rounded p-2">
+                <p className="text-gray-500 mb-1">Admin Cap ID</p>
+                <p className="text-yellow-300 font-mono break-all" data-testid="contract-admin-cap-id">
+                  {ADMIN_CAP_ID}
+                </p>
+                <p className="text-gray-600 text-xs mt-1">Owned by admin wallet</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Treasury Management Section - Always visible */}
         <Card className="bg-gradient-to-r from-cyan-900/30 to-blue-900/30 border-cyan-500/30 mb-8">
           <CardHeader>
