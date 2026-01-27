@@ -461,15 +461,38 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
 
-  // Platform revenue endpoint
+  // Platform revenue endpoint - shows split breakdown
   app.get("/api/admin/revenue", async (req: Request, res: Response) => {
     try {
-      const revenue = await balanceService.getPlatformRevenue();
+      const totalRevenue = await balanceService.getPlatformRevenue();
+      const holdersRevenue = await storage.getRevenueForHolders();
+      const treasuryBuffer = await storage.getTreasuryBuffer();
+      const platformProfit = await storage.getPlatformProfit();
       const contractInfo = await blockchainBetService.getPlatformInfo();
+      
       res.json({
-        offChainRevenue: {
-          sui: revenue.suiBalance,
-          sbets: revenue.sbetsBalance
+        // Total accumulated revenue (legacy tracking)
+        totalRevenue: {
+          sui: totalRevenue.suiBalance,
+          sbets: totalRevenue.sbetsBalance
+        },
+        // Revenue split breakdown (30/40/30)
+        revenueSplit: {
+          holders: {
+            sui: holdersRevenue.suiRevenue,
+            sbets: holdersRevenue.sbetsRevenue,
+            percentage: 30
+          },
+          treasuryBuffer: {
+            sui: treasuryBuffer.suiBalance,
+            sbets: treasuryBuffer.sbetsBalance,
+            percentage: 40
+          },
+          platformProfit: {
+            sui: platformProfit.suiBalance,
+            sbets: platformProfit.sbetsBalance,
+            percentage: 30
+          }
         },
         onChainContract: contractInfo || {
           treasuryBalance: 0,
@@ -480,7 +503,68 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         timestamp: Date.now()
       });
     } catch (error) {
+      console.error('Error fetching revenue:', error);
       res.status(500).json({ message: "Failed to fetch revenue" });
+    }
+  });
+  
+  // Withdraw platform profit (admin only - the 30% owner share)
+  app.post("/api/admin/withdraw-profit", async (req: Request, res: Response) => {
+    try {
+      const { amount, currency, adminPassword } = req.body;
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace('Bearer ', '');
+      
+      const hasValidToken = token && isValidAdminSession(token);
+      const actualPassword = process.env.ADMIN_PASSWORD || 'change-me-in-production';
+      const hasValidPassword = adminPassword === actualPassword;
+      
+      if (!hasValidToken && !hasValidPassword) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ message: "Valid amount required" });
+      }
+      
+      const tokenCurrency = currency === 'SBETS' ? 'SBETS' : 'SUI';
+      const profit = await storage.getPlatformProfit();
+      const available = tokenCurrency === 'SBETS' ? profit.sbetsBalance : profit.suiBalance;
+      
+      if (amount > available) {
+        return res.status(400).json({ 
+          message: `Insufficient ${tokenCurrency} profit. Available: ${available.toFixed(4)} ${tokenCurrency}` 
+        });
+      }
+      
+      // Deduct from profit account
+      const profitWallet = 'platform_profit';
+      const suiDelta = tokenCurrency === 'SUI' ? -amount : 0;
+      const sbetsDelta = tokenCurrency === 'SBETS' ? -amount : 0;
+      await storage.updateUserBalance(profitWallet, suiDelta, sbetsDelta);
+      
+      // Execute on-chain transfer to admin wallet if configured
+      const adminWallet = '0x20850db591c4d575b5238baf975e54580d800e69b8b5b421de796a311d3bea50';
+      let txHash = `profit-withdraw-${Date.now()}`;
+      
+      if (blockchainBetService.isAdminKeyConfigured()) {
+        try {
+          const payoutResult = tokenCurrency === 'SBETS' 
+            ? await blockchainBetService.executePayoutSbetsOnChain(adminWallet, amount)
+            : await blockchainBetService.executePayoutOnChain(adminWallet, amount);
+          if (payoutResult.success && payoutResult.txHash) {
+            txHash = payoutResult.txHash;
+          }
+        } catch (payoutError) {
+          console.warn('On-chain payout failed, profit deducted from DB only:', payoutError);
+        }
+      }
+      
+      console.log(`[Admin] Platform profit withdrawn: ${amount} ${tokenCurrency} | TX: ${txHash}`);
+      res.json({ success: true, amount, currency: tokenCurrency, txHash });
+    } catch (error) {
+      console.error('Error withdrawing profit:', error);
+      res.status(500).json({ message: "Failed to withdraw profit" });
     }
   });
 
