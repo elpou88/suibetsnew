@@ -1288,11 +1288,13 @@ export default function AdminPanel() {
                         <div className="mt-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
                           <h4 className="text-sm font-medium text-white mb-2">How Revenue Works:</h4>
                           <ul className="text-xs text-gray-400 space-y-1">
-                            <li>Lost bets: Full stake stays in treasury (not redistributed)</li>
-                            <li>Won bets: 1% fee on profit is split 30/40/30:</li>
+                            <li>ALL platform revenue is split 30/40/30:</li>
+                            <li className="ml-4">Lost bet stakes (full amount)</li>
+                            <li className="ml-4">1% fee on winning bet profits</li>
+                            <li className="mt-2">Distribution:</li>
                             <li className="ml-4">30% to SBETS Holders (revenue sharing pool)</li>
-                            <li className="ml-4">40% to Treasury Buffer (stays in contract)</li>
-                            <li className="ml-4">30% to Platform Profit (withdrawable by admin)</li>
+                            <li className="ml-4">40% to Treasury Buffer (liquidity)</li>
+                            <li className="ml-4">30% to Platform Profit (admin withdrawable)</li>
                           </ul>
                         </div>
                       </div>

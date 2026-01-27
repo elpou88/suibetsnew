@@ -66,12 +66,15 @@ Preferred communication style: Simple, everyday language.
 - **Legacy Bets**: Bets placed on OLD contract (0xfaf371c3c9fe...) were owned by bettors. These have been marked as VOID in database to prevent settlement errors.
 
 ### Revenue Sharing System (Updated January 27, 2026)
-- **Fee Split**: Platform 1% fee on winning bet profits is split:
+- **Revenue Sources**: ALL platform revenue is split 30/40/30:
+  - Lost bet stakes (full amount)
+  - 1% fee on winning bet profits
+- **Fee Split**: All revenue is automatically split:
   - **30%** → `platform_revenue_holders` (for SBETS holder distribution)
   - **40%** → `platform_treasury_buffer` (stays in treasury for liquidity)
   - **30%** → `platform_profit` (platform owner profit)
-- **Holder Discovery**: System collects wallets from multiple sources (known wallets, database users, bet participants)
-- **Share Calculation**: User's share = their SBETS / total circulating SBETS among known holders (excludes platform wallets)
+- **Holder Discovery**: Uses BlockVision API (if BLOCKVISION_API_KEY set) to fetch ALL on-chain SBETS token holders, fallback to database wallets
+- **Share Calculation**: User's share = their SBETS / total circulating SBETS among ALL holders (excludes platform wallets)
 - **Caching**: Holder data cached for 5 minutes to reduce blockchain API calls
 - **Platform Wallet Exclusion**: Admin wallet (0x20850db5...) excluded from holder calculations
 - **Real-time Updates**: Frontend refreshes stats every 30s, claimable every 15s
