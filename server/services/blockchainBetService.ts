@@ -818,13 +818,14 @@ export class BlockchainBetService {
       if (betObj.data?.content?.dataType === 'moveObject') {
         const fields = (betObj.data.content as any).fields;
         
-        // Check the 'settled' field in the bet object
-        const settled = fields.settled === true;
-        const status = settled ? 'settled' : 'pending';
+        // Check the 'status' field in the bet object (0=pending, 1=won, 2=lost, 3=void)
+        const statusCode = parseInt(fields.status || '0');
+        const settled = statusCode !== 0; // Any non-pending status means settled
+        const status = statusCode === 0 ? 'pending' : statusCode === 1 ? 'won' : statusCode === 2 ? 'lost' : 'void';
         const amount = parseInt(fields.amount || fields.stake || '0') / 1e9;
         const potentialPayout = parseInt(fields.potential_payout || '0') / 1e9;
         
-        console.log(`[OnChainBet] ${betObjectId.slice(0, 12)}... status=${status}, settled=${settled}, amount=${amount}`);
+        console.log(`[OnChainBet] ${betObjectId.slice(0, 12)}... status=${status} (code=${statusCode}), settled=${settled}, amount=${amount}`);
         
         return {
           settled,
