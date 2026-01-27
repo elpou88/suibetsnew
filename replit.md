@@ -38,7 +38,7 @@ Preferred communication style: Simple, everyday language.
 - **Parlay Support**: Multi-leg parlay betting with combined odds calculation (multiply all legs). Single bets route to `/api/bets`, parlays (2+ legs) route to `/api/parlays`. Full metadata preserved (marketId, outcomeId, homeTeam, awayTeam, isLive) for settlement matching.
 - **User Management**: Wallet-based authentication, user profiles, and balance management for SUI and SBETS tokens.
 - **On-Chain Fund Flow**: Supports a full on-chain dual-token system where SUI and SBETS bets are placed and settled directly via smart contracts, with transparent treasury management and fee accrual.
-- **Revenue Sharing**: SBETS token holders can claim 10% of weekly platform revenue proportionally to their holdings. Distribution: 10% to holders, 70% to treasury, 20% to liquidity. Claims tracked in database via `revenue_claims` table to prevent double-claiming. Access at `/revenue` route.
+- **Revenue Sharing**: SBETS token holders can claim 30% of weekly platform revenue proportionally to their holdings. Distribution: 30% to holders, 70% to treasury. Claims tracked in database via `revenue_claims` table to prevent double-claiming. Access at `/revenue` route.
 
 ### Architecture Model
 - **Full On-Chain Model**: Bets are placed directly on the smart contract, tracked in PostgreSQL for UI, and settlements are automated on-chain.

@@ -2477,7 +2477,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
   // =====================================================
   
   const SBETS_TOKEN_TYPE = '0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285::sbets::SBETS';
-  const REVENUE_SHARE_PERCENTAGE = 0.10; // 10% of platform revenue goes to SBETS holders
+  const REVENUE_SHARE_PERCENTAGE = 0.30; // 30% of platform revenue goes to SBETS holders (was 10% + 20% liquidity, now combined)
   
   // Helper to get settled bets
   async function getSettledBetsForRevenue(): Promise<any[]> {
@@ -2578,7 +2578,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       
       const holderShare = weeklyRevenue * REVENUE_SHARE_PERCENTAGE;
       const treasuryShare = weeklyRevenue * 0.70;
-      const liquidityShare = weeklyRevenue * 0.20;
+      const liquidityShare = 0; // Removed - now goes to holders
       
       res.json({
         success: true,
@@ -2586,9 +2586,9 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         weekEnd: endOfWeek.toISOString(),
         totalRevenue: weeklyRevenue,
         distribution: {
-          holders: { percentage: 10, amount: holderShare },
+          holders: { percentage: 30, amount: holderShare },
           treasury: { percentage: 70, amount: treasuryShare },
-          liquidity: { percentage: 20, amount: liquidityShare }
+          liquidity: { percentage: 0, amount: liquidityShare }
         },
         onChainData: {
           treasuryBalance: platformInfo?.treasuryBalanceSui || 0,

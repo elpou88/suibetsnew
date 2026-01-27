@@ -28,7 +28,7 @@ interface RevenueStats {
   distribution: {
     holders: { percentage: number; amount: number };
     treasury: { percentage: number; amount: number };
-    liquidity: { percentage: number; amount: number };
+    liquidity?: { percentage: number; amount: number }; // Deprecated - now included in holders
   };
   onChainData: {
     treasuryBalance: number;
@@ -222,12 +222,12 @@ export default function RevenuePage() {
                     <div 
                       className="h-full flex items-center justify-start pl-4 text-sm font-medium text-white"
                       style={{ 
-                        width: '50%',
+                        width: '100%',
                         background: 'linear-gradient(90deg, #fbbf24, #f59e0b)'
                       }}
                     >
                       <Users className="w-4 h-4 mr-2" />
-                      To Holders: {formatCurrency(revenueStats?.distribution?.holders?.amount || 0)} (10%)
+                      To Holders: {formatCurrency(revenueStats?.distribution?.holders?.amount || 0)} (30%)
                     </div>
                   </div>
                 </div>
@@ -237,27 +237,12 @@ export default function RevenuePage() {
                     <div 
                       className="h-full flex items-center justify-start pl-4 text-sm font-medium text-white"
                       style={{ 
-                        width: '70%',
+                        width: '100%',
                         background: 'linear-gradient(90deg, #3b82f6, #2563eb)'
                       }}
                     >
                       <Wallet className="w-4 h-4 mr-2" />
                       Platform Treasury: {formatCurrency(revenueStats?.distribution?.treasury?.amount || 0)} (70%)
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="relative">
-                  <div className="h-10 rounded-lg overflow-hidden bg-gray-800/50 flex">
-                    <div 
-                      className="h-full flex items-center justify-start pl-4 text-sm font-medium text-white"
-                      style={{ 
-                        width: '20%',
-                        background: 'linear-gradient(90deg, #22c55e, #16a34a)'
-                      }}
-                    >
-                      <TrendingUp className="w-4 h-4 mr-2" />
-                      Liquidity: {formatCurrency(revenueStats?.distribution?.liquidity?.amount || 0)} (20%)
                     </div>
                   </div>
                 </div>
@@ -391,7 +376,7 @@ export default function RevenuePage() {
                   </div>
                   <div>
                     <div className="font-medium text-white">Betting Revenue Shared with SBETS Holders</div>
-                    <div className="text-sm text-blue-300">10% of all platform revenue goes to token holders</div>
+                    <div className="text-sm text-blue-300">30% of all platform revenue goes to token holders</div>
                   </div>
                 </div>
                 
