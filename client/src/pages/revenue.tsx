@@ -163,16 +163,6 @@ export default function RevenuePage() {
     <Layout title="Revenue Sharing">
       <div className="min-h-screen bg-background">
         <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-foreground mb-1 flex items-center gap-2">
-              <Coins className="w-6 h-6 text-primary" />
-              Revenue Sharing
-            </h1>
-            <p className="text-muted-foreground text-sm">
-              SBETS holders receive 30% of platform revenue. Week: {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
-            </p>
-          </div>
-
           <Card>
             <CardContent className="p-6">
               <div className="text-center">
