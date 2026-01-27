@@ -808,6 +808,15 @@ export class BlockchainBetService {
     status: string;
     amount: number;
     potentialPayout: number;
+    eventId?: string;
+    marketId?: string;
+    prediction?: string;
+    odds?: number;
+    bettor?: string;
+    coinType?: string;
+    placedAt?: number;
+    settledAt?: number;
+    platformFee?: number;
   } | null> {
     try {
       const betObj = await this.client.getObject({
@@ -825,13 +834,43 @@ export class BlockchainBetService {
         const amount = parseInt(fields.amount || fields.stake || '0') / 1e9;
         const potentialPayout = parseInt(fields.potential_payout || '0') / 1e9;
         
-        console.log(`[OnChainBet] ${betObjectId.slice(0, 12)}... status=${status} (code=${statusCode}), settled=${settled}, amount=${amount}`);
+        // Decode vector<u8> fields to strings
+        const decodeVectorToString = (arr: number[] | undefined): string | undefined => {
+          if (!arr || !Array.isArray(arr)) return undefined;
+          try {
+            return String.fromCharCode(...arr);
+          } catch {
+            return undefined;
+          }
+        };
+        
+        const eventId = decodeVectorToString(fields.event_id);
+        const marketId = decodeVectorToString(fields.market_id);
+        const prediction = decodeVectorToString(fields.prediction);
+        const odds = fields.odds ? parseInt(fields.odds) / 100 : undefined; // Convert from basis points
+        const bettor = fields.bettor;
+        const coinTypeCode = parseInt(fields.coin_type || '0');
+        const coinType = coinTypeCode === 0 ? 'SUI' : 'SBETS';
+        const placedAt = fields.placed_at ? parseInt(fields.placed_at) : undefined;
+        const settledAt = fields.settled_at ? parseInt(fields.settled_at) : undefined;
+        const platformFee = fields.platform_fee ? parseInt(fields.platform_fee) / 1e9 : undefined;
+        
+        console.log(`[OnChainBet] ${betObjectId.slice(0, 12)}... status=${status} (code=${statusCode}), settled=${settled}, amount=${amount}, prediction=${prediction}`);
         
         return {
           settled,
           status,
           amount,
-          potentialPayout
+          potentialPayout,
+          eventId,
+          marketId,
+          prediction,
+          odds,
+          bettor,
+          coinType,
+          placedAt,
+          settledAt,
+          platformFee
         };
       }
       
@@ -938,9 +977,19 @@ export class BlockchainBetService {
           const coinType = parsed.coin_type === 0 ? 'SUI' : 'SBETS';
           const timestamp = parseInt(parsed.timestamp);
           
-          // Decode event_id from byte array
-          const eventIdBytes = parsed.event_id as number[];
-          const eventId = String.fromCharCode(...eventIdBytes);
+          // Decode vector<u8> fields to strings
+          const decodeBytes = (arr: number[] | undefined): string => {
+            if (!arr || !Array.isArray(arr)) return 'Unknown';
+            try {
+              return String.fromCharCode(...arr);
+            } catch {
+              return 'Unknown';
+            }
+          };
+          
+          // Decode event_id and prediction from byte arrays
+          const eventId = decodeBytes(parsed.event_id as number[]);
+          const prediction = decodeBytes(parsed.prediction as number[]);
 
           // Check if this bet already exists in database by bet_object_id
           const { storage } = await import('../storage');
@@ -950,9 +999,13 @@ export class BlockchainBetService {
             continue; // Already tracked
           }
 
-          // Get current on-chain status
+          // Get current on-chain status and additional data
           const onChainInfo = await this.getOnChainBetInfo(betObjectId);
           const onChainStatus = onChainInfo?.status || 'pending';
+          const marketId = onChainInfo?.marketId || 'match_winner';
+          
+          // Use prediction from on-chain bet object if event didn't have it
+          const finalPrediction = prediction !== 'Unknown' ? prediction : (onChainInfo?.prediction || 'Unknown');
 
           // Create bet record in database
           const betId = `sync_${betObjectId.slice(0, 16)}_${Date.now()}`;
@@ -964,16 +1017,16 @@ export class BlockchainBetService {
             externalEventId: eventId,
             homeTeam: 'Unknown',
             awayTeam: 'Unknown',
-            marketId: 'match_winner',
-            outcomeId: 'unknown',
+            marketId: marketId,
+            outcomeId: finalPrediction.toLowerCase().replace(/\s+/g, '_'),
             odds: odds,
             betAmount: stake,
             currency: coinType,
             status: onChainStatus === 'won' ? 'won' : onChainStatus === 'lost' ? 'lost' : 'confirmed',
-            prediction: 'unknown',
+            prediction: finalPrediction,
             placedAt: timestamp,
             potentialPayout: potentialPayout,
-            platformFee: 0,
+            platformFee: onChainInfo?.platformFee || 0,
             totalDebit: stake,
             paymentMethod: 'wallet' as const,
             onChainBetId: betObjectId,
@@ -982,7 +1035,7 @@ export class BlockchainBetService {
 
           await storage.createBet(newBet);
           synced++;
-          console.log(`✅ Synced bet ${betObjectId.slice(0, 12)}... from ${bettor.slice(0, 12)}... (${stake} ${coinType})`);
+          console.log(`✅ Synced bet ${betObjectId.slice(0, 12)}... from ${bettor.slice(0, 12)}... (${stake} ${coinType}, prediction=${finalPrediction})`);
         } catch (betError: any) {
           errors.push(`Bet sync error: ${betError.message}`);
         }

@@ -775,6 +775,73 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
 
+  // Sync on-chain bets to database (admin only)
+  app.post("/api/admin/sync-onchain-bets", async (req: Request, res: Response) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace('Bearer ', '');
+      const adminPassword = req.headers['x-admin-password'] as string;
+      
+      const hasValidToken = token && isValidAdminSession(token);
+      const actualPassword = process.env.ADMIN_PASSWORD || 'change-me-in-production';
+      const hasValidPassword = adminPassword === actualPassword;
+      
+      if (!hasValidToken && !hasValidPassword) {
+        return res.status(401).json({ success: false, message: "Unauthorized - provide valid X-Admin-Password header or Authorization Bearer token" });
+      }
+      
+      console.log('🔄 Admin triggered on-chain bet sync...');
+      const syncResult = await blockchainBetService.syncOnChainBetsToDatabase();
+      
+      res.json({ 
+        success: true, 
+        message: `Synced ${syncResult.synced} on-chain bets to database`,
+        synced: syncResult.synced,
+        errors: syncResult.errors,
+        timestamp: Date.now()
+      });
+    } catch (error: any) {
+      console.error('On-chain bet sync failed:', error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  // Get on-chain bet details including prediction (admin only)
+  app.get("/api/admin/onchain-bet/:betObjectId", async (req: Request, res: Response) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace('Bearer ', '');
+      const adminPassword = req.headers['x-admin-password'] as string;
+      
+      const hasValidToken = token && isValidAdminSession(token);
+      const actualPassword = process.env.ADMIN_PASSWORD || 'change-me-in-production';
+      const hasValidPassword = adminPassword === actualPassword;
+      
+      if (!hasValidToken && !hasValidPassword) {
+        return res.status(401).json({ success: false, message: "Unauthorized - provide valid X-Admin-Password header or Authorization Bearer token" });
+      }
+      
+      const { betObjectId } = req.params;
+      
+      if (!betObjectId || !betObjectId.startsWith('0x')) {
+        return res.status(400).json({ success: false, message: "Invalid bet object ID" });
+      }
+      
+      const betInfo = await blockchainBetService.getOnChainBetInfo(betObjectId);
+      
+      if (!betInfo) {
+        return res.status(404).json({ success: false, message: "Bet not found on-chain" });
+      }
+      
+      res.json({ 
+        success: true, 
+        bet: betInfo
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
   // Notifications endpoints
   app.get("/api/notifications", async (req: Request, res: Response) => {
     try {

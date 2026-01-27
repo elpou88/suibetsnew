@@ -50,15 +50,9 @@ class SettlementWorkerService {
     // Load settled events from database on startup (survives restarts)
     await this.loadSettledEventsFromDB();
 
-    // Sync on-chain bets to database (catch bets placed directly on contract)
-    try {
-      const syncResult = await blockchainBetService.syncOnChainBetsToDatabase();
-      if (syncResult.synced > 0) {
-        console.log(`🔄 Synced ${syncResult.synced} on-chain bets to database`);
-      }
-    } catch (err) {
-      console.error('❌ On-chain bet sync failed:', err);
-    }
+    // Note: On-chain bet sync is now triggered manually via admin API
+    // Use POST /api/admin/sync-onchain-bets to sync bets from blockchain
+    console.log('ℹ️ On-chain bet sync available via POST /api/admin/sync-onchain-bets');
 
     this._isRunning = true;
     console.log('🚀 SettlementWorker started - checking for finished matches every 5 minutes (API SAVING MODE)');
