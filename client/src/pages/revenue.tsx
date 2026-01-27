@@ -148,7 +148,7 @@ export default function RevenuePage() {
 
   if (statsLoading) {
     return (
-      <Layout title="WEEKLY REVENUE">
+      <Layout>
         <div className="flex justify-center items-center h-[50vh]">
           <Loader size="lg" />
         </div>
@@ -160,7 +160,7 @@ export default function RevenuePage() {
   const weekEnd = revenueStats?.weekEnd ? new Date(revenueStats.weekEnd) : new Date();
 
   return (
-    <Layout title="WEEKLY REVENUE">
+    <Layout>
       <div 
         className="min-h-screen relative"
         style={{

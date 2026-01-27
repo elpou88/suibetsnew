@@ -166,27 +166,22 @@ const Layout: React.FC<LayoutProps> = ({
         {children}
       </div>
       
-      {/* Mobile bottom navigation (visible on small screens) - like bet365 */}
+      {/* Mobile bottom navigation (visible on small screens) */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-gradient-to-t from-[#0b1618] to-[#112225] border-t border-[#1e3a3f] z-50 shadow-[0_-4px_10px_rgba(0,0,0,0.3)]">
         <div className="flex justify-around p-1">
           {bottomNavItems.map((item, index) => (
             <Button
               key={index}
               variant="ghost"
-              className={`flex flex-col items-center justify-center py-1 h-16 w-full transition-all ${
+              className={`flex flex-col items-center justify-center py-1 h-14 w-full transition-all ${
                 location === item.href 
                   ? 'text-cyan-400 border-t-2 border-cyan-400 bg-[#1e3a3f]/30' 
                   : 'text-cyan-200 hover:text-cyan-400'
               }`}
               onClick={() => setLocation(item.href)}
             >
-              {React.cloneElement(item.icon as React.ReactElement, { 
-                className: `h-5 w-5 mb-1 ${location === item.href ? 'text-cyan-400' : 'text-cyan-400/70'}`
-              })}
-              <span className="text-xs" data-i18n={item.i18nKey}>{item.label}</span>
-              {location === item.href && (
-                <span className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(0,255,255,0.8)]"></span>
-              )}
+              {item.icon}
+              <span className="text-xs mt-1">{item.label}</span>
             </Button>
           ))}
         </div>
