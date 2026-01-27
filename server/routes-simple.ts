@@ -998,13 +998,13 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           treasury: platformInfo.treasuryBalanceSui,
           liability: platformInfo.totalLiabilitySui,
           available: suiAvailable,
-          acceptingBets: suiAvailable > 0.01 // Need at least 0.01 SUI margin (lowered from 0.1)
+          acceptingBets: true // Always accept - liability check disabled per user request
         },
         sbets: {
           treasury: platformInfo.treasuryBalanceSbets,
           liability: platformInfo.totalLiabilitySbets,
           available: sbetsAvailable,
-          acceptingBets: sbetsAvailable > 1000 // Need at least 1000 SBETS margin
+          acceptingBets: true // Always accept - liability check disabled per user request
         },
         paused: platformInfo.paused
       });
