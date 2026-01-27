@@ -1520,7 +1520,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         outcomeId,
         odds,
         betAmount,
-        currency,
+        currency: betCurrency, // Use computed betCurrency (from feeCurrency || currency || 'SUI')
         status: (paymentMethod === 'wallet' ? 'confirmed' : 'pending') as 'pending' | 'confirmed',
         prediction,
         placedAt: Date.now(),
