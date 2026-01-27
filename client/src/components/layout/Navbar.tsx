@@ -53,6 +53,14 @@ export default function Navbar() {
           >
             Buy SBETS
           </a>
+          
+          <a 
+            href="/revenue" 
+            className={`${location === "/revenue" ? "text-[#FFD700]" : "text-white hover:text-[#FFD700]"} cursor-pointer text-sm lg:text-base font-semibold`}
+            data-testid="link-revenue"
+          >
+            Revenue
+          </a>
         </div>
       </div>
       

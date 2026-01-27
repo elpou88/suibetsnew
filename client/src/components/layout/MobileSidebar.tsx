@@ -126,6 +126,24 @@ export default function MobileSidebar() {
               </div>
             </Link>
 
+            {/* Revenue Sharing */}
+            <Link href="/revenue">
+              <div 
+                className={`flex items-center px-4 py-3 mx-2 rounded ${
+                  location === '/revenue' 
+                    ? 'bg-yellow-500 text-black' 
+                    : 'text-yellow-400 hover:bg-[#042A30]'
+                }`}
+                onClick={() => handleNavigation('/revenue')}
+                data-testid="link-mobile-revenue"
+              >
+                <div className="w-8 h-8 mr-3 flex items-center justify-center">
+                  <span className="text-lg">$</span>
+                </div>
+                <span className={location === '/revenue' ? 'font-semibold' : ''}>Revenue</span>
+              </div>
+            </Link>
+
             {/* Sports categories */}
             {sports.map((sport) => (
               <Link key={sport.id} href={`/sports-live/${sport.slug}`}>
