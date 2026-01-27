@@ -275,8 +275,7 @@ module suibets::betting {
             timestamp,
         });
 
-        // Share the bet so admin can settle it (required for admin settlement)
-        transfer::share_object(bet);
+        transfer::transfer(bet, bettor);
     }
 
     // Settle a SUI bet (requires OracleCap)
@@ -530,8 +529,7 @@ module suibets::betting {
             timestamp,
         });
 
-        // Share the bet so admin can settle it (required for admin settlement)
-        transfer::share_object(bet);
+        transfer::transfer(bet, bettor);
     }
 
     // Settle a SBETS bet (requires OracleCap)

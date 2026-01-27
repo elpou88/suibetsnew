@@ -77,9 +77,9 @@ Preferred communication style: Simple, everyday language.
 - **Move Language**: For smart contract development.
 - **SBETS Token (Mainnet)**: `0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285::sbets::SBETS`
 - **Deployed Contract (Mainnet)**:
-    - Package ID: `0xfaf371c3c9fe2544cc1ce9a40b07621503b300bf3a65b8fab0dba134636e8b32`
-    - BettingPlatform (Shared): `0xae1b0dfed589c6ce5b7dafdb7477954670f0f73530668b5476e3a429b64099b3`
-    - AdminCap: `0xaec276da96bc9fb7781213f3aedb18eacf30af1932dc577abbe5529583251827`
+    - Package ID: `0x[PENDING_REDEPLOYMENT]`
+    - BettingPlatform (Shared): `0x[PENDING_REDEPLOYMENT]`
+    - AdminCap: `0x[PENDING_REDEPLOYMENT]`
     - Admin Wallet (owns AdminCap): `0x20850db591c4d575b5238baf975e54580d800e69b8b5b421de796a311d3bea50`
 
 ### Payment Integration
