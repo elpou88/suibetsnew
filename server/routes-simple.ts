@@ -2717,9 +2717,10 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       });
       
       // Price conversion: Convert all revenue to SUI equivalent for display
-      const SUI_PRICE_USD = 3.50;
+      // Updated January 27, 2026 - SUI trading at ~$1.50
+      const SUI_PRICE_USD = 1.50;
       const SBETS_PRICE_USD = 0.000001;
-      const sbetsToSuiRatio = SBETS_PRICE_USD / SUI_PRICE_USD; // ~0.000000286
+      const sbetsToSuiRatio = SBETS_PRICE_USD / SUI_PRICE_USD; // ~0.000000667
       
       const weeklyRevenue = weeklyBets.reduce((sum: number, bet: any) => {
         let revenue = 0;

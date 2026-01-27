@@ -10,7 +10,8 @@ const PROMO_DURATION_DAYS = 14; // 2 weeks promotion
 const PROMO_END_DATE = '2026-02-10T23:59:59Z'; // 2 weeks from Jan 27, 2026
 
 // Price estimates (can be updated with real-time prices)
-const SUI_PRICE_USD = 3.50; // Approximate SUI price in USD
+// Updated January 27, 2026 - SUI trading at ~$1.50
+const SUI_PRICE_USD = 1.50; // Current SUI price in USD
 const SBETS_PRICE_USD = 0.000001; // SBETS price in USD (very low)
 
 export class PromotionService {
