@@ -570,7 +570,12 @@ export class DatabaseStorage implements IStorage {
           WHERE (wurlus_bet_id = ${betId} 
                  OR (${isNumericId ? sql`id = ${parseInt(betId, 10)}` : sql`FALSE`})
                  OR bet_object_id = ${betId})
-            AND status IN ('pending', 'in_play', 'active', 'confirmed')
+            AND (
+              -- Normal settlement: from settable states to terminal states
+              status IN ('pending', 'in_play', 'active', 'confirmed')
+              -- Allow upgrade from 'won' to 'paid_out' (on-chain payout completed)
+              OR (status = 'won' AND ${status} = 'paid_out')
+            )
           RETURNING id, status as new_status
         )
         SELECT 
