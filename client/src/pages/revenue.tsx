@@ -252,7 +252,7 @@ export default function RevenuePage() {
                       }}
                     >
                       <Coins className="w-4 h-4 mr-2" />
-                      Platform Profit: {formatCurrency(revenueStats?.distribution?.liquidity?.amount || 0)} (30%)
+                      Liquidity and Buybacks: {formatCurrency(revenueStats?.distribution?.liquidity?.amount || 0)} (30%)
                     </div>
                   </div>
                 </div>
