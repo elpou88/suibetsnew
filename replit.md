@@ -66,13 +66,17 @@ Preferred communication style: Simple, everyday language.
 - **Legacy Bets**: Bets placed on OLD contract (0xfaf371c3c9fe...) were owned by bettors. These have been marked as VOID in database to prevent settlement errors.
 
 ### Revenue Sharing System (Updated January 27, 2026)
-- **Distribution**: 30% to SBETS holders, 70% to platform treasury
+- **Fee Split**: Platform 1% fee on winning bet profits is split:
+  - **30%** → `platform_revenue_holders` (for SBETS holder distribution)
+  - **40%** → `platform_treasury_buffer` (stays in treasury for liquidity)
+  - **30%** → `platform_profit` (platform owner profit)
 - **Holder Discovery**: System collects wallets from multiple sources (known wallets, database users, bet participants)
 - **Share Calculation**: User's share = their SBETS / total circulating SBETS among known holders (excludes platform wallets)
 - **Caching**: Holder data cached for 5 minutes to reduce blockchain API calls
 - **Platform Wallet Exclusion**: Admin wallet (0x20850db5...) excluded from holder calculations
 - **Real-time Updates**: Frontend refreshes stats every 30s, claimable every 15s
 - **Claim Validation**: User must hold SBETS tokens, can only claim once per week, tracked in `revenue_claims` table
+- **Database Accounts**: Revenue tracked in 3 separate DB accounts for transparency
 
 ## External Dependencies
 

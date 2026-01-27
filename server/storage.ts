@@ -48,6 +48,9 @@ export interface IStorage {
   isTransactionProcessed(txHash: string): Promise<boolean>;
   getPlatformRevenue(): Promise<{ suiRevenue: number; sbetsRevenue: number }>;
   addPlatformRevenue(amount: number, currency: 'SUI' | 'SBETS'): Promise<void>;
+  getRevenueForHolders(): Promise<{ suiRevenue: number; sbetsRevenue: number }>;
+  getTreasuryBuffer(): Promise<{ suiBalance: number; sbetsBalance: number }>;
+  getPlatformProfit(): Promise<{ suiBalance: number; sbetsBalance: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -835,35 +838,95 @@ export class DatabaseStorage implements IStorage {
 
   async addPlatformRevenue(amount: number, currency: 'SUI' | 'SBETS'): Promise<void> {
     try {
-      const platformWallet = 'platform_revenue';
-      let [platform] = await db.select().from(users).where(eq(users.walletAddress, platformWallet));
+      // REVENUE SPLIT: 30% holders, 40% treasury, 30% platform profit
+      const holdersShare = amount * 0.30;  // 30% for SBETS holder distribution
+      const treasuryShare = amount * 0.40; // 40% stays in treasury buffer
+      const profitShare = amount * 0.30;   // 30% platform profit
       
-      if (!platform) {
-        // Create platform revenue account
-        await db.insert(users).values({
-          username: 'platform_revenue',
-          password: '',
-          walletAddress: platformWallet,
-          suiBalance: currency === 'SUI' ? amount : 0,
-          sbetsBalance: currency === 'SBETS' ? amount : 0
-        });
-        console.log(`📊 PLATFORM REVENUE CREATED: ${amount} ${currency}`);
-        return;
-      }
-
-      if (currency === 'SUI') {
-        await db.update(users)
-          .set({ suiBalance: (platform.suiBalance || 0) + amount })
-          .where(eq(users.walletAddress, platformWallet));
-        console.log(`📊 PLATFORM REVENUE: +${amount} SUI | Total: ${(platform.suiBalance || 0) + amount} SUI`);
-      } else {
-        await db.update(users)
-          .set({ sbetsBalance: (platform.sbetsBalance || 0) + amount })
-          .where(eq(users.walletAddress, platformWallet));
-        console.log(`📊 PLATFORM REVENUE: +${amount} SBETS | Total: ${(platform.sbetsBalance || 0) + amount} SBETS`);
-      }
+      // Helper to update or create revenue account
+      const updateRevenueAccount = async (walletId: string, suiAmount: number, sbetsAmount: number) => {
+        let [account] = await db.select().from(users).where(eq(users.walletAddress, walletId));
+        
+        if (!account) {
+          await db.insert(users).values({
+            username: walletId,
+            password: '',
+            walletAddress: walletId,
+            suiBalance: suiAmount,
+            sbetsBalance: sbetsAmount
+          });
+        } else {
+          await db.update(users)
+            .set({ 
+              suiBalance: (account.suiBalance || 0) + suiAmount,
+              sbetsBalance: (account.sbetsBalance || 0) + sbetsAmount
+            })
+            .where(eq(users.walletAddress, walletId));
+        }
+      };
+      
+      const suiAmount = currency === 'SUI' ? 1 : 0;
+      const sbetsAmount = currency === 'SBETS' ? 1 : 0;
+      
+      // Split revenue to 3 accounts
+      await updateRevenueAccount('platform_revenue_holders', holdersShare * suiAmount, holdersShare * sbetsAmount);
+      await updateRevenueAccount('platform_treasury_buffer', treasuryShare * suiAmount, treasuryShare * sbetsAmount);
+      await updateRevenueAccount('platform_profit', profitShare * suiAmount, profitShare * sbetsAmount);
+      
+      // Also update legacy platform_revenue for backwards compatibility
+      await updateRevenueAccount('platform_revenue', amount * suiAmount, amount * sbetsAmount);
+      
+      console.log(`📊 REVENUE SPLIT (${amount} ${currency}): Holders: ${holdersShare.toFixed(4)} | Treasury: ${treasuryShare.toFixed(4)} | Profit: ${profitShare.toFixed(4)}`);
     } catch (error) {
       console.error('Error adding platform revenue:', error);
+    }
+  }
+  
+  async getRevenueForHolders(): Promise<{ suiRevenue: number; sbetsRevenue: number }> {
+    try {
+      const [holders] = await db.select().from(users).where(eq(users.walletAddress, 'platform_revenue_holders'));
+      if (!holders) {
+        return { suiRevenue: 0, sbetsRevenue: 0 };
+      }
+      return {
+        suiRevenue: holders.suiBalance || 0,
+        sbetsRevenue: holders.sbetsBalance || 0
+      };
+    } catch (error) {
+      console.error('Error getting holder revenue:', error);
+      return { suiRevenue: 0, sbetsRevenue: 0 };
+    }
+  }
+  
+  async getTreasuryBuffer(): Promise<{ suiBalance: number; sbetsBalance: number }> {
+    try {
+      const [treasury] = await db.select().from(users).where(eq(users.walletAddress, 'platform_treasury_buffer'));
+      if (!treasury) {
+        return { suiBalance: 0, sbetsBalance: 0 };
+      }
+      return {
+        suiBalance: treasury.suiBalance || 0,
+        sbetsBalance: treasury.sbetsBalance || 0
+      };
+    } catch (error) {
+      console.error('Error getting treasury buffer:', error);
+      return { suiBalance: 0, sbetsBalance: 0 };
+    }
+  }
+  
+  async getPlatformProfit(): Promise<{ suiBalance: number; sbetsBalance: number }> {
+    try {
+      const [profit] = await db.select().from(users).where(eq(users.walletAddress, 'platform_profit'));
+      if (!profit) {
+        return { suiBalance: 0, sbetsBalance: 0 };
+      }
+      return {
+        suiBalance: profit.suiBalance || 0,
+        sbetsBalance: profit.sbetsBalance || 0
+      };
+    } catch (error) {
+      console.error('Error getting platform profit:', error);
+      return { suiBalance: 0, sbetsBalance: 0 };
     }
   }
 }
