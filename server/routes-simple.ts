@@ -1476,7 +1476,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       // Cast to strings since transform always converts to string
       const userId = String(data.userId);
       const eventId = String(data.eventId);
-      const { eventName, homeTeam, awayTeam, marketId, outcomeId, odds, betAmount, currency, prediction, feeCurrency, paymentMethod, txHash, onChainBetId, status, isLive, matchMinute } = data;
+      const { eventName, homeTeam, awayTeam, marketId, outcomeId, odds, betAmount, currency, prediction, feeCurrency, paymentMethod, txHash, onChainBetId, status, isLive, matchMinute, walletAddress } = data;
       
       // MAX STAKE VALIDATION - Backend enforcement (100 SUI / 10M SBETS)
       // Use feeCurrency as primary indicator (client sends this), fallback to currency
