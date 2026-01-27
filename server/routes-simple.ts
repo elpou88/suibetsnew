@@ -1496,7 +1496,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       // SERVER-SIDE VALIDATION: Unified event registry lookup
       // CRITICAL: Server is authoritative about event status - never trust client isLive/matchMinute
       // Security: FAIL-CLOSED - Event must exist in server cache (live or upcoming) to accept bet
-      const MAX_LIVE_CACHE_AGE_MS = 60 * 1000; // Reject stale cache (>60 seconds) for live events
+      const MAX_LIVE_CACHE_AGE_MS = 90 * 1000; // Reject stale cache (>90 seconds) for live events - increased from 60s to reduce false rejections
       const MAX_UPCOMING_CACHE_AGE_MS = 15 * 60 * 1000; // 15 minutes for upcoming (pre-match) events - match hasn't started, status is stable
       
       try {
