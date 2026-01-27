@@ -2737,20 +2737,25 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       }, 0);
       
       // Calculate all-time total revenue (in SUI equivalent)
-      const allTimeRevenue = settledBets.reduce((sum: number, bet: any) => {
-        let revenue = 0;
-        if (bet.status === 'lost') {
-          revenue = bet.betAmount || 0;
-        } else if ((bet.status === 'won' || bet.status === 'paid_out') && bet.potentialWin) {
-          const profit = bet.potentialWin - bet.betAmount;
-          revenue = profit * 0.01;
-        }
-        // Convert SBETS to SUI equivalent
-        if (bet.currency === 'SBETS') {
-          revenue = revenue * sbetsToSuiRatio;
-        }
-        return sum + revenue;
-      }, 0);
+      // Revenue tracking reset on January 27, 2026 - only count bets from this date forward
+      const REVENUE_START_DATE = new Date('2026-01-27T00:00:00Z');
+      
+      const allTimeRevenue = settledBets
+        .filter((bet: any) => new Date(bet.createdAt || 0) >= REVENUE_START_DATE)
+        .reduce((sum: number, bet: any) => {
+          let revenue = 0;
+          if (bet.status === 'lost') {
+            revenue = bet.betAmount || 0;
+          } else if ((bet.status === 'won' || bet.status === 'paid_out') && bet.potentialWin) {
+            const profit = bet.potentialWin - bet.betAmount;
+            revenue = profit * 0.01;
+          }
+          // Convert SBETS to SUI equivalent
+          if (bet.currency === 'SBETS') {
+            revenue = revenue * sbetsToSuiRatio;
+          }
+          return sum + revenue;
+        }, 0);
       
       const holderShare = weeklyRevenue * 0.30;      // 30% to SBETS holders
       const treasuryShare = weeklyRevenue * 0.40;   // 40% treasury buffer (liquidity)
