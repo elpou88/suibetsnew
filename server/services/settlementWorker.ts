@@ -551,11 +551,21 @@ class SettlementWorkerService {
                 }
               }
               console.error(`❌ ON-CHAIN SUI SETTLEMENT FAILED: ${bet.id} - ${settlementResult.error}`);
-              // Don't mark as settled - will retry next cycle
-              continue;
+              
+              // FALLBACK: If TypeMismatch error (legacy contract), use DB-only settlement
+              if (settlementResult.error?.includes('TypeMismatch') || settlementResult.error?.includes('type mismatch')) {
+                console.log(`🔄 LEGACY BET DETECTED (TypeMismatch): Falling back to DB-only settlement for ${bet.id}`);
+                // Fall through to off-chain settlement below
+              } else {
+                // Don't mark as settled - will retry next cycle
+                continue;
+              }
             }
           }
-        } else if (isSbetsOnChainBet) {
+        }
+        
+        // Check for SBETS on-chain bets separately
+        if (isSbetsOnChainBet) {
           // ============ ON-CHAIN SETTLEMENT (SBETS via smart contract) ============
           // Contract handles payout directly - winner gets SBETS from contract treasury
           console.log(`🔗 ON-CHAIN SBETS SETTLEMENT: Bet ${bet.id} via smart contract`);
@@ -635,17 +645,25 @@ class SettlementWorkerService {
                 }
               }
               console.error(`❌ ON-CHAIN SBETS SETTLEMENT FAILED: ${bet.id} - ${settlementResult.error}`);
-              continue;
+              
+              // FALLBACK: If TypeMismatch error (legacy contract), use DB-only settlement
+              if (settlementResult.error?.includes('TypeMismatch') || settlementResult.error?.includes('type mismatch')) {
+                console.log(`🔄 LEGACY SBETS BET DETECTED (TypeMismatch): Falling back to DB-only settlement for ${bet.id}`);
+                // Fall through to off-chain settlement below
+              } else {
+                continue;
+              }
             }
           }
         }
         
         // ============ OFF-CHAIN SETTLEMENT FALLBACK ============
-        // Fall-through point when on-chain settlement not possible or bet not found on-chain
-        if (!isSuiOnChainBet && !isSbetsOnChainBet) {
-          // ============ OFF-CHAIN SETTLEMENT (SBETS or SUI fallback) ============
+        // Fall-through point for: bets without betObjectId, OR legacy bets with TypeMismatch errors
+        // This handles both cases: no on-chain bet OR failed on-chain settlement
+        {
+          // ============ OFF-CHAIN SETTLEMENT (fallback for all failed on-chain attempts) ============
           // Uses internal balance tracking - funds managed via hybrid custodial model
-          console.log(`📊 OFF-CHAIN SETTLEMENT: Bet ${bet.id} (${bet.currency}) via database`);
+          console.log(`📊 OFF-CHAIN SETTLEMENT: Bet ${bet.id} (${bet.currency}) via database (fallback)`);
 
           // DOUBLE PAYOUT PREVENTION: Only process winnings if status update succeeded
           // Use 'paid_out' for winners after successful payout, 'lost' for losers
