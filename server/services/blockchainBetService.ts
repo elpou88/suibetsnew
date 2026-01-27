@@ -798,6 +798,51 @@ export class BlockchainBetService {
   }
 
   /**
+   * Check on-chain bet status to avoid settling already-settled bets
+   * Returns the bet status from the blockchain, or null if bet not found
+   * @param betObjectId - The on-chain Bet object ID
+   * @returns Bet status info or null
+   */
+  async getOnChainBetInfo(betObjectId: string): Promise<{
+    settled: boolean;
+    status: string;
+    amount: number;
+    potentialPayout: number;
+  } | null> {
+    try {
+      const betObj = await this.client.getObject({
+        id: betObjectId,
+        options: { showContent: true },
+      });
+
+      if (betObj.data?.content?.dataType === 'moveObject') {
+        const fields = (betObj.data.content as any).fields;
+        
+        // Check the 'settled' field in the bet object
+        const settled = fields.settled === true;
+        const status = settled ? 'settled' : 'pending';
+        const amount = parseInt(fields.amount || fields.stake || '0') / 1e9;
+        const potentialPayout = parseInt(fields.potential_payout || '0') / 1e9;
+        
+        console.log(`[OnChainBet] ${betObjectId.slice(0, 12)}... status=${status}, settled=${settled}, amount=${amount}`);
+        
+        return {
+          settled,
+          status,
+          amount,
+          potentialPayout
+        };
+      }
+      
+      console.warn(`[OnChainBet] ${betObjectId.slice(0, 12)}... not found or not a move object`);
+      return null;
+    } catch (error: any) {
+      console.error(`[OnChainBet] Error fetching bet ${betObjectId}:`, error.message);
+      return null;
+    }
+  }
+
+  /**
    * Get platform contract info (treasury balance, stats) - dual treasury
    */
   async getPlatformInfo(): Promise<{

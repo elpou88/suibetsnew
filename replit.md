@@ -48,6 +48,9 @@ Preferred communication style: Simple, everyday language.
 - **Currency Column**: Each bet explicitly stores `currency` ('SUI' or 'SBETS') to track which token was used for the bet.
 - **Reconciliation Endpoint**: `/api/admin/liability-reconciliation` (GET, requires X-Admin-Password header) compares on-chain liability vs database-tracked liability.
 - **Settlement Worker**: Only calls on-chain settlement when bet has valid `betObjectId` - prevents orphaned on-chain liability from DB-only settlements.
+- **Max Stake Limits**: Backend enforces 100 SUI / 10M SBETS maximum stake to prevent treasury overflow issues.
+- **Treasury Pre-Check**: Before on-chain settlement, worker verifies treasury has sufficient balance. Insufficient funds mark bets as 'won' (not 'paid_out') for manual admin resolution.
+- **Error 6 Handling**: Smart contract error 6 (E_INSUFFICIENT_TREASURY_BALANCE) detected and gracefully handled - bets marked as settled to prevent infinite retry loops.
 
 ## External Dependencies
 

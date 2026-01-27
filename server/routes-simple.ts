@@ -1326,6 +1326,19 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const eventId = String(data.eventId);
       const { eventName, homeTeam, awayTeam, marketId, outcomeId, odds, betAmount, currency, prediction, feeCurrency, paymentMethod, txHash, onChainBetId, status, isLive, matchMinute } = data;
       
+      // MAX STAKE VALIDATION - Backend enforcement (100 SUI / 10M SBETS)
+      const MAX_STAKE_SUI = 100;
+      const MAX_STAKE_SBETS = 10000000;
+      const maxStake = currency === 'SBETS' ? MAX_STAKE_SBETS : MAX_STAKE_SUI;
+      
+      if (betAmount > maxStake) {
+        console.log(`❌ Bet rejected (max stake exceeded): ${betAmount} ${currency} > ${maxStake} ${currency}`);
+        return res.status(400).json({
+          message: `Maximum stake is ${maxStake} ${currency}`,
+          code: "MAX_STAKE_EXCEEDED"
+        });
+      }
+      
       // SERVER-SIDE VALIDATION: Unified event registry lookup
       // CRITICAL: Server is authoritative about event status - never trust client isLive/matchMinute
       // Security: FAIL-CLOSED - Event must exist in server cache (live or upcoming) to accept bet
@@ -1583,6 +1596,19 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       
       // Determine currency (default to SUI)
       const currency: 'SUI' | 'SBETS' = feeCurrency === 'SBETS' ? 'SBETS' : 'SUI';
+      
+      // MAX STAKE VALIDATION - Backend enforcement (100 SUI / 10M SBETS)
+      const MAX_STAKE_SUI = 100;
+      const MAX_STAKE_SBETS = 10000000;
+      const maxStake = currency === 'SBETS' ? MAX_STAKE_SBETS : MAX_STAKE_SUI;
+      
+      if (betAmount > maxStake) {
+        console.log(`❌ Parlay rejected (max stake exceeded): ${betAmount} ${currency} > ${maxStake} ${currency}`);
+        return res.status(400).json({
+          message: `Maximum stake is ${maxStake} ${currency}`,
+          code: "MAX_STAKE_EXCEEDED"
+        });
+      }
 
       // Check user balance (using async for accurate DB read)
       const balance = await balanceService.getBalanceAsync(userIdStr);

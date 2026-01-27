@@ -416,54 +416,175 @@ class SettlementWorkerService {
           // Lost bets stay in contract treasury as accrued fees
           console.log(`🔗 ON-CHAIN SUI SETTLEMENT: Bet ${bet.id} via smart contract`);
           
-          // Small delay between on-chain transactions to prevent object version conflicts
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          const settlementResult = await blockchainBetService.executeSettleBetOnChain(
-            bet.betObjectId!,
-            isWinner
-          );
-
-          if (settlementResult.success) {
-            // Update database status to reflect on-chain settlement
-            // Use 'paid_out' for winners since payout was sent, 'lost' for losers
-            const finalStatus = isWinner ? 'paid_out' : 'lost';
-            const statusUpdated = await storage.updateBetStatus(bet.id, finalStatus, grossPayout, settlementResult.txHash);
-            if (statusUpdated) {
-              console.log(`✅ ON-CHAIN SUI SETTLED: ${bet.id} ${finalStatus} | TX: ${settlementResult.txHash}`);
+          // PRE-CHECK 1: Verify treasury has enough balance for winners
+          if (isWinner) {
+            const platformInfo = await blockchainBetService.getPlatformInfo();
+            if (platformInfo && platformInfo.treasuryBalanceSui < grossPayout) {
+              console.warn(`⚠️ INSUFFICIENT TREASURY: Need ${grossPayout} SUI but only ${platformInfo.treasuryBalanceSui} SUI available`);
+              console.warn(`   Bet ${bet.id} requires manual admin resolution - marking as won in DB`);
+              // Mark as won but NOT paid_out - admin needs to manually add treasury funds and settle
+              await storage.updateBetStatus(bet.id, 'won', grossPayout);
               this.settledBetIds.add(bet.id);
+              continue;
             }
-          } else {
-            console.error(`❌ ON-CHAIN SUI SETTLEMENT FAILED: ${bet.id} - ${settlementResult.error}`);
-            // Don't mark as settled - will retry next cycle
+          }
+          
+          // PRE-CHECK 2: Verify bet isn't already settled on-chain (prevents error 6)
+          const onChainInfo = await blockchainBetService.getOnChainBetInfo(bet.betObjectId!);
+          if (onChainInfo?.settled) {
+            console.log(`⚠️ BET ALREADY SETTLED ON-CHAIN: ${bet.betObjectId} - updating database only`);
+            // Bet already settled on-chain, just update database
+            const finalStatus = isWinner ? 'paid_out' : 'lost';
+            await storage.updateBetStatus(bet.id, finalStatus, grossPayout);
+            this.settledBetIds.add(bet.id);
             continue;
+          }
+          
+          if (!onChainInfo) {
+            // Bet object not found on-chain - mark for manual resolution
+            console.warn(`⚠️ BET OBJECT NOT FOUND ON-CHAIN: ${bet.betObjectId} - marking for manual resolution`);
+            await storage.updateBetStatus(bet.id, isWinner ? 'won' : 'lost', grossPayout);
+            this.settledBetIds.add(bet.id);
+            continue;
+          } else {
+            // Small delay between on-chain transactions to prevent object version conflicts
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            const settlementResult = await blockchainBetService.executeSettleBetOnChain(
+              bet.betObjectId!,
+              isWinner
+            );
+
+            if (settlementResult.success) {
+              // Update database status to reflect on-chain settlement
+              // Use 'paid_out' for winners since payout was sent, 'lost' for losers
+              const finalStatus = isWinner ? 'paid_out' : 'lost';
+              const statusUpdated = await storage.updateBetStatus(bet.id, finalStatus, grossPayout, settlementResult.txHash);
+              if (statusUpdated) {
+                console.log(`✅ ON-CHAIN SUI SETTLED: ${bet.id} ${finalStatus} | TX: ${settlementResult.txHash}`);
+                this.settledBetIds.add(bet.id);
+              }
+              continue;
+            } else {
+              // Check if error indicates a MoveAbort (error 6 could be insufficient treasury OR already settled)
+              if (settlementResult.error?.includes('error 6') || settlementResult.error?.includes('MoveAbort')) {
+                // Re-check on-chain bet status to determine root cause
+                const reCheckInfo = await blockchainBetService.getOnChainBetInfo(bet.betObjectId!);
+                
+                if (reCheckInfo?.settled) {
+                  // Bet was already settled on-chain - safe to mark in DB
+                  console.log(`⚠️ BET CONFIRMED SETTLED ON-CHAIN: ${bet.id} - updating database`);
+                  const finalStatus = isWinner ? 'paid_out' : 'lost';
+                  await storage.updateBetStatus(bet.id, finalStatus, grossPayout);
+                  this.settledBetIds.add(bet.id);
+                  continue;
+                } else if (isWinner) {
+                  // Bet not settled, likely insufficient treasury - mark as 'won' for manual resolution
+                  console.warn(`⚠️ SETTLEMENT FAILED (insufficient treasury): ${bet.id} - marking as 'won' for manual resolution`);
+                  await storage.updateBetStatus(bet.id, 'won', grossPayout);
+                  this.settledBetIds.add(bet.id);
+                  continue;
+                } else {
+                  // Loser bet with error 6 but not settled on-chain - mark as lost (no payout needed anyway)
+                  console.warn(`⚠️ SETTLEMENT ERROR for losing bet: ${bet.id} - marking as lost (no payout needed)`);
+                  await storage.updateBetStatus(bet.id, 'lost', 0);
+                  this.settledBetIds.add(bet.id);
+                  continue;
+                }
+              }
+              console.error(`❌ ON-CHAIN SUI SETTLEMENT FAILED: ${bet.id} - ${settlementResult.error}`);
+              // Don't mark as settled - will retry next cycle
+              continue;
+            }
           }
         } else if (isSbetsOnChainBet) {
           // ============ ON-CHAIN SETTLEMENT (SBETS via smart contract) ============
           // Contract handles payout directly - winner gets SBETS from contract treasury
           console.log(`🔗 ON-CHAIN SBETS SETTLEMENT: Bet ${bet.id} via smart contract`);
           
-          // Small delay between on-chain transactions to prevent object version conflicts
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          const settlementResult = await blockchainBetService.executeSettleBetSbetsOnChain(
-            bet.betObjectId!,
-            isWinner
-          );
-
-          if (settlementResult.success) {
-            // Use 'paid_out' for winners since payout was sent, 'lost' for losers
-            const finalStatus = isWinner ? 'paid_out' : 'lost';
-            const statusUpdated = await storage.updateBetStatus(bet.id, finalStatus, grossPayout, settlementResult.txHash);
-            if (statusUpdated) {
-              console.log(`✅ ON-CHAIN SBETS SETTLED: ${bet.id} ${finalStatus} | TX: ${settlementResult.txHash}`);
+          // PRE-CHECK 1: Verify treasury has enough SBETS balance for winners
+          if (isWinner) {
+            const platformInfo = await blockchainBetService.getPlatformInfo();
+            if (platformInfo && platformInfo.treasuryBalanceSbets < grossPayout) {
+              console.warn(`⚠️ INSUFFICIENT SBETS TREASURY: Need ${grossPayout} SBETS but only ${platformInfo.treasuryBalanceSbets} SBETS available`);
+              console.warn(`   Bet ${bet.id} requires manual admin resolution - marking as won in DB`);
+              // Mark as won but NOT paid_out - admin needs to manually add treasury funds and settle
+              await storage.updateBetStatus(bet.id, 'won', grossPayout);
               this.settledBetIds.add(bet.id);
+              continue;
             }
-          } else {
-            console.error(`❌ ON-CHAIN SBETS SETTLEMENT FAILED: ${bet.id} - ${settlementResult.error}`);
+          }
+          
+          // PRE-CHECK 2: Verify bet isn't already settled on-chain (prevents error 6)
+          const onChainInfo = await blockchainBetService.getOnChainBetInfo(bet.betObjectId!);
+          if (onChainInfo?.settled) {
+            console.log(`⚠️ SBETS BET ALREADY SETTLED ON-CHAIN: ${bet.betObjectId} - updating database only`);
+            const finalStatus = isWinner ? 'paid_out' : 'lost';
+            await storage.updateBetStatus(bet.id, finalStatus, grossPayout);
+            this.settledBetIds.add(bet.id);
             continue;
           }
-        } else {
+          
+          if (!onChainInfo) {
+            // Bet object not found on-chain - mark for manual resolution
+            console.warn(`⚠️ SBETS BET OBJECT NOT FOUND ON-CHAIN: ${bet.betObjectId} - marking for manual resolution`);
+            await storage.updateBetStatus(bet.id, isWinner ? 'won' : 'lost', grossPayout);
+            this.settledBetIds.add(bet.id);
+            continue;
+          } else {
+            // Small delay between on-chain transactions to prevent object version conflicts
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            const settlementResult = await blockchainBetService.executeSettleBetSbetsOnChain(
+              bet.betObjectId!,
+              isWinner
+            );
+
+            if (settlementResult.success) {
+              // Use 'paid_out' for winners since payout was sent, 'lost' for losers
+              const finalStatus = isWinner ? 'paid_out' : 'lost';
+              const statusUpdated = await storage.updateBetStatus(bet.id, finalStatus, grossPayout, settlementResult.txHash);
+              if (statusUpdated) {
+                console.log(`✅ ON-CHAIN SBETS SETTLED: ${bet.id} ${finalStatus} | TX: ${settlementResult.txHash}`);
+                this.settledBetIds.add(bet.id);
+              }
+              continue;
+            } else {
+              // Check if error indicates a MoveAbort (error 6 could be insufficient treasury OR already settled)
+              if (settlementResult.error?.includes('error 6') || settlementResult.error?.includes('MoveAbort')) {
+                // Re-check on-chain bet status to determine root cause
+                const reCheckInfo = await blockchainBetService.getOnChainBetInfo(bet.betObjectId!);
+                
+                if (reCheckInfo?.settled) {
+                  // Bet was already settled on-chain - safe to mark in DB
+                  console.log(`⚠️ SBETS BET CONFIRMED SETTLED ON-CHAIN: ${bet.id} - updating database`);
+                  const finalStatus = isWinner ? 'paid_out' : 'lost';
+                  await storage.updateBetStatus(bet.id, finalStatus, grossPayout);
+                  this.settledBetIds.add(bet.id);
+                  continue;
+                } else if (isWinner) {
+                  // Bet not settled, likely insufficient treasury - mark as 'won' for manual resolution
+                  console.warn(`⚠️ SBETS SETTLEMENT FAILED (insufficient treasury): ${bet.id} - marking as 'won' for manual resolution`);
+                  await storage.updateBetStatus(bet.id, 'won', grossPayout);
+                  this.settledBetIds.add(bet.id);
+                  continue;
+                } else {
+                  // Loser bet with error 6 but not settled on-chain - mark as lost (no payout needed anyway)
+                  console.warn(`⚠️ SBETS SETTLEMENT ERROR for losing bet: ${bet.id} - marking as lost (no payout needed)`);
+                  await storage.updateBetStatus(bet.id, 'lost', 0);
+                  this.settledBetIds.add(bet.id);
+                  continue;
+                }
+              }
+              console.error(`❌ ON-CHAIN SBETS SETTLEMENT FAILED: ${bet.id} - ${settlementResult.error}`);
+              continue;
+            }
+          }
+        }
+        
+        // ============ OFF-CHAIN SETTLEMENT FALLBACK ============
+        // Fall-through point when on-chain settlement not possible or bet not found on-chain
+        if (!isSuiOnChainBet && !isSbetsOnChainBet) {
           // ============ OFF-CHAIN SETTLEMENT (SBETS or SUI fallback) ============
           // Uses internal balance tracking - funds managed via hybrid custodial model
           console.log(`📊 OFF-CHAIN SETTLEMENT: Bet ${bet.id} (${bet.currency}) via database`);
