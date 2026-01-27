@@ -152,9 +152,9 @@ export class BlockchainBetService {
     betObjectId: string,
     won: boolean
   ): Promise<TransactionPayload> {
-    // Full contract signature: settle_bet(platform, bet, won, clock)
+    // Full contract signature: settle_bet_admin(admin_cap, platform, bet, won, clock)
     return {
-      target: `${BETTING_PACKAGE_ID}::betting::settle_bet`,
+      target: `${BETTING_PACKAGE_ID}::betting::settle_bet_admin`,
       arguments: [
         BETTING_PLATFORM_ID,
         betObjectId,
@@ -496,11 +496,11 @@ export class BlockchainBetService {
       const tx = new Transaction();
       
       tx.moveCall({
-        target: `${BETTING_PACKAGE_ID}::betting::settle_bet`,
+        target: `${BETTING_PACKAGE_ID}::betting::settle_bet_admin`,
         arguments: [
           tx.object(ADMIN_CAP_ID),          // admin_cap: &AdminCap (owned by signer)
           tx.object(BETTING_PLATFORM_ID),   // platform: &mut Platform
-          tx.object(betObjectId),           // bet: &mut Bet
+          tx.object(betObjectId),           // bet: &mut Bet (shared object)
           tx.pure.bool(won),                // won: bool
           tx.object('0x6'),                 // clock: &Clock
         ],
