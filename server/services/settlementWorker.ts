@@ -218,32 +218,12 @@ class SettlementWorkerService {
             }
           }
           
-          // Strategy 3: Match by prediction containing team name (fallback for older bets)
-          // IMPROVED: Check BOTH directions AND normalize team names
-          const prediction = bet.prediction?.toLowerCase() || '';
-          const matchHome = match.homeTeam.toLowerCase();
-          const matchAway = match.awayTeam.toLowerCase();
-          
-          // Helper to normalize team names - strip common prefixes/suffixes
-          const normalizeTeam = (name: string) => {
-            return name
-              .replace(/^(sl|fc|cf|sc|as|ac|afc|rcd|cd|ud|sd|ca|rc|real|sporting|atletico)\s+/i, '')
-              .replace(/\s+(fc|sc|cf|afc|united|city|rovers|athletic|wanderers)$/i, '')
-              .trim();
-          };
-          
-          const normPrediction = normalizeTeam(prediction);
-          const normMatchHome = normalizeTeam(matchHome);
-          const normMatchAway = normalizeTeam(matchAway);
-          
-          // Check both directions: prediction contains team OR team contains prediction
-          if (prediction.includes(matchHome) || prediction.includes(matchAway) ||
-              matchHome.includes(prediction) || matchAway.includes(prediction) ||
-              normPrediction.includes(normMatchHome) || normPrediction.includes(normMatchAway) ||
-              normMatchHome.includes(normPrediction) || normMatchAway.includes(normPrediction)) {
-            console.log(`✅ MATCH FOUND via prediction: "${prediction}" matches "${matchHome}" or "${matchAway}"`);
-            return true;
-          }
+          // Strategy 3: DISABLED - Fuzzy prediction matching caused false positives
+          // This was incorrectly matching future bets to finished matches with similar team names
+          // e.g., bet on "Leeds vs Arsenal" (future) was matched to some other "Leeds" match that finished
+          // ONLY use exact event ID matching to prevent premature settlement of upcoming matches
+          // 
+          // DO NOT RE-ENABLE without adding start_time validation to ensure match has actually started
           
           // Strategy 4: Legacy eventId match
           if (bet.eventId && bet.eventId === match.eventId) {
