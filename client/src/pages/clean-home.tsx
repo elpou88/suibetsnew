@@ -286,7 +286,15 @@ export default function CleanHome() {
             </a>
             {isConnected && walletAddress ? (
               <>
-                <div className="text-gray-400 text-xs">{walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</div>
+                <div className="text-right">
+                  <div className="text-cyan-400 text-xs" title="Platform balance (deposited for betting)">
+                    💰 {platformBalances.SUI.toFixed(4)} SUI | {platformBalances.SBETS.toFixed(2)} SBETS
+                  </div>
+                  <div className="text-green-400 text-xs" title="Wallet balance (on-chain)">
+                    🔗 Wallet: {walletSuiBalance.toFixed(4)} SUI | {walletSbetsBalance.toFixed(2)} SBETS
+                  </div>
+                  <div className="text-gray-500 text-xs">{walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</div>
+                </div>
                 <button 
                   onClick={() => window.location.reload()} 
                   className="text-gray-400 hover:text-white p-2"
