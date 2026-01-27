@@ -53,9 +53,9 @@ Preferred communication style: Simple, everyday language.
 - **Error 6 Handling**: Smart contract error 6 (E_INSUFFICIENT_TREASURY_BALANCE) detected and gracefully handled - bets marked as settled to prevent infinite retry loops.
 
 ### On-Chain Bet Synchronization
-- **Manual Sync**: POST `/api/admin/sync-onchain-bets` (requires X-Admin-Password header) syncs bets placed directly on smart contract to database.
+- **Auto-Sync Every 5 Minutes**: On-chain bet sync runs automatically with settlement checks to catch all bets placed directly on smart contract.
+- **Manual Sync**: POST `/api/admin/sync-onchain-bets` (requires X-Admin-Password header) for immediate sync.
 - **Bet Details**: GET `/api/admin/onchain-bet/:betObjectId` (requires X-Admin-Password header) retrieves full on-chain bet data including prediction, market, bettor.
-- **Auto-Sync Disabled**: On-chain sync does NOT run automatically on startup - only triggered manually via admin API.
 - **Prediction Extraction**: Sync reads prediction/selection from on-chain bet object (stored as vector<u8> bytes decoded to string).
 - **Smart Contract Status Codes**: 0=pending, 1=won, 2=lost, 3=void (defined in betting.move lines 28-31).
 
