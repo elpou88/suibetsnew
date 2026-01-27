@@ -352,9 +352,6 @@ export default function CleanHome() {
           <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-center gap-2 text-sm md:text-base font-bold">
             <span>🎁 LIMITED PROMO:</span>
             <span>Bet ${promotion.thresholdUsd} → Get ${promotion.bonusUsd} FREE!</span>
-            {promotion.bonusBalance > 0 && (
-              <span className="bg-black/20 px-2 py-0.5 rounded">Your Bonus: ${promotion.bonusBalance.toFixed(2)}</span>
-            )}
             <span className="text-xs md:text-sm opacity-80">
               Progress: ${(promotion.totalBetUsd % promotion.thresholdUsd).toFixed(2)}/${promotion.thresholdUsd}
             </span>
