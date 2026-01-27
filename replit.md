@@ -65,6 +65,14 @@ Preferred communication style: Simple, everyday language.
 - **Status**: New contract deployed and active. All NEW bets will be settleable by admin.
 - **Legacy Bets**: Bets placed on OLD contract (0xfaf371c3c9fe...) were owned by bettors. These have been marked as VOID in database to prevent settlement errors.
 
+### Automatic On-Chain Payouts for DB Settlements (January 27, 2026)
+- **Feature**: Winners from DB-only settlements now receive automatic on-chain payouts to their wallet
+- **Source**: Funds sent from admin wallet (should be funded from treasury withdrawals)
+- **Process**: After crediting internal balance, system attempts to send tokens directly to user's wallet
+- **Fallback**: If on-chain payout fails, internal balance credit is still preserved
+- **Methods**: `blockchainBetService.sendSuiToUser()` and `sendSbetsToUser()` for direct wallet transfers
+- **Validation**: Only attempts payout if userId is a valid Sui wallet address (0x prefix, 64+ chars)
+
 ### Revenue Sharing System (Updated January 27, 2026)
 - **Revenue Sources**: ALL platform revenue is split 30/40/30:
   - Lost bet stakes (full amount)

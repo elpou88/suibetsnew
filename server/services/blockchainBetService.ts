@@ -798,6 +798,116 @@ export class BlockchainBetService {
   }
 
   /**
+   * Send SUI directly from admin wallet (funded from treasury) to user's wallet
+   * Used for DB settlement payouts when on-chain settlement isn't possible
+   * Admin wallet should be funded via treasury withdrawals
+   * @param recipientAddress - User's wallet address
+   * @param amount - Amount in SUI (not MIST)
+   * @returns Transaction result
+   */
+  async sendSuiToUser(recipientAddress: string, amount: number): Promise<{ success: boolean; txHash?: string; error?: string }> {
+    try {
+      const keypair = this.getAdminKeypair();
+      if (!keypair) {
+        return { success: false, error: 'Admin keypair not configured' };
+      }
+
+      if (amount <= 0) {
+        return { success: false, error: 'Amount must be positive' };
+      }
+
+      const amountInMist = BigInt(Math.floor(amount * 1e9));
+      const tx = new Transaction();
+      
+      // Split SUI from admin wallet (treasury-funded) and transfer to user
+      const [coin] = tx.splitCoins(tx.gas, [amountInMist]);
+      tx.transferObjects([coin], recipientAddress);
+
+      const result = await this.client.signAndExecuteTransaction({
+        signer: keypair,
+        transaction: tx,
+        options: { showEffects: true },
+      });
+
+      if (result.effects?.status?.status === 'success') {
+        console.log(`💸 SUI PAYOUT (from treasury funds): ${amount} SUI -> ${recipientAddress.slice(0,10)}... | TX: ${result.digest}`);
+        return { success: true, txHash: result.digest };
+      } else {
+        return { success: false, error: result.effects?.status?.error || 'Transaction failed' };
+      }
+    } catch (error: any) {
+      console.error(`❌ Failed to send SUI payout:`, error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Send SBETS directly from admin wallet (funded from treasury) to user's wallet
+   * Used for DB settlement payouts when on-chain settlement isn't possible
+   * Admin wallet should be funded via treasury withdrawals
+   * @param recipientAddress - User's wallet address  
+   * @param amount - Amount in SBETS (not smallest unit)
+   * @returns Transaction result
+   */
+  async sendSbetsToUser(recipientAddress: string, amount: number): Promise<{ success: boolean; txHash?: string; error?: string }> {
+    try {
+      const keypair = this.getAdminKeypair();
+      if (!keypair) {
+        return { success: false, error: 'Admin keypair not configured' };
+      }
+
+      if (amount <= 0) {
+        return { success: false, error: 'Amount must be positive' };
+      }
+
+      const amountInSmallest = BigInt(Math.floor(amount * 1e6)); // SBETS has 6 decimals
+      const tx = new Transaction();
+
+      // Get admin's SBETS coins (funded from treasury)
+      const coins = await this.client.getCoins({
+        owner: keypair.toSuiAddress(),
+        coinType: this.sbetsTokenType,
+      });
+
+      if (!coins.data || coins.data.length === 0) {
+        return { success: false, error: 'No SBETS in admin wallet - needs treasury funding' };
+      }
+
+      // Check total balance
+      const totalBalance = coins.data.reduce((sum, c) => sum + BigInt(c.balance), 0n);
+      if (totalBalance < amountInSmallest) {
+        return { success: false, error: `Insufficient SBETS in admin wallet: ${Number(totalBalance) / 1e6} < ${amount}` };
+      }
+
+      // Merge all SBETS coins if needed
+      const coinIds = coins.data.map(c => c.coinObjectId);
+      if (coinIds.length > 1) {
+        tx.mergeCoins(coinIds[0], coinIds.slice(1));
+      }
+
+      // Split and transfer
+      const [paymentCoin] = tx.splitCoins(coinIds[0], [amountInSmallest]);
+      tx.transferObjects([paymentCoin], recipientAddress);
+
+      const result = await this.client.signAndExecuteTransaction({
+        signer: keypair,
+        transaction: tx,
+        options: { showEffects: true },
+      });
+
+      if (result.effects?.status?.status === 'success') {
+        console.log(`💸 SBETS PAYOUT (from treasury funds): ${amount} SBETS -> ${recipientAddress.slice(0,10)}... | TX: ${result.digest}`);
+        return { success: true, txHash: result.digest };
+      } else {
+        return { success: false, error: result.effects?.status?.error || 'Transaction failed' };
+      }
+    } catch (error: any) {
+      console.error(`❌ Failed to send SBETS payout:`, error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
    * Check on-chain bet status to avoid settling already-settled bets
    * Returns the bet status from the blockchain, or null if bet not found
    * @param betObjectId - The on-chain Bet object ID

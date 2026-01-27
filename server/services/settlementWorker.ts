@@ -684,6 +684,30 @@ class SettlementWorkerService {
               // Now upgrade status to 'paid_out' since payout succeeded
               await storage.updateBetStatus(bet.id, 'paid_out', grossPayout);
               console.log(`💰 WINNER (DB): ${bet.userId} won ${netPayout} ${bet.currency} (fee: ${platformFee} ${bet.currency} -> revenue) - PAID OUT`);
+              
+              // AUTOMATIC ON-CHAIN PAYOUT: Send winnings directly to user's wallet from treasury funds
+              const userWallet = bet.userId;
+              if (userWallet && userWallet.startsWith('0x') && userWallet.length >= 64) {
+                try {
+                  console.log(`🔄 AUTO-PAYOUT: Sending ${netPayout} ${bet.currency} to ${userWallet.slice(0,10)}...`);
+                  let payoutResult;
+                  if (bet.currency === 'SUI') {
+                    payoutResult = await blockchainBetService.sendSuiToUser(userWallet, netPayout);
+                  } else if (bet.currency === 'SBETS') {
+                    payoutResult = await blockchainBetService.sendSbetsToUser(userWallet, netPayout);
+                  }
+                  
+                  if (payoutResult?.success) {
+                    console.log(`✅ AUTO-PAYOUT SUCCESS: ${netPayout} ${bet.currency} sent to ${userWallet.slice(0,10)}... | TX: ${payoutResult.txHash}`);
+                  } else {
+                    console.warn(`⚠️ AUTO-PAYOUT FAILED (internal balance still credited): ${payoutResult?.error || 'Unknown error'}`);
+                  }
+                } catch (payoutError: any) {
+                  console.warn(`⚠️ AUTO-PAYOUT ERROR (internal balance still credited): ${payoutError.message}`);
+                }
+              } else {
+                console.log(`ℹ️ No valid wallet for auto-payout (userId: ${bet.userId?.slice(0,20)}...) - internal balance credited`);
+              }
             } else {
               // Lost bet - add full stake to platform revenue
               await balanceService.addRevenue(bet.stake, bet.currency as 'SUI' | 'SBETS');
