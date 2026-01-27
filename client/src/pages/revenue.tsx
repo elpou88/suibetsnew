@@ -25,6 +25,7 @@ interface RevenueStats {
   weekStart: string;
   weekEnd: string;
   totalRevenue: number;
+  allTimeRevenue: number;
   distribution: {
     holders: { percentage: number; amount: number };
     treasury: { percentage: number; amount: number };
@@ -188,13 +189,24 @@ export default function RevenuePage() {
             boxShadow: '0 0 30px rgba(59, 130, 246, 0.2), inset 0 1px 0 rgba(255,255,255,0.1)'
           }}>
             <CardContent className="p-6">
-              <div className="text-center">
-                <h2 className="text-lg text-blue-200 mb-2">Total Betting Revenue This Week</h2>
-                <div className="text-4xl font-bold text-white mb-1">
-                  {formatUSD(revenueStats?.totalRevenue || 0)}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="text-center">
+                  <h2 className="text-lg text-blue-200 mb-2">This Week's Revenue</h2>
+                  <div className="text-3xl font-bold text-white mb-1">
+                    {formatUSD(revenueStats?.totalRevenue || 0)}
+                  </div>
+                  <div className="text-blue-300 text-sm">
+                    = {formatCurrency(revenueStats?.totalRevenue || 0)}
+                  </div>
                 </div>
-                <div className="text-blue-300 text-sm">
-                  = {formatCurrency(revenueStats?.totalRevenue || 0)}
+                <div className="text-center border-t md:border-t-0 md:border-l border-blue-500/30 pt-4 md:pt-0 md:pl-6">
+                  <h2 className="text-lg text-green-200 mb-2">All-Time Total Revenue</h2>
+                  <div className="text-3xl font-bold text-green-400 mb-1">
+                    {formatUSD(revenueStats?.allTimeRevenue || 0)}
+                  </div>
+                  <div className="text-green-300 text-sm">
+                    = {formatCurrency(revenueStats?.allTimeRevenue || 0)}
+                  </div>
                 </div>
               </div>
             </CardContent>

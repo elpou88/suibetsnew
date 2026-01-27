@@ -2716,14 +2716,40 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         return betDate >= startOfWeek && betDate <= endOfWeek;
       });
       
+      // Price conversion: Convert all revenue to SUI equivalent for display
+      const SUI_PRICE_USD = 3.50;
+      const SBETS_PRICE_USD = 0.000001;
+      const sbetsToSuiRatio = SBETS_PRICE_USD / SUI_PRICE_USD; // ~0.000000286
+      
       const weeklyRevenue = weeklyBets.reduce((sum: number, bet: any) => {
+        let revenue = 0;
         if (bet.status === 'lost') {
-          return sum + (bet.betAmount || 0);
+          revenue = bet.betAmount || 0;
         } else if (bet.status === 'won' && bet.potentialWin) {
           const profit = bet.potentialWin - bet.betAmount;
-          return sum + (profit * 0.01);
+          revenue = profit * 0.01;
         }
-        return sum;
+        // Convert SBETS to SUI equivalent
+        if (bet.currency === 'SBETS') {
+          revenue = revenue * sbetsToSuiRatio;
+        }
+        return sum + revenue;
+      }, 0);
+      
+      // Calculate all-time total revenue (in SUI equivalent)
+      const allTimeRevenue = settledBets.reduce((sum: number, bet: any) => {
+        let revenue = 0;
+        if (bet.status === 'lost') {
+          revenue = bet.betAmount || 0;
+        } else if ((bet.status === 'won' || bet.status === 'paid_out') && bet.potentialWin) {
+          const profit = bet.potentialWin - bet.betAmount;
+          revenue = profit * 0.01;
+        }
+        // Convert SBETS to SUI equivalent
+        if (bet.currency === 'SBETS') {
+          revenue = revenue * sbetsToSuiRatio;
+        }
+        return sum + revenue;
       }, 0);
       
       const holderShare = weeklyRevenue * 0.30;      // 30% to SBETS holders
@@ -2735,6 +2761,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         weekStart: startOfWeek.toISOString(),
         weekEnd: endOfWeek.toISOString(),
         totalRevenue: weeklyRevenue,
+        allTimeRevenue: allTimeRevenue,
         distribution: {
           holders: { percentage: 30, amount: holderShare },
           treasury: { percentage: 40, amount: treasuryShare },
