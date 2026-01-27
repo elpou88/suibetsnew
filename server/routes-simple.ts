@@ -2379,5 +2379,376 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
   // Register AI betting routes
   app.use(aiRoutes);
 
+  // =====================================================
+  // REVENUE SHARING API - SBETS Holder Revenue Distribution
+  // =====================================================
+  
+  const SBETS_TOKEN_TYPE = '0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285::sbets::SBETS';
+  const REVENUE_SHARE_PERCENTAGE = 0.10; // 10% of platform revenue goes to SBETS holders
+  
+  // Helper to get settled bets
+  async function getSettledBetsForRevenue(): Promise<any[]> {
+    const allBets = await storage.getAllBets();
+    return allBets.filter((bet: any) => bet.status === 'won' || bet.status === 'lost');
+  }
+  
+  // Helper to get claims from database
+  async function getRevenueClaims(walletAddress: string): Promise<Array<{ amount: number; timestamp: number; txHash: string; weekStart: Date }>> {
+    try {
+      const { revenueClaims } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      const { db } = await import('./db');
+      
+      const claims = await db.select().from(revenueClaims).where(eq(revenueClaims.walletAddress, walletAddress));
+      return claims.map((c: any) => ({
+        amount: c.claimAmount,
+        timestamp: new Date(c.claimedAt).getTime(),
+        txHash: c.txHash,
+        weekStart: new Date(c.weekStart)
+      }));
+    } catch (error) {
+      console.error('Error fetching revenue claims:', error);
+      return [];
+    }
+  }
+  
+  // Helper to save a claim to database
+  async function saveRevenueClaim(walletAddress: string, weekStart: Date, sbetsBalance: number, sharePercentage: number, claimAmount: number, txHash: string): Promise<boolean> {
+    try {
+      const { revenueClaims } = await import('@shared/schema');
+      const { db } = await import('./db');
+      
+      await db.insert(revenueClaims).values({
+        walletAddress,
+        weekStart,
+        sbetsBalance,
+        sharePercentage,
+        claimAmount,
+        txHash
+      });
+      return true;
+    } catch (error) {
+      console.error('Error saving revenue claim:', error);
+      return false;
+    }
+  }
+  
+  // Get SBETS holders from blockchain
+  app.get("/api/revenue/holders", async (req: Request, res: Response) => {
+    try {
+      const coinType = SBETS_TOKEN_TYPE;
+      const holdersData = await fetchSbetsHolders();
+      
+      res.json({
+        success: true,
+        tokenType: coinType,
+        totalSupply: holdersData.totalSupply,
+        holderCount: holdersData.holders.length,
+        holders: holdersData.holders.slice(0, 100),
+        lastUpdated: Date.now()
+      });
+    } catch (error: any) {
+      console.error('Error fetching SBETS holders:', error);
+      res.status(500).json({ message: 'Failed to fetch holders', error: error.message });
+    }
+  });
+  
+  // Get platform revenue data for distribution
+  app.get("/api/revenue/stats", async (req: Request, res: Response) => {
+    try {
+      const platformInfo = await blockchainBetService.getPlatformInfo();
+      const settledBets = await getSettledBetsForRevenue();
+      
+      // Get current week dates
+      const now = new Date();
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay() + 1);
+      startOfWeek.setHours(0, 0, 0, 0);
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      
+      // Filter bets for this week
+      const weeklyBets = settledBets.filter((bet: any) => {
+        const betDate = new Date(bet.createdAt || 0);
+        return betDate >= startOfWeek && betDate <= endOfWeek;
+      });
+      
+      const weeklyRevenue = weeklyBets.reduce((sum: number, bet: any) => {
+        if (bet.status === 'lost') {
+          return sum + (bet.betAmount || 0);
+        } else if (bet.status === 'won' && bet.potentialWin) {
+          const profit = bet.potentialWin - bet.betAmount;
+          return sum + (profit * 0.01);
+        }
+        return sum;
+      }, 0);
+      
+      const holderShare = weeklyRevenue * REVENUE_SHARE_PERCENTAGE;
+      const treasuryShare = weeklyRevenue * 0.70;
+      const liquidityShare = weeklyRevenue * 0.20;
+      
+      res.json({
+        success: true,
+        weekStart: startOfWeek.toISOString(),
+        weekEnd: endOfWeek.toISOString(),
+        totalRevenue: weeklyRevenue,
+        distribution: {
+          holders: { percentage: 10, amount: holderShare },
+          treasury: { percentage: 70, amount: treasuryShare },
+          liquidity: { percentage: 20, amount: liquidityShare }
+        },
+        onChainData: {
+          treasuryBalance: platformInfo?.treasuryBalanceSui || 0,
+          treasuryBalanceSbets: platformInfo?.treasuryBalanceSbets || 0,
+          totalBets: platformInfo?.totalBets || 0,
+          totalVolume: platformInfo?.totalVolumeSui || 0,
+          accruedFees: platformInfo?.accruedFeesSui || 0
+        },
+        historicalRevenue: await getWeeklyRevenueHistory(),
+        lastUpdated: Date.now()
+      });
+    } catch (error: any) {
+      console.error('Error fetching revenue stats:', error);
+      res.status(500).json({ message: 'Failed to fetch revenue stats', error: error.message });
+    }
+  });
+  
+  // Get user's claimable revenue
+  app.get("/api/revenue/claimable/:walletAddress", async (req: Request, res: Response) => {
+    try {
+      const { walletAddress } = req.params;
+      
+      if (!walletAddress) {
+        return res.status(400).json({ message: 'Wallet address required' });
+      }
+      
+      // Get user's SBETS balance from blockchain
+      const userBalance = await blockchainBetService.getWalletBalance(walletAddress);
+      const userSbets = userBalance.sbets;
+      
+      const holdersData = await fetchSbetsHolders();
+      const totalSupply = holdersData.totalSupply;
+      const sharePercentage = totalSupply > 0 ? (userSbets / totalSupply) * 100 : 0;
+      
+      const settledBets = await getSettledBetsForRevenue();
+      
+      const now = new Date();
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay() + 1);
+      startOfWeek.setHours(0, 0, 0, 0);
+      
+      const weeklyBets = settledBets.filter((bet: any) => {
+        const betDate = new Date(bet.createdAt || 0);
+        return betDate >= startOfWeek;
+      });
+      
+      const weeklyRevenue = weeklyBets.reduce((sum: number, bet: any) => {
+        if (bet.status === 'lost') {
+          return sum + (bet.betAmount || 0);
+        } else if (bet.status === 'won' && bet.potentialWin) {
+          const profit = bet.potentialWin - bet.betAmount;
+          return sum + (profit * 0.01);
+        }
+        return sum;
+      }, 0);
+      
+      const holderPool = weeklyRevenue * REVENUE_SHARE_PERCENTAGE;
+      const userClaimable = totalSupply > 0 ? holderPool * (userSbets / totalSupply) : 0;
+      
+      const userClaims = await getRevenueClaims(walletAddress);
+      const thisWeekClaim = userClaims.find(c => c.weekStart >= startOfWeek);
+      
+      res.json({
+        success: true,
+        walletAddress,
+        sbetsBalance: userSbets,
+        sharePercentage: sharePercentage.toFixed(4),
+        weeklyRevenuePool: holderPool,
+        claimableAmount: thisWeekClaim ? 0 : userClaimable,
+        alreadyClaimed: !!thisWeekClaim,
+        lastClaimTxHash: thisWeekClaim?.txHash || null,
+        claimHistory: userClaims.map(c => ({ amount: c.amount, timestamp: c.timestamp, txHash: c.txHash })),
+        lastUpdated: Date.now()
+      });
+    } catch (error: any) {
+      console.error('Error fetching claimable revenue:', error);
+      res.status(500).json({ message: 'Failed to fetch claimable amount', error: error.message });
+    }
+  });
+  
+  // Claim revenue rewards
+  app.post("/api/revenue/claim", async (req: Request, res: Response) => {
+    try {
+      const { walletAddress } = req.body;
+      
+      if (!walletAddress) {
+        return res.status(400).json({ message: 'Wallet address required' });
+      }
+      
+      if (!blockchainBetService.isAdminKeyConfigured()) {
+        return res.status(400).json({ message: 'Server not configured for payouts' });
+      }
+      
+      const userBalance = await blockchainBetService.getWalletBalance(walletAddress);
+      const userSbets = userBalance.sbets;
+      
+      if (userSbets <= 0) {
+        return res.status(400).json({ message: 'You must hold SBETS tokens to claim revenue' });
+      }
+      
+      const now = new Date();
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay() + 1);
+      startOfWeek.setHours(0, 0, 0, 0);
+      
+      const userClaims = await getRevenueClaims(walletAddress);
+      const thisWeekClaim = userClaims.find(c => c.weekStart >= startOfWeek);
+      
+      if (thisWeekClaim) {
+        return res.status(400).json({ message: 'Already claimed this week', txHash: thisWeekClaim.txHash });
+      }
+      
+      const holdersData = await fetchSbetsHolders();
+      const totalSupply = holdersData.totalSupply;
+      
+      const settledBets = await getSettledBetsForRevenue();
+      const weeklyBets = settledBets.filter((bet: any) => {
+        const betDate = new Date(bet.createdAt || 0);
+        return betDate >= startOfWeek;
+      });
+      
+      const weeklyRevenue = weeklyBets.reduce((sum: number, bet: any) => {
+        if (bet.status === 'lost') {
+          return sum + (bet.betAmount || 0);
+        } else if (bet.status === 'won' && bet.potentialWin) {
+          const profit = bet.potentialWin - bet.betAmount;
+          return sum + (profit * 0.01);
+        }
+        return sum;
+      }, 0);
+      
+      const holderPool = weeklyRevenue * REVENUE_SHARE_PERCENTAGE;
+      const claimAmount = totalSupply > 0 ? holderPool * (userSbets / totalSupply) : 0;
+      
+      if (claimAmount <= 0) {
+        return res.status(400).json({ message: 'No revenue to claim this week' });
+      }
+      
+      console.log(`[Revenue] Processing claim: ${walletAddress} claiming ${claimAmount} SUI`);
+      
+      // Execute on-chain payout
+      const payoutResult = await blockchainBetService.executePayoutOnChain(walletAddress, claimAmount);
+      
+      if (!payoutResult.success) {
+        console.error(`[Revenue] Claim failed: ${payoutResult.error}`);
+        return res.status(400).json({ message: payoutResult.error || 'Failed to process claim' });
+      }
+      
+      // Save claim to database for persistence across server restarts
+      const sharePercentage = totalSupply > 0 ? (userSbets / totalSupply) * 100 : 0;
+      const saved = await saveRevenueClaim(walletAddress, startOfWeek, userSbets, sharePercentage, claimAmount, payoutResult.txHash || '');
+      
+      if (!saved) {
+        console.warn('[Revenue] Failed to persist claim to database - claim may be counted again');
+      }
+      
+      console.log(`[Revenue] Claim successful: ${walletAddress} received ${claimAmount} SUI | TX: ${payoutResult.txHash}`);
+      
+      res.json({
+        success: true,
+        walletAddress,
+        claimedAmount: claimAmount,
+        txHash: payoutResult.txHash,
+        timestamp: Date.now()
+      });
+    } catch (error: any) {
+      console.error('Error processing claim:', error);
+      res.status(500).json({ message: 'Failed to process claim', error: error.message });
+    }
+  });
+  
+  // Helper function to fetch SBETS holders
+  async function fetchSbetsHolders(): Promise<{ totalSupply: number; holders: Array<{ address: string; balance: number; percentage: number }> }> {
+    try {
+      const { SuiClient, getFullnodeUrl } = await import('@mysten/sui/client');
+      const suiClient = new SuiClient({ url: getFullnodeUrl('mainnet') });
+      
+      const coinType = SBETS_TOKEN_TYPE;
+      let totalSupply = 50_000_000;
+      
+      try {
+        const supplyInfo = await suiClient.getTotalSupply({ coinType });
+        totalSupply = parseInt(supplyInfo.value) / 1e9;
+      } catch (e) {
+        console.log('Using default SBETS supply');
+      }
+      
+      // Get all users from database and check their SBETS balance
+      const allBets = await storage.getAllBets();
+      const uniqueWallets = new Set<string>();
+      allBets.forEach((bet: any) => {
+        if (bet.walletAddress) uniqueWallets.add(bet.walletAddress);
+      });
+      
+      const holders: Array<{ address: string; balance: number; percentage: number }> = [];
+      
+      for (const wallet of Array.from(uniqueWallets).slice(0, 100)) {
+        try {
+          const balance = await suiClient.getBalance({ owner: wallet, coinType });
+          const sbetsBalance = parseInt(balance.totalBalance) / 1e9;
+          if (sbetsBalance > 0) {
+            holders.push({
+              address: wallet,
+              balance: sbetsBalance,
+              percentage: (sbetsBalance / totalSupply) * 100
+            });
+          }
+        } catch (e) {
+          // Skip wallets with errors
+        }
+      }
+      
+      holders.sort((a, b) => b.balance - a.balance);
+      return { totalSupply, holders };
+    } catch (error) {
+      console.error('Error fetching SBETS holders:', error);
+      return { totalSupply: 50_000_000, holders: [] };
+    }
+  }
+  
+  // Helper function to get weekly revenue history
+  async function getWeeklyRevenueHistory(): Promise<Array<{ week: string; revenue: number }>> {
+    try {
+      const settledBets = await getSettledBetsForRevenue();
+      const weeklyData: Map<string, number> = new Map();
+      
+      for (const bet of settledBets) {
+        const betDate = new Date(bet.createdAt || 0);
+        const weekStart = new Date(betDate);
+        weekStart.setDate(betDate.getDate() - betDate.getDay() + 1);
+        weekStart.setHours(0, 0, 0, 0);
+        const weekKey = weekStart.toISOString().split('T')[0];
+        
+        let revenue = 0;
+        if (bet.status === 'lost') {
+          revenue = bet.betAmount || 0;
+        } else if (bet.status === 'won' && bet.potentialWin) {
+          const profit = bet.potentialWin - bet.betAmount;
+          revenue = profit * 0.01;
+        }
+        
+        weeklyData.set(weekKey, (weeklyData.get(weekKey) || 0) + revenue);
+      }
+      
+      return Array.from(weeklyData.entries())
+        .map(([week, revenue]) => ({ week, revenue }))
+        .sort((a, b) => b.week.localeCompare(a.week))
+        .slice(0, 8);
+    } catch (error) {
+      console.error('Error getting revenue history:', error);
+      return [];
+    }
+  }
+
   return httpServer;
 }

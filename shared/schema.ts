@@ -517,3 +517,19 @@ export const settledEvents = pgTable("settled_events", {
 export const insertSettledEventSchema = createInsertSchema(settledEvents).omit({ id: true, settledAt: true });
 export type InsertSettledEvent = z.infer<typeof insertSettledEventSchema>;
 export type SettledEvent = typeof settledEvents.$inferSelect;
+
+// Revenue claims tracking table (for SBETS holder revenue distribution)
+export const revenueClaims = pgTable("revenue_claims", {
+  id: serial("id").primaryKey(),
+  walletAddress: text("wallet_address").notNull(),
+  weekStart: timestamp("week_start").notNull(), // Start of the week this claim covers
+  sbetsBalance: real("sbets_balance").notNull(), // User's SBETS balance at time of claim
+  sharePercentage: real("share_percentage").notNull(), // User's share of the pool
+  claimAmount: real("claim_amount").notNull(), // Amount claimed in SUI
+  txHash: text("tx_hash").notNull(), // Transaction hash of the payout
+  claimedAt: timestamp("claimed_at").defaultNow()
+});
+
+export const insertRevenueClaimSchema = createInsertSchema(revenueClaims).omit({ id: true, claimedAt: true });
+export type InsertRevenueClaim = z.infer<typeof insertRevenueClaimSchema>;
+export type RevenueClaim = typeof revenueClaims.$inferSelect;

@@ -37,6 +37,7 @@ import { BetSlip } from "@/components/betting/BetSlip";
 import SportsLive from "@/pages/sports-live";
 import BetHistoryPage from "@/pages/bet-history";
 import DividendsReal from "@/pages/dividends-real";
+import RevenuePage from "@/pages/revenue";
 import SportPage from "@/pages/sports-live/[sport]";
 import StoragePage from "@/pages/storage";
 import LiveScoresPage from "@/pages/live-scores";
@@ -143,6 +144,7 @@ function App() {
                           <Route path="/notifications" component={Notifications} />
                           <Route path="/bet-history" component={BetHistoryPage} />
                           <Route path="/dividends" component={DividendsReal} />
+                          <Route path="/revenue" component={RevenuePage} />
                           <Route path="/storage" component={StoragePage} />
                           <Route path="/live-scores" component={LiveScoresPage} />
                           
