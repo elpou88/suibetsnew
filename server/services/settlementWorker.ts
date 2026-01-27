@@ -28,6 +28,7 @@ interface UnsettledBet {
   userId: string;
   currency: string;
   betObjectId?: string; // On-chain Sui bet object ID (for SUI bets placed via contract)
+  status?: string; // 'pending', 'confirmed', or 'won' (won = already determined winner needing payout)
 }
 
 const REVENUE_WALLET = 'platform_revenue';
@@ -130,7 +131,32 @@ class SettlementWorkerService {
         return;
       }
 
-      // Only fetch finished matches if we have bets to settle
+      // PRIORITY: Process already-won bets first (they need payout retry, not match lookup)
+      const wonBetsNeedingPayout = unsettledBets.filter(bet => bet.status === 'won');
+      if (wonBetsNeedingPayout.length > 0) {
+        console.log(`💰 PAYOUT RETRY: ${wonBetsNeedingPayout.length} won bets need payout processing`);
+        // Create a dummy match for processing - these bets are already confirmed winners
+        const dummyMatch: FinishedMatch = {
+          eventId: 'payout_retry',
+          homeTeam: 'Winner',
+          awayTeam: 'Payout',
+          homeScore: 1,
+          awayScore: 0,
+          winner: 'home',
+          status: 'finished'
+        };
+        await this.settleBetsForMatch(dummyMatch, wonBetsNeedingPayout);
+      }
+
+      // Filter out already-won bets from main processing (they're already handled above)
+      const pendingBets = unsettledBets.filter(bet => bet.status !== 'won');
+      
+      if (pendingBets.length === 0) {
+        console.log('📭 SettlementWorker: No pending bets need match lookup');
+        return;
+      }
+
+      // Only fetch finished matches if we have pending bets to settle
       const finishedMatches = await this.getFinishedMatches();
       
       if (finishedMatches.length === 0) {
@@ -139,10 +165,10 @@ class SettlementWorkerService {
       }
 
       console.log(`📋 SettlementWorker: Found ${finishedMatches.length} finished matches`);
-      console.log(`🎯 SettlementWorker: Processing ${unsettledBets.length} unsettled bets`);
+      console.log(`🎯 SettlementWorker: Processing ${pendingBets.length} pending bets`);
       
-      // Debug: Log unsettled bet details for matching
-      for (const bet of unsettledBets) {
+      // Debug: Log pending bet details for matching
+      for (const bet of pendingBets) {
         console.log(`📊 Unsettled bet: externalEventId=${bet.externalEventId}, eventId=${bet.eventId}, prediction=${bet.prediction}, homeTeam=${bet.homeTeam}, awayTeam=${bet.awayTeam}`);
         
         // Check if this bet's event is in the finished matches
@@ -157,7 +183,7 @@ class SettlementWorkerService {
 
       for (const match of finishedMatches) {
         // IMPROVED MATCHING: Use multiple strategies to find bets for this match
-        const betsForMatch = unsettledBets.filter(bet => {
+        const betsForMatch = pendingBets.filter(bet => {
           // Strategy 1: Exact external event ID match (most reliable) - compare as strings
           const betExtId = String(bet.externalEventId || '').trim();
           const matchId = String(match.eventId || '').trim();
@@ -351,11 +377,20 @@ class SettlementWorkerService {
 
   private async getUnsettledBets(): Promise<UnsettledBet[]> {
     try {
-      // Get ALL unsettled bets from all users - include both 'pending' and 'confirmed' status
-      // 'confirmed' = on-chain bets that were placed but not yet settled
+      // Get ALL unsettled bets from all users - include:
+      // - 'pending' = waiting for match result
+      // - 'confirmed' = on-chain bets that were placed but not yet settled
+      // - 'won' = winners that couldn't be paid out (insufficient treasury) - MUST RETRY PAYOUT
       const pendingBets = await storage.getAllBets('pending');
       const confirmedBets = await storage.getAllBets('confirmed');
-      const allBets = [...pendingBets, ...confirmedBets];
+      const wonBets = await storage.getAllBets('won');
+      
+      // Filter won bets to only include those without settlement_tx_hash (not yet paid out)
+      const unpaidWonBets = wonBets.filter(bet => !bet.settlementTxHash);
+      
+      console.log(`📊 Unsettled bets: ${pendingBets.length} pending, ${confirmedBets.length} confirmed, ${unpaidWonBets.length} won (unpaid)`);
+      
+      const allBets = [...pendingBets, ...confirmedBets, ...unpaidWonBets];
       return allBets
         .filter(bet => !this.settledBetIds.has(bet.id))
         .map(bet => ({
@@ -370,7 +405,8 @@ class SettlementWorkerService {
           potentialWin: bet.potentialWin || bet.potentialPayout,
           userId: bet.walletAddress || bet.userId || 'unknown',
           currency: bet.currency || 'SUI',
-          betObjectId: bet.betObjectId || undefined // On-chain bet object ID for SUI bets
+          betObjectId: bet.betObjectId || undefined, // On-chain bet object ID for SUI bets
+          status: bet.status // Include status to identify already-won bets needing payout
         }));
     } catch (error) {
       console.error('Error getting unsettled bets:', error);
@@ -387,7 +423,15 @@ class SettlementWorkerService {
       }
       
       try {
-        const isWinner = this.determineBetOutcome(bet, match);
+        // SPECIAL HANDLING: Bets already marked as 'won' are confirmed winners needing payout retry
+        // Skip match result determination - they've already been confirmed as winners
+        const isAlreadyWon = bet.status === 'won';
+        const isWinner = isAlreadyWon ? true : this.determineBetOutcome(bet, match);
+        
+        if (isAlreadyWon) {
+          console.log(`💰 PAYOUT RETRY: Bet ${bet.id} already marked as 'won' - attempting payout`);
+        }
+        
         const status = isWinner ? 'won' : 'lost';
         const grossPayout = isWinner ? bet.potentialWin : 0;
         // FEE CALCULATION: 1% of PROFIT only (matching smart contract logic)
