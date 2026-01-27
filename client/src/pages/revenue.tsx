@@ -160,113 +160,61 @@ export default function RevenuePage() {
   const weekEnd = revenueStats?.weekEnd ? new Date(revenueStats.weekEnd) : new Date();
 
   return (
-    <Layout title="WEEKLY REVENUE">
-      <div 
-        className="min-h-screen relative"
-        style={{
-          background: 'linear-gradient(180deg, #0a1628 0%, #0d1f3c 50%, #0a1628 100%)',
-        }}
-      >
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div 
-            className="absolute bottom-0 left-0 right-0 h-1/3"
-            style={{
-              background: 'radial-gradient(ellipse at center bottom, rgba(59, 130, 246, 0.15) 0%, transparent 70%)',
-            }}
-          />
-          <div 
-            className="absolute top-0 left-1/4 w-1/2 h-1/4"
-            style={{
-              background: 'radial-gradient(ellipse at center, rgba(59, 130, 246, 0.1) 0%, transparent 60%)',
-            }}
-          />
-        </div>
-
-        <div className="relative z-10 max-w-4xl mx-auto px-4 py-6 space-y-6">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2 flex items-center justify-center gap-2">
-              <TrendingUp className="w-6 h-6 text-yellow-400" />
-              WEEKLY REVENUE
-              <TrendingUp className="w-6 h-6 text-yellow-400" />
+    <Layout title="Revenue Sharing">
+      <div className="min-h-screen bg-background">
+        <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-foreground mb-1 flex items-center gap-2">
+              <Coins className="w-6 h-6 text-primary" />
+              Revenue Sharing
             </h1>
-            <p className="text-blue-300 text-sm">
-              Week: {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
+            <p className="text-muted-foreground text-sm">
+              SBETS holders receive 30% of platform revenue. Week: {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
             </p>
           </div>
 
-          <Card className="border-0 overflow-hidden" style={{ 
-            background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.5) 0%, rgba(15, 23, 42, 0.8) 100%)',
-            boxShadow: '0 0 30px rgba(59, 130, 246, 0.2), inset 0 1px 0 rgba(255,255,255,0.1)'
-          }}>
+          <Card>
             <CardContent className="p-6">
               <div className="text-center">
-                <h2 className="text-lg text-blue-200 mb-2">Total Betting Revenue This Week</h2>
-                <div className="text-4xl font-bold text-white mb-1">
-                  {formatUSD(revenueStats?.totalRevenue || 0)}
+                <h2 className="text-lg text-muted-foreground mb-2">Total Platform Revenue This Week</h2>
+                <div className="text-4xl font-bold text-foreground mb-1">
+                  {formatCurrency(revenueStats?.totalRevenue || 0)}
                 </div>
-                <div className="text-blue-300 text-sm">
-                  = {formatCurrency(revenueStats?.totalRevenue || 0)}
+                <div className="text-muted-foreground text-sm">
+                  {formatUSD(revenueStats?.totalRevenue || 0)}
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-0 overflow-hidden" style={{ 
-            background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.4) 0%, rgba(15, 23, 42, 0.7) 100%)',
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1)'
-          }}>
+          <Card>
             <CardContent className="p-6">
-              <h3 className="text-lg text-center text-blue-200 mb-4 flex items-center justify-center gap-2">
-                <span className="w-8 h-[2px] bg-blue-400"></span>
-                Revenue Distribution
-                <span className="w-8 h-[2px] bg-blue-400"></span>
-              </h3>
+              <h3 className="text-lg font-semibold text-foreground mb-4">Revenue Distribution</h3>
               
               <div className="space-y-3">
-                <div className="relative">
-                  <div className="h-10 rounded-lg overflow-hidden bg-gray-800/50 flex">
-                    <div 
-                      className="h-full flex items-center justify-start pl-4 text-sm font-medium text-white"
-                      style={{ 
-                        width: '100%',
-                        background: 'linear-gradient(90deg, #fbbf24, #f59e0b)'
-                      }}
-                    >
-                      <Users className="w-4 h-4 mr-2" />
-                      To Holders: {formatCurrency(revenueStats?.distribution?.holders?.amount || 0)} (30%)
-                    </div>
+                <div className="flex items-center justify-between p-3 bg-primary/10 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-5 h-5 text-primary" />
+                    <span className="text-foreground font-medium">SBETS Holders (30%)</span>
                   </div>
+                  <span className="font-bold text-foreground">{formatCurrency(revenueStats?.distribution?.holders?.amount || 0)}</span>
                 </div>
                 
-                <div className="relative">
-                  <div className="h-10 rounded-lg overflow-hidden bg-gray-800/50 flex">
-                    <div 
-                      className="h-full flex items-center justify-start pl-4 text-sm font-medium text-white"
-                      style={{ 
-                        width: '100%',
-                        background: 'linear-gradient(90deg, #3b82f6, #2563eb)'
-                      }}
-                    >
-                      <Wallet className="w-4 h-4 mr-2" />
-                      Platform Treasury: {formatCurrency(revenueStats?.distribution?.treasury?.amount || 0)} (70%)
-                    </div>
+                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Wallet className="w-5 h-5 text-muted-foreground" />
+                    <span className="text-foreground font-medium">Platform Treasury (70%)</span>
                   </div>
+                  <span className="font-bold text-foreground">{formatCurrency(revenueStats?.distribution?.treasury?.amount || 0)}</span>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           {walletAddress ? (
-            <Card className="border-0 overflow-hidden" style={{ 
-              background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.4) 0%, rgba(15, 23, 42, 0.7) 100%)',
-              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1)'
-            }}>
+            <Card>
               <CardContent className="p-6">
-                <h3 className="text-lg text-center text-blue-200 mb-4 flex items-center justify-center gap-2">
-                  <span className="w-8 h-[2px] bg-blue-400"></span>
-                  Your Earnings This Week
-                  <span className="w-8 h-[2px] bg-blue-400"></span>
-                </h3>
+                <h3 className="text-lg font-semibold text-foreground mb-4">Your Earnings This Week</h3>
 
                 {claimableLoading ? (
                   <div className="flex justify-center py-4">
@@ -275,42 +223,42 @@ export default function RevenuePage() {
                 ) : (
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-gray-800/30 rounded-lg p-4 border border-blue-500/20">
-                        <div className="flex items-center gap-2 text-blue-300 text-sm mb-1">
-                          <CheckCircle2 className="w-4 h-4 text-blue-400" />
-                          Your SBETS:
+                      <div className="bg-muted rounded-lg p-4">
+                        <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
+                          <Coins className="w-4 h-4" />
+                          Your SBETS Balance
                         </div>
-                        <div className="text-xl font-bold text-white">
+                        <div className="text-xl font-bold text-foreground">
                           {(claimableData?.sbetsBalance || 0).toLocaleString()}
                         </div>
                       </div>
                       
-                      <div className="bg-gray-800/30 rounded-lg p-4 border border-green-500/20">
-                        <div className="flex items-center gap-2 text-green-300 text-sm mb-1">
-                          <CheckCircle2 className="w-4 h-4 text-green-400" />
-                          Your Share:
+                      <div className="bg-muted rounded-lg p-4">
+                        <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
+                          <TrendingUp className="w-4 h-4" />
+                          Your Share
                         </div>
-                        <div className="text-xl font-bold text-white">
+                        <div className="text-xl font-bold text-foreground">
                           {claimableData?.sharePercentage || '0'}%
                         </div>
                       </div>
                     </div>
 
-                    <div className="bg-gradient-to-r from-yellow-900/30 to-orange-900/30 rounded-lg p-6 border border-yellow-500/30 text-center">
-                      <div className="flex items-center justify-center gap-2 text-yellow-300 text-sm mb-2">
-                        <Gift className="w-5 h-5 text-yellow-400" />
-                        Claimable Rewards:
+                    <div className="bg-primary/10 rounded-lg p-6 text-center">
+                      <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm mb-2">
+                        <Gift className="w-5 h-5 text-primary" />
+                        Claimable Rewards
                       </div>
-                      <div className="text-3xl font-bold text-white mb-1">
+                      <div className="text-3xl font-bold text-foreground mb-1">
+                        {formatCurrency(claimableData?.claimableAmount || 0)}
+                      </div>
+                      <div className="text-muted-foreground text-sm mb-4">
                         {formatUSD(claimableData?.claimableAmount || 0)}
-                      </div>
-                      <div className="text-yellow-300 text-sm mb-4">
-                        = {formatCurrency(claimableData?.claimableAmount || 0)}
                       </div>
 
                       {claimableData?.alreadyClaimed ? (
-                        <div className="bg-green-900/30 border border-green-500/30 rounded-lg p-3">
-                          <div className="flex items-center justify-center gap-2 text-green-400">
+                        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+                          <div className="flex items-center justify-center gap-2 text-green-500">
                             <CheckCircle2 className="w-5 h-5" />
                             Already Claimed This Week
                           </div>
@@ -319,7 +267,7 @@ export default function RevenuePage() {
                               href={`https://suivision.xyz/txblock/${claimableData.lastClaimTxHash}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-xs text-blue-400 hover:underline mt-1 block"
+                              className="text-xs text-primary hover:underline mt-1 block"
                             >
                               View Transaction
                             </a>
@@ -329,11 +277,7 @@ export default function RevenuePage() {
                         <Button
                           onClick={handleClaim}
                           disabled={isClaiming || !claimableData?.claimableAmount || claimableData.claimableAmount <= 0}
-                          className="w-full max-w-xs py-3 text-lg font-bold"
-                          style={{
-                            background: 'linear-gradient(90deg, #22c55e, #16a34a)',
-                            boxShadow: '0 4px 15px rgba(34, 197, 94, 0.4)'
-                          }}
+                          className="w-full max-w-xs"
                           data-testid="button-claim-rewards"
                         >
                           {isClaiming ? (
@@ -342,7 +286,7 @@ export default function RevenuePage() {
                               Processing...
                             </div>
                           ) : (
-                            'CLAIM REWARDS'
+                            'Claim Rewards'
                           )}
                         </Button>
                       )}
@@ -352,57 +296,52 @@ export default function RevenuePage() {
               </CardContent>
             </Card>
           ) : (
-            <Card className="border-0 overflow-hidden" style={{ 
-              background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.4) 0%, rgba(15, 23, 42, 0.7) 100%)',
-            }}>
+            <Card>
               <CardContent className="p-8 text-center">
-                <Wallet className="w-12 h-12 mx-auto text-blue-400 mb-4" />
-                <h3 className="text-xl font-bold text-white mb-2">Connect Wallet</h3>
-                <p className="text-blue-300 mb-4">
+                <Wallet className="w-12 h-12 mx-auto text-primary mb-4" />
+                <h3 className="text-xl font-bold text-foreground mb-2">Connect Wallet</h3>
+                <p className="text-muted-foreground mb-4">
                   Connect your wallet to view and claim your SBETS holder rewards
                 </p>
               </CardContent>
             </Card>
           )}
 
-          <Card className="border-0 overflow-hidden" style={{ 
-            background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.4) 0%, rgba(15, 23, 42, 0.7) 100%)',
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1)'
-          }}>
+          <Card>
             <CardContent className="p-6">
-              <h3 className="text-lg text-blue-200 mb-4 flex items-center gap-2">
-                <Gift className="w-5 h-5 text-yellow-400" />
+              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Info className="w-5 h-5 text-primary" />
                 How It Works
               </h3>
               
               <div className="space-y-3">
-                <div className="flex items-start gap-3 text-gray-300">
-                  <div className="w-8 h-8 rounded-full bg-blue-600/30 flex items-center justify-center flex-shrink-0">
-                    <ChartLine className="w-4 h-4 text-blue-400" />
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                    <ChartLine className="w-4 h-4 text-primary" />
                   </div>
                   <div>
-                    <div className="font-medium text-white">Betting Revenue Shared with SBETS Holders</div>
-                    <div className="text-sm text-blue-300">30% of all platform revenue goes to token holders</div>
+                    <div className="font-medium text-foreground">Betting Revenue Shared with SBETS Holders</div>
+                    <div className="text-sm text-muted-foreground">30% of all platform revenue goes to token holders</div>
                   </div>
                 </div>
                 
-                <div className="flex items-start gap-3 text-gray-300">
-                  <div className="w-8 h-8 rounded-full bg-green-600/30 flex items-center justify-center flex-shrink-0">
-                    <Coins className="w-4 h-4 text-green-400" />
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                    <Coins className="w-4 h-4 text-green-500" />
                   </div>
                   <div>
-                    <div className="font-medium text-white">Hold SBETS, Earn Weekly Rewards</div>
-                    <div className="text-sm text-blue-300">Rewards distributed every Monday</div>
+                    <div className="font-medium text-foreground">Hold SBETS, Earn Weekly Rewards</div>
+                    <div className="text-sm text-muted-foreground">Rewards distributed every Monday</div>
                   </div>
                 </div>
                 
-                <div className="flex items-start gap-3 text-gray-300">
-                  <div className="w-8 h-8 rounded-full bg-yellow-600/30 flex items-center justify-center flex-shrink-0">
-                    <TrendingUp className="w-4 h-4 text-yellow-400" />
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center flex-shrink-0">
+                    <TrendingUp className="w-4 h-4 text-yellow-500" />
                   </div>
                   <div>
-                    <div className="font-medium text-white">The More SBETS You Hold, The More You Earn</div>
-                    <div className="text-sm text-blue-300">Rewards are proportional to your holdings</div>
+                    <div className="font-medium text-foreground">The More SBETS You Hold, The More You Earn</div>
+                    <div className="text-sm text-muted-foreground">Rewards are proportional to your holdings</div>
                   </div>
                 </div>
               </div>
@@ -410,13 +349,10 @@ export default function RevenuePage() {
           </Card>
 
           {revenueStats?.historicalRevenue && revenueStats.historicalRevenue.length > 0 && (
-            <Card className="border-0 overflow-hidden" style={{ 
-              background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.4) 0%, rgba(15, 23, 42, 0.7) 100%)',
-              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1)'
-            }}>
+            <Card>
               <CardContent className="p-6">
-                <h3 className="text-lg text-blue-200 mb-4 flex items-center gap-2">
-                  <ChartLine className="w-5 h-5 text-blue-400" />
+                <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <ChartLine className="w-5 h-5 text-primary" />
                   Weekly Revenue History
                 </h3>
                 
@@ -430,18 +366,14 @@ export default function RevenuePage() {
                       return (
                         <div key={week.week} className="flex-1 flex flex-col items-center">
                           <div 
-                            className="w-full rounded-t-lg transition-all duration-300 relative group"
-                            style={{ 
-                              height: `${Math.max(height, 5)}%`,
-                              background: 'linear-gradient(180deg, #3b82f6, #1d4ed8)',
-                              boxShadow: '0 0 10px rgba(59, 130, 246, 0.3)'
-                            }}
+                            className="w-full rounded-t-lg transition-all duration-300 relative group bg-primary"
+                            style={{ height: `${Math.max(height, 5)}%` }}
                           >
-                            <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 text-xs text-blue-300 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                            <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
                               {formatCurrency(week.revenue)}
                             </div>
                           </div>
-                          <div className="text-xs text-gray-400 mt-2">{dayNames[index] || week.week.slice(5)}</div>
+                          <div className="text-xs text-muted-foreground mt-2">{dayNames[index] || week.week.slice(5)}</div>
                         </div>
                       );
                     })}
@@ -451,37 +383,35 @@ export default function RevenuePage() {
             </Card>
           )}
 
-          <Card className="border-0 overflow-hidden" style={{ 
-            background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.3) 0%, rgba(15, 23, 42, 0.6) 100%)',
-          }}>
+          <Card>
             <CardContent className="p-6">
-              <h3 className="text-lg text-blue-200 mb-4 flex items-center gap-2">
-                <Wallet className="w-5 h-5 text-blue-400" />
+              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Wallet className="w-5 h-5 text-primary" />
                 On-Chain Treasury Status
               </h3>
               
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-gray-800/30 rounded-lg p-3 text-center">
-                  <div className="text-xs text-gray-400 mb-1">SUI Treasury</div>
-                  <div className="text-lg font-bold text-white">
+                <div className="bg-muted rounded-lg p-3 text-center">
+                  <div className="text-xs text-muted-foreground mb-1">SUI Treasury</div>
+                  <div className="text-lg font-bold text-foreground">
                     {(revenueStats?.onChainData?.treasuryBalance || 0).toFixed(2)}
                   </div>
                 </div>
-                <div className="bg-gray-800/30 rounded-lg p-3 text-center">
-                  <div className="text-xs text-gray-400 mb-1">SBETS Treasury</div>
-                  <div className="text-lg font-bold text-white">
-                    {(revenueStats?.onChainData?.treasuryBalanceSbets || 0).toFixed(2)}
+                <div className="bg-muted rounded-lg p-3 text-center">
+                  <div className="text-xs text-muted-foreground mb-1">SBETS Treasury</div>
+                  <div className="text-lg font-bold text-foreground">
+                    {formatCurrency(revenueStats?.onChainData?.treasuryBalanceSbets || 0, 'SBETS')}
                   </div>
                 </div>
-                <div className="bg-gray-800/30 rounded-lg p-3 text-center">
-                  <div className="text-xs text-gray-400 mb-1">Total Bets</div>
-                  <div className="text-lg font-bold text-white">
+                <div className="bg-muted rounded-lg p-3 text-center">
+                  <div className="text-xs text-muted-foreground mb-1">Total Bets</div>
+                  <div className="text-lg font-bold text-foreground">
                     {revenueStats?.onChainData?.totalBets || 0}
                   </div>
                 </div>
-                <div className="bg-gray-800/30 rounded-lg p-3 text-center">
-                  <div className="text-xs text-gray-400 mb-1">Total Volume</div>
-                  <div className="text-lg font-bold text-white">
+                <div className="bg-muted rounded-lg p-3 text-center">
+                  <div className="text-xs text-muted-foreground mb-1">Total Volume</div>
+                  <div className="text-lg font-bold text-foreground">
                     {(revenueStats?.onChainData?.totalVolume || 0).toFixed(2)} SUI
                   </div>
                 </div>
@@ -489,8 +419,8 @@ export default function RevenuePage() {
             </CardContent>
           </Card>
 
-          <div className="text-center text-xs text-gray-500 py-4">
-            * Rewards are based on real betting activity on the SuiBets platform.
+          <div className="text-center text-xs text-muted-foreground py-4">
+            Rewards are based on real betting activity on the SuiBets platform.
           </div>
         </div>
       </div>

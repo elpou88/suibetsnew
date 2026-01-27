@@ -2843,6 +2843,11 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const walletsToCheck = Array.from(uniqueWallets).slice(0, 200);
       
       for (const wallet of walletsToCheck) {
+        // Skip platform wallets - they don't participate in revenue sharing
+        if (PLATFORM_WALLETS.includes(wallet)) {
+          continue;
+        }
+        
         try {
           const balance = await suiClient.getBalance({ owner: wallet, coinType });
           const sbetsBalance = parseInt(balance.totalBalance) / 1e9;
