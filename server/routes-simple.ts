@@ -17,6 +17,7 @@ import { validateRequest, PlaceBetSchema, ParlaySchema, WithdrawSchema } from ".
 import aiRoutes from "./routes-ai";
 import { settlementWorker } from "./services/settlementWorker";
 import blockchainBetService from "./services/blockchainBetService";
+import { promotionService } from "./services/promotionService";
 
 export async function registerRoutes(app: express.Express): Promise<Server> {
   // Initialize services
@@ -1654,6 +1655,23 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
 
       console.log(`✅ BET PLACED (${paymentMethod}): ${betId} - ${prediction} @ ${odds} odds, Stake: ${betAmount} ${currency}, Potential: ${potentialPayout} ${currency}`);
 
+      // Track bet for promotion (only for on-chain bets with txHash)
+      let promotionBonus = { bonusAwarded: false, bonusAmount: 0, newBonusBalance: 0 };
+      if (txHash && walletAddress) {
+        try {
+          promotionBonus = await promotionService.trackBetAndAwardBonus(
+            walletAddress,
+            betAmount,
+            currency as 'SUI' | 'SBETS'
+          );
+          if (promotionBonus.bonusAwarded) {
+            console.log(`🎁 BONUS AWARDED: ${walletAddress.slice(0, 10)}... got $${promotionBonus.bonusAmount} bonus!`);
+          }
+        } catch (promoError) {
+          console.error('Promotion tracking error:', promoError);
+        }
+      }
+
       res.json({
         success: true,
         bet: storedBet || bet,
@@ -1670,7 +1688,13 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           txHash: txHash || storedBet?.txHash,
           betObjectId: onChainBetId,
           packageId: blockchainBetService.getPackageId()
-        }
+        },
+        promotion: promotionBonus.bonusAwarded ? {
+          bonusAwarded: true,
+          bonusAmount: promotionBonus.bonusAmount,
+          newBonusBalance: promotionBonus.newBonusBalance,
+          message: `You earned $${promotionBonus.bonusAmount} bonus! Total bonus: $${promotionBonus.newBonusBalance}`
+        } : undefined
       });
     } catch (error: any) {
       console.error("Bet placement error:", error);
@@ -2307,6 +2331,14 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       if (userId && userId.startsWith('0x')) {
         try {
           const onChainBalance = await blockchainBetService.getWalletBalance(userId);
+          // Get promotion bonus balance
+          let promotionBonus = 0;
+          try {
+            const promoStatus = await promotionService.getPromotionStatus(userId);
+            promotionBonus = promoStatus.bonusBalance || 0;
+          } catch (promoError) {
+            console.warn('Promotion status fetch error:', promoError);
+          }
           return res.json({
             // On-chain wallet balance (what user has in their Sui wallet for betting)
             SUI: onChainBalance.sui || 0,
@@ -2316,6 +2348,8 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
             // Platform/database balance (for off-chain deposits - withdrawable)
             platformSuiBalance: dbBalance.suiBalance || 0,
             platformSbetsBalance: dbBalance.sbetsBalance || 0,
+            // Promotion bonus balance (virtual USD for betting)
+            promotionBonusUsd: promotionBonus,
             source: 'combined'
           });
         } catch (chainError) {
@@ -2336,6 +2370,36 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       });
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch balance" });
+    }
+  });
+
+  // Get promotion status for user
+  app.get("/api/promotion/status", async (req: Request, res: Response) => {
+    try {
+      const walletAddress = req.query.wallet as string;
+      
+      if (!walletAddress || !walletAddress.startsWith('0x')) {
+        return res.status(400).json({ message: "Valid wallet address required" });
+      }
+      
+      const status = await promotionService.getPromotionStatus(walletAddress);
+      res.json({
+        success: true,
+        promotion: {
+          isActive: status.isActive,
+          totalBetUsd: status.totalBetUsd,
+          bonusesAwarded: status.bonusesAwarded,
+          bonusBalance: status.bonusBalance,
+          nextBonusAt: status.nextBonusAt,
+          promotionEnd: status.promotionEnd,
+          thresholdUsd: status.thresholdUsd,
+          bonusUsd: status.bonusUsd,
+          progressPercent: Math.min(100, ((status.totalBetUsd % status.thresholdUsd) / status.thresholdUsd) * 100)
+        }
+      });
+    } catch (error: any) {
+      console.error('Promotion status error:', error);
+      res.status(500).json({ message: error.message || "Failed to get promotion status" });
     }
   });
 

@@ -170,6 +170,27 @@ export default function CleanHome() {
     SUI: balanceData?.SUI ?? balanceData?.suiBalance ?? 0,
     SBETS: balanceData?.SBETS ?? balanceData?.sbetsBalance ?? 0
   };
+
+  // Fetch promotion status
+  const { data: promotionData } = useQuery<{
+    success: boolean;
+    promotion: {
+      isActive: boolean;
+      totalBetUsd: number;
+      bonusBalance: number;
+      nextBonusAt: number;
+      progressPercent: number;
+      thresholdUsd: number;
+      bonusUsd: number;
+      promotionEnd: string;
+    };
+  }>({
+    queryKey: [`/api/promotion/status?wallet=${walletAddress}`],
+    enabled: !!walletAddress,
+    refetchInterval: 60000,
+  });
+
+  const promotion = promotionData?.promotion;
   const disconnect = () => disconnectWallet();
 
   const { data: liveEvents = [], isLoading: liveLoading, refetch: refetchLive } = useLiveEvents(selectedSport);
@@ -272,6 +293,11 @@ export default function CleanHome() {
                   <div className="text-green-400 text-xs" title="Wallet balance (on-chain)">
                     🔗 Wallet: {walletSuiBalance.toFixed(4)} SUI | {walletSbetsBalance.toFixed(2)} SBETS
                   </div>
+                  {promotion && promotion.bonusBalance > 0 && (
+                    <div className="text-yellow-400 text-xs font-bold" title="Promotion bonus for betting">
+                      🎁 Bonus: ${promotion.bonusBalance.toFixed(2)} USD
+                    </div>
+                  )}
                   <div className="text-gray-500 text-xs">{walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</div>
                 </div>
                 <button 
@@ -319,6 +345,28 @@ export default function CleanHome() {
           </div>
         )}
       </nav>
+
+      {/* Promotion Banner */}
+      {promotion?.isActive && (
+        <div className="bg-gradient-to-r from-yellow-600 via-orange-500 to-yellow-600 text-black py-2 px-4" data-testid="promo-banner">
+          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-center gap-2 text-sm md:text-base font-bold">
+            <span>🎁 LIMITED PROMO:</span>
+            <span>Bet ${promotion.thresholdUsd} → Get ${promotion.bonusUsd} FREE!</span>
+            {promotion.bonusBalance > 0 && (
+              <span className="bg-black/20 px-2 py-0.5 rounded">Your Bonus: ${promotion.bonusBalance.toFixed(2)}</span>
+            )}
+            <span className="text-xs md:text-sm opacity-80">
+              Progress: ${(promotion.totalBetUsd % promotion.thresholdUsd).toFixed(2)}/${promotion.thresholdUsd}
+            </span>
+            <div className="w-20 h-2 bg-black/30 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-white transition-all" 
+                style={{ width: `${promotion.progressPercent}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Hero Banner */}
       <div className="relative w-full overflow-hidden" data-testid="hero-banner">

@@ -533,3 +533,20 @@ export const revenueClaims = pgTable("revenue_claims", {
 export const insertRevenueClaimSchema = createInsertSchema(revenueClaims).omit({ id: true, claimedAt: true });
 export type InsertRevenueClaim = z.infer<typeof insertRevenueClaimSchema>;
 export type RevenueClaim = typeof revenueClaims.$inferSelect;
+
+// Betting promotion tracking table ($5 free for every $15 bet)
+export const bettingPromotions = pgTable("betting_promotions", {
+  id: serial("id").primaryKey(),
+  walletAddress: text("wallet_address").notNull(),
+  totalBetUsd: real("total_bet_usd").notNull().default(0), // Total USD value of bets placed
+  bonusesAwarded: integer("bonuses_awarded").notNull().default(0), // Number of $5 bonuses awarded
+  bonusBalance: real("bonus_balance").notNull().default(0), // Current bonus balance available
+  promotionStart: timestamp("promotion_start").notNull(), // When promotion started
+  promotionEnd: timestamp("promotion_end").notNull(), // When promotion ends (1 week)
+  lastBetAt: timestamp("last_bet_at"), // Last bet timestamp
+  createdAt: timestamp("created_at").defaultNow()
+});
+
+export const insertBettingPromotionSchema = createInsertSchema(bettingPromotions).omit({ id: true, createdAt: true });
+export type InsertBettingPromotion = z.infer<typeof insertBettingPromotionSchema>;
+export type BettingPromotion = typeof bettingPromotions.$inferSelect;
