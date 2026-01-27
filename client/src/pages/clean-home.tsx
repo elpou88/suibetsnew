@@ -293,9 +293,9 @@ export default function CleanHome() {
                   <div className="text-green-400 text-xs" title="Wallet balance (on-chain)">
                     🔗 Wallet: {walletSuiBalance.toFixed(4)} SUI | {walletSbetsBalance.toFixed(2)} SBETS
                   </div>
-                  {promotion && promotion.bonusBalance > 0 && (
+                  {promotion && (
                     <div className="text-yellow-400 text-xs font-bold" title="Promotion bonus for betting">
-                      🎁 Bonus: ${promotion.bonusBalance.toFixed(2)} USD
+                      🎁 Bonus: ${(promotion.bonusBalance || 0).toFixed(2)} USD
                     </div>
                   )}
                   <div className="text-gray-500 text-xs">{walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</div>
