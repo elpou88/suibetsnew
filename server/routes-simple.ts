@@ -1394,14 +1394,16 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const { eventName, homeTeam, awayTeam, marketId, outcomeId, odds, betAmount, currency, prediction, feeCurrency, paymentMethod, txHash, onChainBetId, status, isLive, matchMinute } = data;
       
       // MAX STAKE VALIDATION - Backend enforcement (100 SUI / 10M SBETS)
+      // Use feeCurrency as primary indicator (client sends this), fallback to currency
+      const betCurrency = feeCurrency || currency || 'SUI';
       const MAX_STAKE_SUI = 100;
       const MAX_STAKE_SBETS = 10000000;
-      const maxStake = currency === 'SBETS' ? MAX_STAKE_SBETS : MAX_STAKE_SUI;
+      const maxStake = betCurrency === 'SBETS' ? MAX_STAKE_SBETS : MAX_STAKE_SUI;
       
       if (betAmount > maxStake) {
-        console.log(`❌ Bet rejected (max stake exceeded): ${betAmount} ${currency} > ${maxStake} ${currency}`);
+        console.log(`❌ Bet rejected (max stake exceeded): ${betAmount} ${betCurrency} > ${maxStake} ${betCurrency}`);
         return res.status(400).json({
-          message: `Maximum stake is ${maxStake} ${currency}`,
+          message: `Maximum stake is ${maxStake} ${betCurrency}`,
           code: "MAX_STAKE_EXCEEDED"
         });
       }
