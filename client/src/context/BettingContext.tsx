@@ -269,10 +269,13 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
           return false;
         }
 
-        // Get SBETS coin object if needed for SBETS bets
+        // Get fresh SBETS coin object if needed for SBETS bets
+        // IMPORTANT: Always fetch fresh coins - object versions change after each transaction
         let sbetsCoinObjectId: string | undefined;
         if (betOptions.currency === 'SBETS') {
+          console.log('[BettingContext] Fetching fresh SBETS coins for wallet:', currentAccount.address);
           const sbetsCoins = await getSbetsCoins(currentAccount.address);
+          console.log('[BettingContext] Found SBETS coins:', sbetsCoins.length, 'total balance:', sbetsCoins.reduce((a, c) => a + c.balance, 0));
           if (sbetsCoins.length === 0 || sbetsCoins[0].balance < stakeAmount) {
             toast({
               title: "Insufficient SBETS",
@@ -282,6 +285,7 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
             return false;
           }
           sbetsCoinObjectId = sbetsCoins[0].objectId;
+          console.log('[BettingContext] Using fresh SBETS coin:', sbetsCoinObjectId);
         }
 
         // PRE-FLIGHT CHECK: Validate event is still bettable BEFORE on-chain transaction
@@ -442,10 +446,13 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
           return false;
         }
 
-        // Get SBETS coin object if needed for SBETS parlay bets
+        // Get fresh SBETS coin object if needed for SBETS parlay bets
+        // IMPORTANT: Always fetch fresh coins - object versions change after each transaction
         let sbetsCoinObjectId: string | undefined;
         if (betOptions.currency === 'SBETS') {
+          console.log('[BettingContext] Parlay: Fetching fresh SBETS coins');
           const sbetsCoins = await getSbetsCoins(currentAccount.address);
+          console.log('[BettingContext] Parlay: Found SBETS coins:', sbetsCoins.length);
           if (sbetsCoins.length === 0 || sbetsCoins[0].balance < betAmount) {
             toast({
               title: "Insufficient SBETS",
@@ -455,6 +462,7 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
             return false;
           }
           sbetsCoinObjectId = sbetsCoins[0].objectId;
+          console.log('[BettingContext] Parlay: Using fresh SBETS coin:', sbetsCoinObjectId);
         }
 
         // Create combined parlay data for on-chain

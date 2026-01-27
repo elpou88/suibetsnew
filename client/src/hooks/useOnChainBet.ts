@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useSignAndExecuteTransaction, useSuiClient } from '@mysten/dapp-kit';
+import { useSignAndExecuteTransaction, useSuiClient, useCurrentAccount } from '@mysten/dapp-kit';
 import { Transaction } from '@mysten/sui/transactions';
 import { bcs } from '@mysten/sui/bcs';
 import { useToast } from '@/hooks/use-toast';
@@ -46,6 +46,7 @@ export function useOnChainBet() {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const suiClient = useSuiClient();
+  const currentAccount = useCurrentAccount();
   const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
 
   // Check treasury can cover a potential payout before betting
@@ -140,6 +141,14 @@ export function useOnChainBet() {
     setError(null);
 
     try {
+      // CRITICAL: Check wallet is still connected before attempting transaction
+      // This prevents "Not connected" errors when placing multiple bets
+      if (!currentAccount?.address) {
+        console.error('[useOnChainBet] Wallet not connected, aborting transaction');
+        throw new Error('Wallet disconnected. Please reconnect your wallet and try again.');
+      }
+      console.log('[useOnChainBet] Wallet connected:', currentAccount.address);
+      
       const { eventId, marketId, prediction, betAmount, odds, walrusBlobId = '', coinType = 'SUI', sbetsCoinObjectId, walletAddress } = params;
       
       // On-chain bet limits (separate for SUI and SBETS)
@@ -393,7 +402,7 @@ export function useOnChainBet() {
         error: errorMessage,
       };
     }
-  }, [signAndExecute, suiClient, toast, getSuiCoins, checkTreasuryCapacity]);
+  }, [signAndExecute, suiClient, toast, getSuiCoins, checkTreasuryCapacity, currentAccount]);
 
   return {
     placeBetOnChain,
