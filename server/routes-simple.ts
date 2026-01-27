@@ -998,7 +998,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           treasury: platformInfo.treasuryBalanceSui,
           liability: platformInfo.totalLiabilitySui,
           available: suiAvailable,
-          acceptingBets: suiAvailable > 0.1 // Need at least 0.1 SUI margin
+          acceptingBets: suiAvailable > 0.01 // Need at least 0.01 SUI margin (lowered from 0.1)
         },
         sbets: {
           treasury: platformInfo.treasuryBalanceSbets,
