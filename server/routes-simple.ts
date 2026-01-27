@@ -2887,80 +2887,106 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         console.log('[Revenue] Using default SBETS supply: 50M');
       }
       
-      // Collect unique wallets from multiple sources
-      const uniqueWallets = new Set<string>();
+      const holders: Array<{ address: string; balance: number; percentage: number }> = [];
+      let circulatingSupply = 0;
       
-      // 1. Add known SBETS wallets
-      KNOWN_SBETS_WALLETS.forEach(w => uniqueWallets.add(w));
-      
-      // 2. Add all wallets from database (users who placed bets)
-      const allBets = await storage.getAllBets();
-      allBets.forEach((bet: any) => {
-        if (bet.walletAddress && bet.walletAddress.startsWith('0x')) {
-          uniqueWallets.add(bet.walletAddress);
+      // METHOD 1: Try BlockVision API to get ALL on-chain token holders
+      const blockvisionKey = process.env.BLOCKVISION_API_KEY;
+      if (blockvisionKey) {
+        try {
+          console.log('[Revenue] Fetching ALL SBETS holders from BlockVision API...');
+          let cursor: string | null = null;
+          let page = 0;
+          
+          do {
+            const params = new URLSearchParams({ coinType, limit: '50' });
+            if (cursor) params.append('cursor', cursor);
+            
+            const response = await fetch(
+              `https://api.blockvision.org/v2/sui/coin/holders?${params}`,
+              { headers: { 'Authorization': `Bearer ${blockvisionKey}` } }
+            );
+            
+            if (!response.ok) {
+              console.warn(`[Revenue] BlockVision API error: ${response.status}`);
+              break;
+            }
+            
+            const data = await response.json();
+            if (data.data && Array.isArray(data.data)) {
+              for (const h of data.data) {
+                const address = h.address || h.owner;
+                if (!address || PLATFORM_WALLETS.includes(address)) continue;
+                
+                const balance = parseInt(h.quantity || h.balance || '0') / 1e9;
+                if (balance > 0) {
+                  holders.push({ address, balance, percentage: 0 });
+                  circulatingSupply += balance;
+                }
+              }
+            }
+            
+            cursor = data.nextPageCursor || null;
+            page++;
+            
+            // Safety limit: max 20 pages (1000 holders)
+            if (page >= 20) break;
+            
+          } while (cursor);
+          
+          console.log(`[Revenue] BlockVision: Found ${holders.length} SBETS holders across ${page} pages`);
+        } catch (apiError) {
+          console.warn('[Revenue] BlockVision API failed, falling back to database:', apiError);
         }
-        if (bet.userId && bet.userId.startsWith('0x')) {
-          uniqueWallets.add(bet.userId);
-        }
-      });
-      
-      // 3. Get all users from database
-      try {
-        const { users } = await import('@shared/schema');
-        const { db } = await import('./db');
-        const allUsers = await db.select().from(users);
-        allUsers.forEach((u: any) => {
-          if (u.walletAddress && u.walletAddress.startsWith('0x')) {
-            uniqueWallets.add(u.walletAddress);
-          }
-        });
-      } catch (e) {
-        // Skip if can't get users
       }
       
-      console.log(`[Revenue] Checking SBETS balance for ${uniqueWallets.size} unique wallets`);
-      
-      const holders: Array<{ address: string; balance: number; percentage: number }> = [];
-      let circulatingSupply = 0; // Track actual circulating supply
-      
-      // Check balance for each wallet (limit to prevent rate limiting)
-      const walletsToCheck = Array.from(uniqueWallets).slice(0, 200);
-      
-      for (const wallet of walletsToCheck) {
-        // Skip platform wallets - they don't participate in revenue sharing
-        if (PLATFORM_WALLETS.includes(wallet)) {
-          continue;
-        }
+      // METHOD 2: Fallback - check wallets from database if BlockVision didn't work
+      if (holders.length === 0) {
+        console.log('[Revenue] Using fallback: checking database wallets for SBETS balances...');
+        
+        const uniqueWallets = new Set<string>();
+        KNOWN_SBETS_WALLETS.forEach(w => uniqueWallets.add(w));
+        
+        const allBets = await storage.getAllBets();
+        allBets.forEach((bet: any) => {
+          if (bet.walletAddress?.startsWith('0x')) uniqueWallets.add(bet.walletAddress);
+          if (bet.userId?.startsWith('0x')) uniqueWallets.add(bet.userId);
+        });
         
         try {
-          const balance = await suiClient.getBalance({ owner: wallet, coinType });
-          const sbetsBalance = parseInt(balance.totalBalance) / 1e9;
-          if (sbetsBalance > 0) {
-            holders.push({
-              address: wallet,
-              balance: sbetsBalance,
-              percentage: 0 // Will calculate after
-            });
-            circulatingSupply += sbetsBalance;
-          }
-        } catch (e) {
-          // Skip wallets with errors (may not exist or have no SBETS)
+          const { users } = await import('@shared/schema');
+          const { db } = await import('./db');
+          const allUsers = await db.select().from(users);
+          allUsers.forEach((u: any) => {
+            if (u.walletAddress?.startsWith('0x')) uniqueWallets.add(u.walletAddress);
+          });
+        } catch (e) {}
+        
+        console.log(`[Revenue] Checking SBETS balance for ${uniqueWallets.size} database wallets`);
+        
+        for (const wallet of Array.from(uniqueWallets).slice(0, 200)) {
+          if (PLATFORM_WALLETS.includes(wallet)) continue;
+          
+          try {
+            const balance = await suiClient.getBalance({ owner: wallet, coinType });
+            const sbetsBalance = parseInt(balance.totalBalance) / 1e9;
+            if (sbetsBalance > 0) {
+              holders.push({ address: wallet, balance: sbetsBalance, percentage: 0 });
+              circulatingSupply += sbetsBalance;
+            }
+          } catch (e) {}
         }
       }
       
-      // Calculate percentages based on total circulating supply among known holders
-      // This ensures shares add up properly for revenue distribution
+      // Calculate percentages
       for (const holder of holders) {
-        holder.percentage = circulatingSupply > 0 
-          ? (holder.balance / circulatingSupply) * 100 
-          : 0;
+        holder.percentage = circulatingSupply > 0 ? (holder.balance / circulatingSupply) * 100 : 0;
       }
       
       holders.sort((a, b) => b.balance - a.balance);
       
       console.log(`[Revenue] Found ${holders.length} SBETS holders with total ${circulatingSupply.toLocaleString()} SBETS`);
       
-      // Update cache
       sbetsHoldersCache = { 
         totalSupply: circulatingSupply > 0 ? circulatingSupply : totalSupply, 
         holders, 
