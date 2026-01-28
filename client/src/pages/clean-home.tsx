@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { Search, Clock, TrendingUp, TrendingDown, Wallet, LogOut, RefreshCw, Menu, X, Star, ChevronUp, ChevronDown, Trash2, Info, MoreHorizontal } from "lucide-react";
 import sportMarketsAdapter from "@/lib/sportMarketsAdapter";
@@ -824,37 +824,59 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
   const { toast } = useToast();
   
   // Calculate these values FIRST so they are available for helpers and memo
-  const minuteNum = event.minute ? parseInt(event.minute.toString().replace(/[^0-9]/g, '')) : 0;
-  const isBettingClosed = event.isLive && minuteNum >= 80;
+  const minuteNum = useMemo(() => {
+    if (!event || !event.minute) return 0;
+    try {
+      const minStr = String(event.minute).replace(/[^0-9]/g, '');
+      return minStr ? parseInt(minStr, 10) : 0;
+    } catch (e) {
+      console.error("Error parsing minute:", e);
+      return 0;
+    }
+  }, [event?.minute]);
+
+  const isBettingClosed = useMemo(() => {
+    return !!(event?.isLive && minuteNum >= 80);
+  }, [event?.isLive, minuteNum]);
 
   // Helper to check if a market is closed based on match minute
-  const isMarketClosed = (marketId: any) => {
-    if (!event.isLive || !marketId) return false;
-    const marketStr = String(marketId).toLowerCase();
-    const isFirstHalf = marketStr.includes('1st_half') || 
-                       marketStr.includes('1st-half') ||
-                       marketStr.includes('first_half') ||
-                       marketStr.includes('first-half') ||
-                       marketStr.includes('half_time_result') ||
-                       marketStr.includes('half-time-result');
-    
-    if (isFirstHalf && minuteNum > 45) return true;
+  // Wrap in useCallback or ensure it handles missing/invalid marketId
+  const isMarketClosed = useCallback((marketId: any) => {
+    if (!event?.isLive || !marketId) return false;
+    try {
+      const marketStr = String(marketId).toLowerCase();
+      const isFirstHalf = marketStr.includes('1st_half') || 
+                         marketStr.includes('1st-half') ||
+                         marketStr.includes('first_half') ||
+                         marketStr.includes('first-half') ||
+                         marketStr.includes('half_time_result') ||
+                         marketStr.includes('half-time-result');
+      
+      if (isFirstHalf && minuteNum > 45) return true;
+    } catch (e) {
+      console.error("Error in isMarketClosed:", e);
+    }
     return false;
-  };
+  }, [event?.isLive, minuteNum]);
 
   // Get secondary markets for this event (BTTS, Double Chance, etc.)
   const secondaryMarkets = useMemo(() => {
-    if (event.sportId !== 1) return []; // Only soccer has secondary markets
-    return sportMarketsAdapter.getDefaultMarkets(1, event.homeTeam, event.awayTeam)
-      .slice(1)
-      .filter(m => !isMarketClosed(m.id));
-  }, [event.id, event.homeTeam, event.awayTeam, event.sportId, minuteNum]);
+    if (!event || event.sportId !== 1) return []; // Only soccer has secondary markets
+    try {
+      return sportMarketsAdapter.getDefaultMarkets(1, event.homeTeam, event.awayTeam)
+        .slice(1)
+        .filter(m => !isMarketClosed(m.id));
+    } catch (e) {
+      console.error("Error generating secondary markets:", e);
+      return [];
+    }
+  }, [event?.id, event?.homeTeam, event?.awayTeam, event?.sportId, minuteNum, event?.isLive, isMarketClosed]);
   
-  const hasRealOdds = event.homeOdds !== null && event.homeOdds !== undefined && event.homeOdds > 0;
+  const hasRealOdds = !!(event?.homeOdds !== null && event?.homeOdds !== undefined && event?.homeOdds > 0);
   const odds = {
-    home: event.homeOdds || null,
-    draw: event.drawOdds || null,
-    away: event.awayOdds || null
+    home: event?.homeOdds || null,
+    draw: event?.drawOdds || null,
+    away: event?.awayOdds || null
   };
   
   // Simulated odds movement (in real app, this would compare to previous odds)
