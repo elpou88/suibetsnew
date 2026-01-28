@@ -2,8 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useBetting } from '@/context/BettingContext';
 import { useAuth } from '@/context/AuthContext';
 import { useCurrentAccount } from '@mysten/dapp-kit';
-import { X, Trash2, ChevronUp, ChevronDown, CheckCircle2, Copy, ExternalLink } from 'lucide-react';
+import { X, Trash2, ChevronUp, ChevronDown, CheckCircle2, Copy, ExternalLink, Gift } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useQuery } from '@tanstack/react-query';
 
 interface BetConfirmation {
   betId: string;
@@ -29,6 +30,25 @@ export function BetSlip() {
   const [betCurrency, setBetCurrency] = useState<'SUI' | 'SBETS'>('SUI');
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [confirmedBet, setConfirmedBet] = useState<BetConfirmation | null>(null);
+  
+  // Fetch promotion bonus balance
+  const { data: promotionData } = useQuery<{
+    isActive: boolean;
+    bonusBalance: number;
+    totalBetUsd: number;
+    thresholdUsd: number;
+  }>({
+    queryKey: ['/api/promotion/status', currentAccount?.address],
+    queryFn: async () => {
+      const res = await fetch(`/api/promotion/status?wallet=${currentAccount?.address}`);
+      if (!res.ok) throw new Error('Failed to fetch promotion status');
+      return res.json();
+    },
+    enabled: !!currentAccount?.address,
+    refetchInterval: 15000,
+  });
+  
+  const bonusBalance = promotionData?.bonusBalance || 0;
   
   useEffect(() => {
     setBetType(selectedBets.length > 1 ? 'parlay' : 'single');
@@ -337,6 +357,20 @@ export function BetSlip() {
           {isCollapsed ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
         </div>
       </div>
+
+      {/* Bonus Balance Banner - only show when bonus > 0 */}
+      {bonusBalance > 0 && !isCollapsed && (
+        <div className="bg-gradient-to-r from-green-900/40 to-emerald-900/40 border-b border-green-500/30 px-4 py-2" data-testid="bonus-banner">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Gift className="text-green-400" size={16} />
+              <span className="text-green-400 font-semibold text-sm">FREE Bonus Available!</span>
+            </div>
+            <span className="text-green-300 font-bold">${bonusBalance.toFixed(2)}</span>
+          </div>
+          <p className="text-green-400/70 text-xs mt-1">Use this bonus for your next bet - winnings are real!</p>
+        </div>
+      )}
 
       {!isCollapsed && (
         <>
