@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useBetting } from '@/context/BettingContext';
 import { useAuth } from '@/context/AuthContext';
 import { useCurrentAccount } from '@mysten/dapp-kit';
-import { X, Trash2, ChevronUp, ChevronDown, CheckCircle2, Copy, ExternalLink, Gift } from 'lucide-react';
+import { X, Trash2, ChevronUp, ChevronDown, CheckCircle2, Copy, ExternalLink, Gift, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery } from '@tanstack/react-query';
 
@@ -359,16 +359,36 @@ export function BetSlip() {
       </div>
 
       {/* Bonus Balance Banner - only show when bonus > 0 */}
-      {bonusBalance > 0 && !isCollapsed && (
-        <div className="bg-gradient-to-r from-green-900/40 to-emerald-900/40 border-b border-green-500/30 px-4 py-2" data-testid="bonus-banner">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Gift className="text-green-400" size={16} />
-              <span className="text-green-400 font-semibold text-sm">FREE Bonus Available!</span>
+      {promotionData?.isActive && !isCollapsed && (
+        <div className="bg-gradient-to-r from-yellow-500/20 via-orange-500/20 to-yellow-500/20 border-b border-yellow-500/30 px-4 py-3" data-testid="promo-banner">
+          <div className="flex items-center justify-between text-[11px] font-bold text-yellow-500 uppercase tracking-wider mb-2">
+            <div className="flex items-center gap-1.5">
+              <Star className="w-3.5 h-3.5 fill-yellow-500 animate-pulse" />
+              <span>Bet $15 → Get $5 Free!</span>
             </div>
-            <span className="text-green-300 font-bold">${bonusBalance.toFixed(2)}</span>
+            <span className="bg-black/40 px-2 py-0.5 rounded-full border border-yellow-500/20">
+              Progress: ${promotionData?.totalBetUsd?.toFixed(2) || "0.00"}/${promotionData?.thresholdUsd || "15"}.00
+            </span>
           </div>
-          <p className="text-green-400/70 text-xs mt-1">Use this bonus for your next bet - winnings are real!</p>
+          <div className="h-2 w-full bg-black/40 rounded-full overflow-hidden border border-white/5 mb-2">
+            <div 
+              className="h-full bg-gradient-to-r from-yellow-400 via-orange-500 to-yellow-400 bg-[length:200%_100%] animate-shimmer transition-all duration-1000 ease-out"
+              style={{ width: `${Math.min(100, ((promotionData?.totalBetUsd || 0) % (promotionData?.thresholdUsd || 15)) / (promotionData?.thresholdUsd || 15) * 100)}%` }}
+            />
+          </div>
+          {bonusBalance > 0 && (
+            <div className="flex items-center justify-between bg-green-500/10 border border-green-500/20 rounded-md p-2">
+              <div className="flex flex-col">
+                <span className="text-[10px] text-green-400/80 font-semibold uppercase tracking-tighter leading-none mb-1">Available Bonus Credit</span>
+                <span className="text-white text-xs font-bold leading-none">Use for your next bet!</span>
+              </div>
+              <div className="flex flex-col items-end">
+                <span className="text-white bg-green-500 px-2 py-1 rounded text-sm font-black shadow-lg shadow-green-500/20 animate-bounce-subtle">
+                  ${bonusBalance.toFixed(2)}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
