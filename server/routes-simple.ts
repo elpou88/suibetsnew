@@ -1479,21 +1479,21 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const { eventName, homeTeam, awayTeam, marketId, outcomeId, odds, betAmount, currency, prediction, feeCurrency, paymentMethod, txHash, onChainBetId, status, isLive, matchMinute, walletAddress } = data;
       
       // Anti-cheat: Block first-half markets after minute 45 and all markets after minute 80
-      const isFirstHalfMarket = marketId && (
-        String(marketId).includes('1st_half') || 
-        String(marketId).includes('1st-half') ||
-        String(marketId).includes('first_half') ||
-        String(marketId).includes('first-half') ||
-        String(marketId).includes('half_time_result') ||
-        String(marketId).includes('half-time-result') ||
-        marketId === "4" // First Half Result market ID
+      const isFirstHalfMarket = !!data.marketId && (
+        String(data.marketId).includes('1st_half') || 
+        String(data.marketId).includes('1st-half') ||
+        String(data.marketId).includes('first_half') ||
+        String(data.marketId).includes('first-half') ||
+        String(data.marketId).includes('half_time_result') ||
+        String(data.marketId).includes('half-time-result') ||
+        String(data.marketId) === "4" // First Half Result market ID
       );
 
-      const currentMinute = matchMinute || (isLive ? parseInt(String(apiSportsService.lookupEventSync(eventId).minute || 0)) : 0);
+      const currentMinute = data.matchMinute || (data.isLive ? parseInt(String(apiSportsService.lookupEventSync(data.eventId).minute || 0)) : 0);
 
-      if (isLive) {
+      if (data.isLive) {
         if (isFirstHalfMarket && currentMinute >= 45) {
-          console.warn(`[Anti-Cheat] Blocking late 1st half bet: event ${eventId}, minute ${currentMinute}`);
+          console.warn(`[Anti-Cheat] Blocking late 1st half bet: event ${data.eventId}, minute ${currentMinute}`);
           return res.status(400).json({ 
             success: false, 
             message: "MARKET_CLOSED_HALF_TIME",
@@ -1501,7 +1501,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           });
         }
         if (currentMinute >= 80) {
-          console.warn(`[Anti-Cheat] Blocking late match bet: event ${eventId}, minute ${currentMinute}`);
+          console.warn(`[Anti-Cheat] Blocking late match bet: event ${data.eventId}, minute ${currentMinute}`);
           return res.status(400).json({ 
             success: false, 
             message: "MATCH_CUTOFF",
@@ -1529,6 +1529,14 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const SUI_PRICE_USD = 1.50;
       const SBETS_PRICE_USD = 0.000001;
       const betUsdValue = betCurrency === 'SBETS' ? betAmount * SBETS_PRICE_USD : betAmount * SUI_PRICE_USD;
+      
+      // Update promotion tracking
+      try {
+        await promotionService.trackBetAndAwardBonus(walletAddress || userId, betAmount, betCurrency as 'SUI' | 'SBETS');
+      } catch (promoError) {
+        console.warn('[PROMO] Failed to track bet for promotion:', promoError);
+      }
+      
       let limitsCheckPassed = false;
       let userWalletForLimits: string | null = null;
       

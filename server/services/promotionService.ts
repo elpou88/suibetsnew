@@ -72,14 +72,16 @@ export class PromotionService {
 
     if (existing.length > 0) {
       const promo = existing[0];
+      // Ensure we use the promoEnd from the database, not a new one
+      const actualPromoEnd = promo.promotionEnd || promoEnd;
       const nextThreshold = (promo.bonusesAwarded + 1) * PROMO_THRESHOLD_USD;
       return {
         totalBetUsd: promo.totalBetUsd,
         bonusesAwarded: promo.bonusesAwarded,
         bonusBalance: promo.bonusBalance,
-        promotionEnd: promo.promotionEnd,
+        promotionEnd: actualPromoEnd,
         nextBonusAt: nextThreshold - promo.totalBetUsd,
-        isActive: now < promo.promotionEnd
+        isActive: now < actualPromoEnd
       };
     }
 
