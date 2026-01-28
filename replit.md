@@ -74,7 +74,7 @@ Preferred communication style: Simple, everyday language.
 - **Methods**: `blockchainBetService.sendSuiToUser()` and `sendSbetsToUser()` for direct wallet transfers
 - **Validation**: Only attempts payout if userId is a valid Sui wallet address (0x prefix, 64+ chars)
 
-### Revenue Sharing System (Updated January 27, 2026)
+### Revenue Sharing System (Updated January 28, 2026)
 - **Revenue Sources**: ALL platform revenue is split 30/40/30:
   - Lost bet stakes (full amount)
   - 1% fee on winning bet profits
@@ -82,13 +82,18 @@ Preferred communication style: Simple, everyday language.
   - **30%** → `platform_revenue_holders` (for SBETS holder distribution)
   - **40%** → `platform_treasury_buffer` (stays in treasury for liquidity)
   - **30%** → `platform_profit` (platform owner profit)
+- **Dual Currency Tracking**: Revenue tracked SEPARATELY for SUI and SBETS (not converted to SUI equivalent)
+  - Each currency pool distributed independently to holders
+  - Claimable amounts show both SUI and SBETS
+  - API returns: `totalRevenueSui`, `totalRevenueSbets`, `claimableSui`, `claimableSbets`
 - **Holder Discovery**: Uses BlockVision API (if BLOCKVISION_API_KEY set) to fetch ALL on-chain SBETS token holders, fallback to database wallets
-- **Share Calculation**: User's share = their SBETS / total circulating SBETS among ALL holders (excludes platform wallets)
+- **Share Calculation**: User's share = (their SBETS / total circulating SBETS) × 30% of each currency pool
 - **Caching**: Holder data cached for 5 minutes to reduce blockchain API calls
 - **Platform Wallet Exclusion**: Admin wallet (0x20850db5...) excluded from holder calculations
 - **Real-time Updates**: Frontend refreshes stats every 30s, claimable every 15s
 - **Claim Validation**: User must hold SBETS tokens, can only claim once per week, tracked in `revenue_claims` table
 - **Database Accounts**: Revenue tracked in 3 separate DB accounts for transparency
+- **Price Constants**: SUI = $1.50 USD, SBETS = $0.000001 USD (consistent across all endpoints)
 
 ## External Dependencies
 

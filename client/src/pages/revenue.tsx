@@ -26,10 +26,14 @@ interface RevenueStats {
   weekEnd: string;
   totalRevenue: number;
   allTimeRevenue: number;
+  totalRevenueSui?: number;
+  totalRevenueSbets?: number;
+  allTimeRevenueSui?: number;
+  allTimeRevenueSbets?: number;
   distribution: {
-    holders: { percentage: number; amount: number };
-    treasury: { percentage: number; amount: number };
-    liquidity?: { percentage: number; amount: number };
+    holders: { percentage: number; amount: number; sui?: number; sbets?: number };
+    treasury: { percentage: number; amount: number; sui?: number; sbets?: number };
+    liquidity?: { percentage: number; amount: number; sui?: number; sbets?: number };
   };
   onChainData: {
     treasuryBalance: number;
@@ -49,9 +53,13 @@ interface ClaimableData {
   sharePercentage: string;
   weeklyRevenuePool: number;
   claimableAmount: number;
+  weeklyRevenuePoolSui?: number;
+  weeklyRevenuePoolSbets?: number;
+  claimableSui?: number;
+  claimableSbets?: number;
   alreadyClaimed: boolean;
   lastClaimTxHash: string | null;
-  claimHistory: Array<{ amount: number; timestamp: number; txHash: string }>;
+  claimHistory: Array<{ amountSui: number; amountSbets: number; timestamp: number; txHash: string; txHashSbets?: string }>;
   lastUpdated: number;
 }
 
@@ -89,9 +97,19 @@ export default function RevenuePage() {
       return response.json();
     },
     onSuccess: (data) => {
+      const suiAmount = data.claimedSui || data.claimedAmount || 0;
+      const sbetsAmount = data.claimedSbets || 0;
+      const suiTx = data.suiTxHash || data.txHash;
+      const sbetsTx = data.sbetsTxHash;
+      
+      let description = '';
+      if (suiAmount > 0) description += `${suiAmount.toFixed(4)} SUI`;
+      if (sbetsAmount > 0) description += `${suiAmount > 0 ? ' + ' : ''}${(sbetsAmount / 1e6).toFixed(2)}M SBETS`;
+      if (suiTx) description += ` | TX: ${suiTx.slice(0, 12)}...`;
+      
       toast({
         title: "Rewards Claimed Successfully",
-        description: `You received ${data.claimedAmount.toFixed(4)} SUI! TX: ${data.txHash?.slice(0, 12)}...`,
+        description: `You received ${description}`,
       });
       refetchClaimable();
       queryClient.invalidateQueries({ queryKey: ['/api/revenue'] });
@@ -115,7 +133,8 @@ export default function RevenuePage() {
       return;
     }
 
-    if (!claimableData?.claimableAmount || claimableData.claimableAmount <= 0) {
+    const hasClaimable = (claimableData?.claimableSui || 0) > 0 || (claimableData?.claimableSbets || 0) > 0;
+    if (!hasClaimable) {
       toast({
         title: "Nothing to Claim",
         description: "You don't have any rewards to claim this week",
@@ -192,20 +211,26 @@ export default function RevenuePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="text-center">
                   <h2 className="text-lg text-blue-200 mb-2">This Week's Revenue</h2>
-                  <div className="text-3xl font-bold text-white mb-1">
-                    {formatUSD(revenueStats?.totalRevenue || 0)}
+                  <div className="text-xl font-bold text-white mb-1">
+                    {(revenueStats?.totalRevenueSui || 0).toFixed(4)} SUI
+                  </div>
+                  <div className="text-lg font-bold text-cyan-300 mb-1">
+                    {((revenueStats?.totalRevenueSbets || 0) / 1e6).toFixed(2)}M SBETS
                   </div>
                   <div className="text-blue-300 text-sm">
-                    = {formatCurrency(revenueStats?.totalRevenue || 0)}
+                    {formatUSD((revenueStats?.totalRevenueSui || 0) * 1.50 + (revenueStats?.totalRevenueSbets || 0) * 0.000001)}
                   </div>
                 </div>
                 <div className="text-center border-t md:border-t-0 md:border-l border-blue-500/30 pt-4 md:pt-0 md:pl-6">
                   <h2 className="text-lg text-green-200 mb-2">All-Time Total Revenue</h2>
-                  <div className="text-3xl font-bold text-green-400 mb-1">
-                    {formatUSD(revenueStats?.allTimeRevenue || 0)}
+                  <div className="text-xl font-bold text-white mb-1">
+                    {(revenueStats?.allTimeRevenueSui || 0).toFixed(4)} SUI
+                  </div>
+                  <div className="text-lg font-bold text-cyan-300 mb-1">
+                    {((revenueStats?.allTimeRevenueSbets || 0) / 1e6).toFixed(2)}M SBETS
                   </div>
                   <div className="text-green-300 text-sm">
-                    = {formatCurrency(revenueStats?.allTimeRevenue || 0)}
+                    {formatUSD((revenueStats?.allTimeRevenueSui || 0) * 1.50 + (revenueStats?.allTimeRevenueSbets || 0) * 0.000001)}
                   </div>
                 </div>
               </div>
@@ -234,7 +259,7 @@ export default function RevenuePage() {
                       }}
                     >
                       <Users className="w-4 h-4 mr-2" />
-                      To Holders: {formatCurrency(revenueStats?.distribution?.holders?.amount || 0)} (30%)
+                      To Holders: {(revenueStats?.distribution?.holders?.sui || 0).toFixed(4)} SUI + {((revenueStats?.distribution?.holders?.sbets || 0) / 1e6).toFixed(2)}M SBETS (30%)
                     </div>
                   </div>
                 </div>
@@ -249,7 +274,7 @@ export default function RevenuePage() {
                       }}
                     >
                       <Wallet className="w-4 h-4 mr-2" />
-                      Treasury Buffer: {formatCurrency(revenueStats?.distribution?.treasury?.amount || 0)} (40%)
+                      Treasury Buffer: {(revenueStats?.distribution?.treasury?.sui || 0).toFixed(4)} SUI + {((revenueStats?.distribution?.treasury?.sbets || 0) / 1e6).toFixed(2)}M SBETS (40%)
                     </div>
                   </div>
                 </div>
@@ -264,7 +289,7 @@ export default function RevenuePage() {
                       }}
                     >
                       <Coins className="w-4 h-4 mr-2" />
-                      Liquidity and Buybacks: {formatCurrency(revenueStats?.distribution?.liquidity?.amount || 0)} (30%)
+                      Liquidity and Buybacks: {(revenueStats?.distribution?.liquidity?.sui || 0).toFixed(4)} SUI + {((revenueStats?.distribution?.liquidity?.sbets || 0) / 1e6).toFixed(2)}M SBETS (30%)
                     </div>
                   </div>
                 </div>
@@ -317,11 +342,14 @@ export default function RevenuePage() {
                         <Gift className="w-5 h-5 text-yellow-400" />
                         Claimable Rewards:
                       </div>
-                      <div className="text-3xl font-bold text-white mb-1">
-                        {formatUSD(claimableData?.claimableAmount || 0)}
+                      <div className="text-2xl font-bold text-white mb-1">
+                        {(claimableData?.claimableSui || 0).toFixed(4)} SUI
+                      </div>
+                      <div className="text-xl font-bold text-cyan-300 mb-1">
+                        {((claimableData?.claimableSbets || 0) / 1e6).toFixed(2)}M SBETS
                       </div>
                       <div className="text-yellow-300 text-sm mb-4">
-                        = {formatCurrency(claimableData?.claimableAmount || 0)}
+                        Combined Value: {formatUSD((claimableData?.claimableSui || 0) * 1.50 + (claimableData?.claimableSbets || 0) * 0.000001)}
                       </div>
 
                       {claimableData?.alreadyClaimed ? (
@@ -344,7 +372,7 @@ export default function RevenuePage() {
                       ) : (
                         <Button
                           onClick={handleClaim}
-                          disabled={isClaiming || !claimableData?.claimableAmount || claimableData.claimableAmount <= 0}
+                          disabled={isClaiming || (!claimableData?.claimableSui && !claimableData?.claimableSbets) || ((claimableData?.claimableSui || 0) <= 0 && (claimableData?.claimableSbets || 0) <= 0)}
                           className="w-full max-w-xs py-3 text-lg font-bold"
                           style={{
                             background: 'linear-gradient(90deg, #22c55e, #16a34a)',

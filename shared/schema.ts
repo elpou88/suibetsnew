@@ -526,7 +526,9 @@ export const revenueClaims = pgTable("revenue_claims", {
   sbetsBalance: real("sbets_balance").notNull(), // User's SBETS balance at time of claim
   sharePercentage: real("share_percentage").notNull(), // User's share of the pool
   claimAmount: real("claim_amount").notNull(), // Amount claimed in SUI
-  txHash: text("tx_hash").notNull(), // Transaction hash of the payout
+  claimAmountSbets: real("claim_amount_sbets").default(0), // Amount claimed in SBETS
+  txHash: text("tx_hash").notNull(), // Transaction hash of the payout (SUI)
+  txHashSbets: text("tx_hash_sbets"), // Transaction hash of SBETS payout
   claimedAt: timestamp("claimed_at").defaultNow()
 });
 

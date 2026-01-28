@@ -2636,7 +2636,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
   }
   
   // Helper to get claims from database
-  async function getRevenueClaims(walletAddress: string): Promise<Array<{ amount: number; timestamp: number; txHash: string; weekStart: Date }>> {
+  async function getRevenueClaims(walletAddress: string): Promise<Array<{ amount: number; amountSbets: number; timestamp: number; txHash: string; txHashSbets: string | null; weekStart: Date }>> {
     try {
       const { revenueClaims } = await import('@shared/schema');
       const { eq } = await import('drizzle-orm');
@@ -2645,8 +2645,10 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const claims = await db.select().from(revenueClaims).where(eq(revenueClaims.walletAddress, walletAddress));
       return claims.map((c: any) => ({
         amount: c.claimAmount,
+        amountSbets: c.claimAmountSbets || 0,
         timestamp: new Date(c.claimedAt).getTime(),
         txHash: c.txHash,
+        txHashSbets: c.txHashSbets || null,
         weekStart: new Date(c.weekStart)
       }));
     } catch (error) {
@@ -2656,7 +2658,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
   }
   
   // Helper to save a claim to database
-  async function saveRevenueClaim(walletAddress: string, weekStart: Date, sbetsBalance: number, sharePercentage: number, claimAmount: number, txHash: string): Promise<boolean> {
+  async function saveRevenueClaim(walletAddress: string, weekStart: Date, sbetsBalance: number, sharePercentage: number, claimAmount: number, claimAmountSbets: number, txHash: string, txHashSbets: string | null): Promise<boolean> {
     try {
       const { revenueClaims } = await import('@shared/schema');
       const { db } = await import('./db');
@@ -2667,7 +2669,9 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         sbetsBalance,
         sharePercentage,
         claimAmount,
-        txHash
+        claimAmountSbets,
+        txHash,
+        txHashSbets
       });
       return true;
     } catch (error) {
@@ -2722,7 +2726,9 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const SBETS_PRICE_USD = 0.000001;
       const sbetsToSuiRatio = SBETS_PRICE_USD / SUI_PRICE_USD; // ~0.000000667
       
-      const weeklyRevenue = weeklyBets.reduce((sum: number, bet: any) => {
+      // Track SUI and SBETS revenue separately
+      const weeklyRevenueSui = weeklyBets.reduce((sum: number, bet: any) => {
+        if (bet.currency !== 'SUI') return sum;
         let revenue = 0;
         if (bet.status === 'lost') {
           revenue = bet.betAmount || 0;
@@ -2730,48 +2736,93 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           const profit = bet.potentialWin - bet.betAmount;
           revenue = profit * 0.01;
         }
-        // Convert SBETS to SUI equivalent
-        if (bet.currency === 'SBETS') {
-          revenue = revenue * sbetsToSuiRatio;
+        return sum + revenue;
+      }, 0);
+      
+      const weeklyRevenueSbets = weeklyBets.reduce((sum: number, bet: any) => {
+        if (bet.currency !== 'SBETS') return sum;
+        let revenue = 0;
+        if (bet.status === 'lost') {
+          revenue = bet.betAmount || 0;
+        } else if (bet.status === 'won' && bet.potentialWin) {
+          const profit = bet.potentialWin - bet.betAmount;
+          revenue = profit * 0.01;
         }
         return sum + revenue;
       }, 0);
       
-      // Calculate all-time total revenue (in SUI equivalent)
-      // Revenue tracking reset on January 27, 2026 - only count bets from this date forward
+      // Combined for backward compatibility (in SUI equivalent)
+      const weeklyRevenue = weeklyRevenueSui + (weeklyRevenueSbets * sbetsToSuiRatio);
+      
+      // Calculate all-time total revenue - track separately
       const REVENUE_START_DATE = new Date('2026-01-27T00:00:00Z');
+      const allTimeBets = settledBets.filter((bet: any) => new Date(bet.createdAt || 0) >= REVENUE_START_DATE);
       
-      const allTimeRevenue = settledBets
-        .filter((bet: any) => new Date(bet.createdAt || 0) >= REVENUE_START_DATE)
-        .reduce((sum: number, bet: any) => {
-          let revenue = 0;
-          if (bet.status === 'lost') {
-            revenue = bet.betAmount || 0;
-          } else if ((bet.status === 'won' || bet.status === 'paid_out') && bet.potentialWin) {
-            const profit = bet.potentialWin - bet.betAmount;
-            revenue = profit * 0.01;
-          }
-          // Convert SBETS to SUI equivalent
-          if (bet.currency === 'SBETS') {
-            revenue = revenue * sbetsToSuiRatio;
-          }
-          return sum + revenue;
-        }, 0);
+      const allTimeRevenueSui = allTimeBets.reduce((sum: number, bet: any) => {
+        if (bet.currency !== 'SUI') return sum;
+        let revenue = 0;
+        if (bet.status === 'lost') {
+          revenue = bet.betAmount || 0;
+        } else if ((bet.status === 'won' || bet.status === 'paid_out') && bet.potentialWin) {
+          const profit = bet.potentialWin - bet.betAmount;
+          revenue = profit * 0.01;
+        }
+        return sum + revenue;
+      }, 0);
       
-      const holderShare = weeklyRevenue * 0.30;      // 30% to SBETS holders
-      const treasuryShare = weeklyRevenue * 0.40;   // 40% treasury buffer (liquidity)
-      const profitShare = weeklyRevenue * 0.30;     // 30% platform profit (admin withdrawable)
+      const allTimeRevenueSbets = allTimeBets.reduce((sum: number, bet: any) => {
+        if (bet.currency !== 'SBETS') return sum;
+        let revenue = 0;
+        if (bet.status === 'lost') {
+          revenue = bet.betAmount || 0;
+        } else if ((bet.status === 'won' || bet.status === 'paid_out') && bet.potentialWin) {
+          const profit = bet.potentialWin - bet.betAmount;
+          revenue = profit * 0.01;
+        }
+        return sum + revenue;
+      }, 0);
+      
+      const allTimeRevenue = allTimeRevenueSui + (allTimeRevenueSbets * sbetsToSuiRatio);
+      
+      // Calculate distribution for each currency
+      const holderShareSui = weeklyRevenueSui * 0.30;
+      const holderShareSbets = weeklyRevenueSbets * 0.30;
+      const treasuryShareSui = weeklyRevenueSui * 0.40;
+      const treasuryShareSbets = weeklyRevenueSbets * 0.40;
+      const profitShareSui = weeklyRevenueSui * 0.30;
+      const profitShareSbets = weeklyRevenueSbets * 0.30;
       
       res.json({
         success: true,
         weekStart: startOfWeek.toISOString(),
         weekEnd: endOfWeek.toISOString(),
+        // Legacy combined values (SUI equivalent)
         totalRevenue: weeklyRevenue,
         allTimeRevenue: allTimeRevenue,
+        // New separate values for SUI and SBETS
+        totalRevenueSui: weeklyRevenueSui,
+        totalRevenueSbets: weeklyRevenueSbets,
+        allTimeRevenueSui: allTimeRevenueSui,
+        allTimeRevenueSbets: allTimeRevenueSbets,
         distribution: {
-          holders: { percentage: 30, amount: holderShare },
-          treasury: { percentage: 40, amount: treasuryShare },
-          liquidity: { percentage: 30, amount: profitShare }
+          holders: { 
+            percentage: 30, 
+            amount: holderShareSui + (holderShareSbets * sbetsToSuiRatio),
+            sui: holderShareSui,
+            sbets: holderShareSbets
+          },
+          treasury: { 
+            percentage: 40, 
+            amount: treasuryShareSui + (treasuryShareSbets * sbetsToSuiRatio),
+            sui: treasuryShareSui,
+            sbets: treasuryShareSbets
+          },
+          liquidity: { 
+            percentage: 30, 
+            amount: profitShareSui + (profitShareSbets * sbetsToSuiRatio),
+            sui: profitShareSui,
+            sbets: profitShareSbets
+          }
         },
         onChainData: {
           treasuryBalance: platformInfo?.treasuryBalanceSui || 0,
@@ -2822,12 +2873,9 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         return betDate >= startOfWeek;
       });
       
-      // Price conversion: Convert all revenue to SUI equivalent for consistency
-      const SUI_PRICE_USD = 1.50;
-      const SBETS_PRICE_USD = 0.000001;
-      const sbetsToSuiRatio = SBETS_PRICE_USD / SUI_PRICE_USD;
-      
-      const weeklyRevenue = weeklyBets.reduce((sum: number, bet: any) => {
+      // Track revenue separately for SUI and SBETS
+      const weeklyRevenueSui = weeklyBets.reduce((sum: number, bet: any) => {
+        if (bet.currency !== 'SUI') return sum;
         let revenue = 0;
         if (bet.status === 'lost') {
           revenue = bet.betAmount || 0;
@@ -2835,15 +2883,29 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           const profit = bet.potentialWin - bet.betAmount;
           revenue = profit * 0.01;
         }
-        // Convert SBETS to SUI equivalent
-        if (bet.currency === 'SBETS') {
-          revenue = revenue * sbetsToSuiRatio;
+        return sum + revenue;
+      }, 0);
+      
+      const weeklyRevenueSbets = weeklyBets.reduce((sum: number, bet: any) => {
+        if (bet.currency !== 'SBETS') return sum;
+        let revenue = 0;
+        if (bet.status === 'lost') {
+          revenue = bet.betAmount || 0;
+        } else if (bet.status === 'won' && bet.potentialWin) {
+          const profit = bet.potentialWin - bet.betAmount;
+          revenue = profit * 0.01;
         }
         return sum + revenue;
       }, 0);
       
-      const holderPool = weeklyRevenue * REVENUE_SHARE_PERCENTAGE;
-      const userClaimable = totalCirculating > 0 ? holderPool * (userSbets / totalCirculating) : 0;
+      // Calculate holder pools for each currency (30% to holders)
+      const holderPoolSui = weeklyRevenueSui * REVENUE_SHARE_PERCENTAGE;
+      const holderPoolSbets = weeklyRevenueSbets * REVENUE_SHARE_PERCENTAGE;
+      
+      // Calculate user's share based on their SBETS holdings
+      const userShareRatio = totalCirculating > 0 ? (userSbets / totalCirculating) : 0;
+      const userClaimableSui = holderPoolSui * userShareRatio;
+      const userClaimableSbets = holderPoolSbets * userShareRatio;
       
       const userClaims = await getRevenueClaims(walletAddress);
       const thisWeekClaim = userClaims.find(c => c.weekStart >= startOfWeek);
@@ -2853,11 +2915,23 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         walletAddress,
         sbetsBalance: userSbets,
         sharePercentage: sharePercentage.toFixed(4),
-        weeklyRevenuePool: holderPool,
-        claimableAmount: thisWeekClaim ? 0 : userClaimable,
+        // Legacy field for backward compatibility (SUI equivalent)
+        weeklyRevenuePool: holderPoolSui + (holderPoolSbets * 0.000001 / 1.50),
+        claimableAmount: thisWeekClaim ? 0 : userClaimableSui,
+        // New separate fields for SUI and SBETS
+        weeklyRevenuePoolSui: holderPoolSui,
+        weeklyRevenuePoolSbets: holderPoolSbets,
+        claimableSui: thisWeekClaim ? 0 : userClaimableSui,
+        claimableSbets: thisWeekClaim ? 0 : userClaimableSbets,
         alreadyClaimed: !!thisWeekClaim,
         lastClaimTxHash: thisWeekClaim?.txHash || null,
-        claimHistory: userClaims.map(c => ({ amount: c.amount, timestamp: c.timestamp, txHash: c.txHash })),
+        claimHistory: userClaims.map(c => ({ 
+          amountSui: c.amount, 
+          amountSbets: c.amountSbets || 0,
+          timestamp: c.timestamp, 
+          txHash: c.txHash,
+          txHashSbets: c.txHashSbets
+        })),
         lastUpdated: Date.now()
       });
     } catch (error: any) {
@@ -2907,7 +2981,9 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         return betDate >= startOfWeek;
       });
       
-      const weeklyRevenue = weeklyBets.reduce((sum: number, bet: any) => {
+      // Calculate SUI and SBETS revenue separately
+      const weeklyRevenueSui = weeklyBets.reduce((sum: number, bet: any) => {
+        if (bet.currency !== 'SUI') return sum;
         if (bet.status === 'lost') {
           return sum + (bet.betAmount || 0);
         } else if (bet.status === 'won' && bet.potentialWin) {
@@ -2917,38 +2993,76 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         return sum;
       }, 0);
       
-      const holderPool = weeklyRevenue * REVENUE_SHARE_PERCENTAGE;
-      const claimAmount = totalSupply > 0 ? holderPool * (userSbets / totalSupply) : 0;
+      const weeklyRevenueSbets = weeklyBets.reduce((sum: number, bet: any) => {
+        if (bet.currency !== 'SBETS') return sum;
+        if (bet.status === 'lost') {
+          return sum + (bet.betAmount || 0);
+        } else if (bet.status === 'won' && bet.potentialWin) {
+          const profit = bet.potentialWin - bet.betAmount;
+          return sum + (profit * 0.01);
+        }
+        return sum;
+      }, 0);
       
-      if (claimAmount <= 0) {
+      const holderPoolSui = weeklyRevenueSui * REVENUE_SHARE_PERCENTAGE;
+      const holderPoolSbets = weeklyRevenueSbets * REVENUE_SHARE_PERCENTAGE;
+      const userShareRatio = totalSupply > 0 ? (userSbets / totalSupply) : 0;
+      const claimSui = holderPoolSui * userShareRatio;
+      const claimSbets = holderPoolSbets * userShareRatio;
+      
+      if (claimSui <= 0 && claimSbets <= 0) {
         return res.status(400).json({ message: 'No revenue to claim this week' });
       }
       
-      console.log(`[Revenue] Processing claim: ${walletAddress} claiming ${claimAmount} SUI`);
+      console.log(`[Revenue] Processing claim: ${walletAddress} claiming ${claimSui} SUI + ${claimSbets} SBETS`);
       
-      // Execute on-chain payout
-      const payoutResult = await blockchainBetService.executePayoutOnChain(walletAddress, claimAmount);
+      // Execute on-chain payouts for both currencies
+      let suiTxHash = null;
+      let sbetsTxHash = null;
       
-      if (!payoutResult.success) {
-        console.error(`[Revenue] Claim failed: ${payoutResult.error}`);
-        return res.status(400).json({ message: payoutResult.error || 'Failed to process claim' });
+      if (claimSui > 0) {
+        const suiPayoutResult = await blockchainBetService.sendSuiToUser(walletAddress, claimSui);
+        if (!suiPayoutResult.success) {
+          console.error(`[Revenue] SUI claim failed: ${suiPayoutResult.error}`);
+          return res.status(400).json({ message: suiPayoutResult.error || 'Failed to send SUI payout' });
+        }
+        suiTxHash = suiPayoutResult.txHash;
+        console.log(`[Revenue] SUI payout successful: ${claimSui} SUI | TX: ${suiTxHash}`);
+      }
+      
+      if (claimSbets > 0) {
+        const sbetsPayoutResult = await blockchainBetService.sendSbetsToUser(walletAddress, claimSbets);
+        if (!sbetsPayoutResult.success) {
+          console.error(`[Revenue] SBETS claim failed: ${sbetsPayoutResult.error}`);
+          // Still record partial success if SUI was sent
+          if (suiTxHash) {
+            console.log(`[Revenue] Partial success: SUI sent but SBETS failed`);
+          }
+          return res.status(400).json({ message: sbetsPayoutResult.error || 'Failed to send SBETS payout', partialSuccess: !!suiTxHash, suiTxHash });
+        }
+        sbetsTxHash = sbetsPayoutResult.txHash;
+        console.log(`[Revenue] SBETS payout successful: ${claimSbets} SBETS | TX: ${sbetsTxHash}`);
       }
       
       // Save claim to database for persistence across server restarts
       const sharePercentage = totalSupply > 0 ? (userSbets / totalSupply) * 100 : 0;
-      const saved = await saveRevenueClaim(walletAddress, startOfWeek, userSbets, sharePercentage, claimAmount, payoutResult.txHash || '');
+      const saved = await saveRevenueClaim(walletAddress, startOfWeek, userSbets, sharePercentage, claimSui, claimSbets, suiTxHash || '', sbetsTxHash);
       
       if (!saved) {
         console.warn('[Revenue] Failed to persist claim to database - claim may be counted again');
       }
       
-      console.log(`[Revenue] Claim successful: ${walletAddress} received ${claimAmount} SUI | TX: ${payoutResult.txHash}`);
+      console.log(`[Revenue] Claim successful: ${walletAddress} received ${claimSui} SUI + ${claimSbets} SBETS`);
       
       res.json({
         success: true,
         walletAddress,
-        claimedAmount: claimAmount,
-        txHash: payoutResult.txHash,
+        claimedAmount: claimSui, // Legacy field
+        claimedSui: claimSui,
+        claimedSbets: claimSbets,
+        txHash: suiTxHash, // Legacy field
+        suiTxHash,
+        sbetsTxHash,
         timestamp: Date.now()
       });
     } catch (error: any) {
