@@ -823,24 +823,10 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
   const { addBet } = useBetting();
   const { toast } = useToast();
   
-  // Get secondary markets for this event (BTTS, Double Chance, etc.)
-  const secondaryMarkets = useMemo(() => {
-    if (event.sportId !== 1) return []; // Only soccer has secondary markets
-    return sportMarketsAdapter.getDefaultMarkets(1, event.homeTeam, event.awayTeam)
-      .slice(1)
-      .filter(m => !isMarketClosed(m.id));
-  }, [event.id, event.homeTeam, event.awayTeam, event.sportId, minuteNum]);
-  
-  const hasRealOdds = event.homeOdds !== null && event.homeOdds !== undefined && event.homeOdds > 0;
-  const odds = {
-    home: event.homeOdds || null,
-    draw: event.drawOdds || null,
-    away: event.awayOdds || null
-  };
-  
-  // Check if betting is closed (last 10 minutes of live match - minute >= 80)
+  // Calculate these values FIRST so they are available for helpers and memo
   const minuteNum = event.minute ? parseInt(event.minute.toString().replace(/[^0-9]/g, '')) : 0;
-  
+  const isBettingClosed = event.isLive && minuteNum >= 80;
+
   // Helper to check if a market is closed based on match minute
   const isMarketClosed = (marketId: string) => {
     if (!event.isLive) return false;
@@ -856,7 +842,20 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
     return false;
   };
 
-  const isBettingClosed = event.isLive && minuteNum >= 80;
+  // Get secondary markets for this event (BTTS, Double Chance, etc.)
+  const secondaryMarkets = useMemo(() => {
+    if (event.sportId !== 1) return []; // Only soccer has secondary markets
+    return sportMarketsAdapter.getDefaultMarkets(1, event.homeTeam, event.awayTeam)
+      .slice(1)
+      .filter(m => !isMarketClosed(m.id));
+  }, [event.id, event.homeTeam, event.awayTeam, event.sportId, minuteNum]);
+  
+  const hasRealOdds = event.homeOdds !== null && event.homeOdds !== undefined && event.homeOdds > 0;
+  const odds = {
+    home: event.homeOdds || null,
+    draw: event.drawOdds || null,
+    away: event.awayOdds || null
+  };
   
   // Simulated odds movement (in real app, this would compare to previous odds)
   const getOddsMovement = (oddsValue: number): 'up' | 'down' | 'stable' => {
