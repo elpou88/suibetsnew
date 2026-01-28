@@ -141,6 +141,37 @@ export class SettlementService {
       }
     }
 
+    // Both Teams to Score (BTTS)
+    if (bet.marketId.includes('btts')) {
+      const bothScored = (eventResult.homeScore > 0 && eventResult.awayScore > 0);
+      if (prediction === 'yes') return bothScored;
+      if (prediction === 'no') return !bothScored;
+    }
+
+    // Double Chance
+    if (bet.marketId.includes('double-chance')) {
+      const isHomeWin = eventResult.homeScore > eventResult.awayScore;
+      const isAwayWin = eventResult.awayScore > eventResult.homeScore;
+      const isDraw = eventResult.homeScore === eventResult.awayScore;
+
+      if (prediction === '1x' || prediction === 'home_draw') return isHomeWin || isDraw;
+      if (prediction === 'x2' || prediction === 'draw_away') return isAwayWin || isDraw;
+      if (prediction === '12' || prediction === 'home_away') return isHomeWin || isAwayWin;
+    }
+
+    // Half-Time Result
+    if (bet.marketId.includes('half-time')) {
+      // Use halftime scores if available, otherwise fallback to fulltime (less accurate but safe)
+      const htHome = eventResult.score?.halftime?.home ?? eventResult.htHomeScore;
+      const htAway = eventResult.score?.halftime?.away ?? eventResult.htAwayScore;
+      
+      if (htHome !== undefined && htAway !== undefined) {
+        if (prediction === 'home' || prediction === '1') return htHome > htAway;
+        if (prediction === 'away' || prediction === '2') return htAway > htHome;
+        if (prediction === 'draw' || prediction === 'x') return htHome === htAway;
+      }
+    }
+
     // Over/Under bets
     if (bet.marketId.includes('over-under') || bet.marketId.includes('o/u')) {
       const totalGoals = (eventResult.homeScore || 0) + (eventResult.awayScore || 0);
