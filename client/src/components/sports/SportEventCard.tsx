@@ -1,11 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ActivityIcon, Clock } from 'lucide-react';
+import { ActivityIcon, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 import { Event } from '@/types';
 import { useBetting } from '@/context/BettingContext';
 import sportMarketsAdapter from '@/lib/sportMarketsAdapter';
+
+interface Market {
+  id: string | number;
+  name: string;
+  outcomes: {
+    id: string | number;
+    name: string;
+    odds: number;
+  }[];
+}
 
 interface SportEventCardProps {
   event: Event;
@@ -14,23 +24,25 @@ interface SportEventCardProps {
 
 const SportEventCard: React.FC<SportEventCardProps> = ({ event, sportId }) => {
   const { addBet } = useBetting();
+  const [showAllMarkets, setShowAllMarkets] = useState(false);
   
   // Get markets for this event based on sport type
-  let markets = event.markets || [];
+  let allMarkets = event.markets || [];
   
   // If no markets provided, use default ones based on sport
-  if (!markets || markets.length === 0) {
-    markets = sportMarketsAdapter.getDefaultMarkets(
+  if (!allMarkets || allMarkets.length === 0) {
+    allMarkets = sportMarketsAdapter.getDefaultMarkets(
       sportId, 
       event.homeTeam, 
       event.awayTeam
     );
   } else {
     // Enhance the existing markets
-    markets = sportMarketsAdapter.enhanceMarketsForSport(markets, sportId);
+    allMarkets = sportMarketsAdapter.enhanceMarketsForSport(allMarkets, sportId);
   }
   
-  const primaryMarket = markets[0];
+  const primaryMarket = allMarkets[0];
+  const secondaryMarkets = allMarkets.slice(1);
   
   // Format date for display
   const formatDate = (dateString: string): string => {
@@ -52,7 +64,7 @@ const SportEventCard: React.FC<SportEventCardProps> = ({ event, sportId }) => {
   };
   
   // Function to handle adding a bet to the betslip
-  const handleAddBet = (e: React.MouseEvent, selectionName: string, odds: number) => {
+  const handleAddBet = (e: React.MouseEvent, market: Market, selectionName: string, odds: number) => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -61,13 +73,14 @@ const SportEventCard: React.FC<SportEventCardProps> = ({ event, sportId }) => {
     
     // Create the bet object
     const bet = {
-      id: `${eventIdString}-${primaryMarket?.name || 'Match Result'}-${selectionName}-${Date.now()}`,
+      id: `${eventIdString}-${market?.name || 'Match Result'}-${selectionName}-${Date.now()}`,
       eventId: eventIdString,
       eventName: `${event.homeTeam} vs ${event.awayTeam}`,
       selectionName,
       odds,
       stake: 10, // Default stake
-      market: primaryMarket?.name || 'Match Result',
+      market: market?.name || 'Match Result',
+      marketId: typeof market?.id === 'number' ? market.id : parseInt(String(market?.id)),
       isLive: event.isLive,
       uniqueId: Math.random().toString(36).substring(2, 8)
     };
@@ -108,41 +121,72 @@ const SportEventCard: React.FC<SportEventCardProps> = ({ event, sportId }) => {
           </div>
         </div>
         
-        {/* Betting options */}
+        {/* Main Market */}
         {primaryMarket && (
           <div className="mt-4">
-            <p className="text-xs text-gray-400 mb-2 text-center">{primaryMarket.name}</p>
-            <div className="grid grid-cols-2 gap-1 relative z-20">
-              {primaryMarket.outcomes.slice(0, 2).map((outcome, i) => (
+            <p className="text-xs text-gray-400 mb-2 text-center font-medium">{primaryMarket.name}</p>
+            <div className={`grid ${primaryMarket.outcomes.length > 2 ? 'grid-cols-3' : 'grid-cols-2'} gap-1 relative z-20`}>
+              {primaryMarket.outcomes.map((outcome, i) => (
                 <Button
                   key={i}
                   variant="outline"
                   size="sm"
-                  className="h-10 bg-[#1e3a3f] hover:bg-cyan-800 border-[#2a4c55] text-cyan-300 hover:text-white"
-                  onClick={(e) => handleAddBet(e, outcome.name, outcome.odds)}
+                  className="h-12 bg-[#1e3a3f] hover:bg-cyan-800 border-[#2a4c55] text-cyan-300 hover:text-white"
+                  onClick={(e) => handleAddBet(e, primaryMarket, outcome.name, outcome.odds)}
                 >
                   <div className="flex flex-col">
-                    <span className="text-xs font-normal">{outcome.name}</span>
-                    <span className="font-bold">{outcome.odds.toFixed(2)}</span>
+                    <span className="text-[10px] font-normal truncate max-w-[80px]">{outcome.name}</span>
+                    <span className="font-bold text-sm">{outcome.odds.toFixed(2)}</span>
                   </div>
                 </Button>
               ))}
             </div>
-            
-            {/* If there's a draw option (for sports like soccer) */}
-            {primaryMarket.outcomes.length > 2 && (
-              <div className="mt-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full h-10 bg-[#1e3a3f] hover:bg-cyan-800 border-[#2a4c55] text-cyan-300 hover:text-white relative z-20"
-                  onClick={(e) => handleAddBet(e, primaryMarket.outcomes[2].name, primaryMarket.outcomes[2].odds)}
-                >
-                  <div className="flex flex-col">
-                    <span className="text-xs font-normal">{primaryMarket.outcomes[2].name}</span>
-                    <span className="font-bold">{primaryMarket.outcomes[2].odds.toFixed(2)}</span>
+          </div>
+        )}
+
+        {/* Expandable Secondary Markets */}
+        {secondaryMarkets.length > 0 && (
+          <div className="mt-3 border-t border-[#1e3a3f] pt-2">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="w-full text-xs text-cyan-400 hover:text-cyan-300 h-7 flex items-center justify-center gap-1 relative z-20"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowAllMarkets(!showAllMarkets);
+              }}
+            >
+              {showAllMarkets ? (
+                <><ChevronUp className="h-3 w-3" /> Hide Markets</>
+              ) : (
+                <><ChevronDown className="h-3 w-3" /> +{secondaryMarkets.length} More Markets</>
+              )}
+            </Button>
+
+            {showAllMarkets && (
+              <div className="mt-3 space-y-4">
+                {secondaryMarkets.map((market, idx) => (
+                  <div key={idx} className="border-b border-[#1e3a3f]/50 pb-3 last:border-0 last:pb-0">
+                    <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-2 font-bold">{market.name}</p>
+                    <div className="grid grid-cols-2 gap-1 relative z-20">
+                      {market.outcomes.map((outcome, i) => (
+                        <Button
+                          key={i}
+                          variant="outline"
+                          size="sm"
+                          className="h-10 bg-[#0b1618] hover:bg-cyan-900/40 border-[#1e3a3f] text-cyan-300"
+                          onClick={(e) => handleAddBet(e, market, outcome.name, outcome.odds)}
+                        >
+                          <div className="flex justify-between items-center w-full px-1">
+                            <span className="text-[10px] font-normal truncate mr-2">{outcome.name}</span>
+                            <span className="font-bold text-xs">{outcome.odds.toFixed(2)}</span>
+                          </div>
+                        </Button>
+                      ))}
+                    </div>
                   </div>
-                </Button>
+                ))}
               </div>
             )}
           </div>

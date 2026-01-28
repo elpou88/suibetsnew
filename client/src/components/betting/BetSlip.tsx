@@ -224,12 +224,22 @@ export function BetSlip() {
     
     setIsLoading(true);
     try {
-      const currentTotal = selectedBets.reduce((sum, bet) => sum + (Number.isFinite(bet.stake) ? bet.stake : 0), 0);
-      const success = await placeBet(currentTotal, {
-        betType,
-        currency: betCurrency,
-        acceptOddsChange: true
-      });
+          // Single bet placement
+          const response = await apiRequest('POST', '/api/bets', {
+            eventId: bet.eventId,
+            eventName: bet.eventName,
+            selectionName: bet.selectionName,
+            odds: bet.odds,
+            betAmount: bet.stake,
+            currency: betCurrency,
+            betType: 'single',
+            market: bet.market,
+            marketId: bet.marketId,
+            outcomeId: bet.outcomeId,
+            isLive: bet.isLive,
+            homeTeam: bet.homeTeam,
+            awayTeam: bet.awayTeam
+          });
       
       if (success) {
         // Bet confirmation is shown via the event listener

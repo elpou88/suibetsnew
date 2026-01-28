@@ -48,6 +48,8 @@ export interface Market {
   outcomes: Outcome[];
 }
 
+export type AdapterMarket = Market;
+
 // Market types by sport
 export enum MarketTypes {
   // Common markets
@@ -339,6 +341,10 @@ export const enhanceMarketsForSport = (markets: Market[], sportId: number): Mark
           market.name = MarketTypes.DOUBLE_CHANCE;
         } else if (market.name.toLowerCase().includes('correct score')) {
           market.name = MarketTypes.CORRECT_SCORE;
+        } else if (market.name.toLowerCase().includes('over/under') || market.name.toLowerCase().includes('goals')) {
+          market.name = MarketTypes.OVER_UNDER;
+        } else if (market.name.toLowerCase().includes('half time') || market.name.toLowerCase().includes('half-time')) {
+          market.name = MarketTypes.FIRST_HALF_RESULT;
         }
         break;
         

@@ -52,7 +52,7 @@ export function EventsContainer() {
         <div className="p-12 text-center">Loading events...</div>
       ) : (
         <>
-          {Object.entries(groupedEvents).map(([leagueSlug, leagueEvents]) => (
+          {(Object.entries(groupedEvents) as [string, any[]][]).map(([leagueSlug, leagueEvents]) => (
             <Card key={leagueSlug} className="mb-4">
               <CardHeader className="bg-gray-100 p-3 flex flex-row items-center justify-between">
                 <div className="flex items-center cursor-pointer">
@@ -64,7 +64,7 @@ export function EventsContainer() {
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                {leagueEvents.map((event) => (
+                {leagueEvents.map((event: any) => (
                   <BettingCard
                     key={event.id}
                     eventId={event.id}
