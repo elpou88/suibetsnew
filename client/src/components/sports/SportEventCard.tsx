@@ -27,8 +27,8 @@ const SportEventCard: React.FC<SportEventCardProps> = ({ event, sportId }) => {
       event.awayTeam
     );
   } else {
-    // Enhance the existing markets
-    allMarkets = sportMarketsAdapter.enhanceMarketsForSport(allMarkets, sportId);
+    // Enhance the existing markets and add missing secondary markets
+    allMarkets = sportMarketsAdapter.enhanceMarketsForSport(allMarkets, sportId, event.homeTeam, event.awayTeam);
   }
   
   const primaryMarket = allMarkets[0];

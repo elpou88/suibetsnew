@@ -155,7 +155,7 @@ export const getDefaultMarkets = (sportId: number, homeTeam: string, awayTeam: s
     marketType = MarketTypes.RACE_WINNER;
   }
   
-  return [
+  const markets: Market[] = [
     {
       id: 1,
       name: marketType,
@@ -164,6 +164,73 @@ export const getDefaultMarkets = (sportId: number, homeTeam: string, awayTeam: s
       outcomes: defaultOutcomes
     }
   ];
+  
+  // Add secondary markets for soccer
+  if (sportId === SportIds.SOCCER) {
+    // Both Teams to Score
+    markets.push({
+      id: 2,
+      name: MarketTypes.BOTH_TEAMS_TO_SCORE,
+      type: 'btts',
+      status: 'open',
+      outcomes: [
+        { id: 'btts_yes', name: 'Yes', odds: 1.85, status: 'active', probability: 0.54 },
+        { id: 'btts_no', name: 'No', odds: 1.95, status: 'active', probability: 0.51 }
+      ]
+    });
+    
+    // Double Chance
+    markets.push({
+      id: 3,
+      name: MarketTypes.DOUBLE_CHANCE,
+      type: 'double_chance',
+      status: 'open',
+      outcomes: [
+        { id: 'dc_1x', name: `${homeTeam} or Draw`, odds: 1.35, status: 'active', probability: 0.74 },
+        { id: 'dc_12', name: `${homeTeam} or ${awayTeam}`, odds: 1.20, status: 'active', probability: 0.83 },
+        { id: 'dc_x2', name: `Draw or ${awayTeam}`, odds: 1.40, status: 'active', probability: 0.71 }
+      ]
+    });
+    
+    // First Half Result
+    markets.push({
+      id: 4,
+      name: MarketTypes.FIRST_HALF_RESULT,
+      type: 'half_time',
+      status: 'open',
+      outcomes: [
+        { id: 'ht_home', name: homeTeam, odds: 2.50, status: 'active', probability: 0.40 },
+        { id: 'ht_draw', name: 'Draw', odds: 2.10, status: 'active', probability: 0.48 },
+        { id: 'ht_away', name: awayTeam, odds: 3.00, status: 'active', probability: 0.33 }
+      ]
+    });
+    
+    // Over/Under 2.5 Goals
+    markets.push({
+      id: 5,
+      name: 'Over/Under 2.5 Goals',
+      type: 'over_under',
+      status: 'open',
+      outcomes: [
+        { id: 'ou_over', name: 'Over 2.5', odds: 1.90, status: 'active', probability: 0.53 },
+        { id: 'ou_under', name: 'Under 2.5', odds: 1.90, status: 'active', probability: 0.53 }
+      ]
+    });
+    
+    // Over/Under 1.5 Goals  
+    markets.push({
+      id: 6,
+      name: 'Over/Under 1.5 Goals',
+      type: 'over_under',
+      status: 'open',
+      outcomes: [
+        { id: 'ou15_over', name: 'Over 1.5', odds: 1.45, status: 'active', probability: 0.69 },
+        { id: 'ou15_under', name: 'Under 1.5', odds: 2.70, status: 'active', probability: 0.37 }
+      ]
+    });
+  }
+  
+  return markets;
 };
 
 // Get all available market types for a specific sport
@@ -324,12 +391,13 @@ export const getMarketDisplaySettings = (sportId: number, marketType: string) =>
 };
 
 // Parse and enhance markets data from API for all sports
-export const enhanceMarketsForSport = (markets: Market[], sportId: number): Market[] => {
+export const enhanceMarketsForSport = (markets: Market[], sportId: number, homeTeam?: string, awayTeam?: string): Market[] => {
   if (!markets || markets.length === 0) {
     return [];
   }
   
-  return markets.map(market => {
+  // First, enhance existing market names
+  const enhancedMarkets = markets.map(market => {
     // Standardize market names based on sport type
     switch(sportId) {
       case SportIds.SOCCER:
@@ -437,6 +505,72 @@ export const enhanceMarketsForSport = (markets: Market[], sportId: number): Mark
     
     return market;
   });
+  
+  // For soccer, add missing secondary markets
+  if (sportId === SportIds.SOCCER && homeTeam && awayTeam) {
+    const existingMarketNames = enhancedMarkets.map(m => m.name.toLowerCase());
+    const nextId = enhancedMarkets.length + 100;
+    
+    // Add BTTS if not present
+    if (!existingMarketNames.some(n => n.includes('both teams'))) {
+      enhancedMarkets.push({
+        id: nextId + 1,
+        name: MarketTypes.BOTH_TEAMS_TO_SCORE,
+        type: 'btts',
+        status: 'open',
+        outcomes: [
+          { id: 'btts_yes', name: 'Yes', odds: 1.85, status: 'active', probability: 0.54 },
+          { id: 'btts_no', name: 'No', odds: 1.95, status: 'active', probability: 0.51 }
+        ]
+      });
+    }
+    
+    // Add Double Chance if not present
+    if (!existingMarketNames.some(n => n.includes('double chance'))) {
+      enhancedMarkets.push({
+        id: nextId + 2,
+        name: MarketTypes.DOUBLE_CHANCE,
+        type: 'double_chance',
+        status: 'open',
+        outcomes: [
+          { id: 'dc_1x', name: `${homeTeam} or Draw`, odds: 1.35, status: 'active', probability: 0.74 },
+          { id: 'dc_12', name: `${homeTeam} or ${awayTeam}`, odds: 1.20, status: 'active', probability: 0.83 },
+          { id: 'dc_x2', name: `Draw or ${awayTeam}`, odds: 1.40, status: 'active', probability: 0.71 }
+        ]
+      });
+    }
+    
+    // Add First Half Result if not present
+    if (!existingMarketNames.some(n => n.includes('half time') || n.includes('half-time') || n.includes('first half'))) {
+      enhancedMarkets.push({
+        id: nextId + 3,
+        name: MarketTypes.FIRST_HALF_RESULT,
+        type: 'half_time',
+        status: 'open',
+        outcomes: [
+          { id: 'ht_home', name: homeTeam, odds: 2.50, status: 'active', probability: 0.40 },
+          { id: 'ht_draw', name: 'Draw', odds: 2.10, status: 'active', probability: 0.48 },
+          { id: 'ht_away', name: awayTeam, odds: 3.00, status: 'active', probability: 0.33 }
+        ]
+      });
+    }
+    
+    // Add Over/Under 2.5 if not present
+    if (!existingMarketNames.some(n => n.includes('over') || n.includes('under'))) {
+      enhancedMarkets.push({
+        id: nextId + 4,
+        name: 'Over/Under 2.5 Goals',
+        type: 'over_under',
+        status: 'open',
+        outcomes: [
+          { id: 'ou_over', name: 'Over 2.5', odds: 1.90, status: 'active', probability: 0.53 },
+          { id: 'ou_under', name: 'Under 2.5', odds: 1.90, status: 'active', probability: 0.53 }
+        ]
+      });
+    }
+  }
+  
+  return enhancedMarkets;
 };
 
 export default {

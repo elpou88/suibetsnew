@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { Link, useLocation } from "wouter";
-import { Search, Clock, TrendingUp, TrendingDown, Wallet, LogOut, RefreshCw, Menu, X, Star, ChevronUp, ChevronDown, Trash2, Info } from "lucide-react";
+import { Search, Clock, TrendingUp, TrendingDown, Wallet, LogOut, RefreshCw, Menu, X, Star, ChevronUp, ChevronDown, Trash2, Info, MoreHorizontal } from "lucide-react";
+import sportMarketsAdapter from "@/lib/sportMarketsAdapter";
 import { useBetting } from "@/context/BettingContext";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentAccount, useDisconnectWallet, useSuiClientQuery } from "@mysten/dapp-kit";
@@ -818,8 +819,16 @@ interface CompactEventCardProps {
 function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCardProps) {
   const [selectedOutcome, setSelectedOutcome] = useState<string | null>(null);
   const [showTooltip, setShowTooltip] = useState(false);
+  const [showMoreMarkets, setShowMoreMarkets] = useState(false);
   const { addBet } = useBetting();
   const { toast } = useToast();
+  
+  // Get secondary markets for this event (BTTS, Double Chance, etc.)
+  const secondaryMarkets = useMemo(() => {
+    if (event.sportId !== 1) return []; // Only soccer has secondary markets
+    const allMarkets = sportMarketsAdapter.getDefaultMarkets(1, event.homeTeam, event.awayTeam);
+    return allMarkets.slice(1); // Skip the primary Match Result market
+  }, [event.homeTeam, event.awayTeam, event.sportId]);
   
   const hasRealOdds = event.homeOdds !== null && event.homeOdds !== undefined && event.homeOdds > 0;
   const odds = {
@@ -1066,6 +1075,73 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
           </motion.div>
         )}
       </AnimatePresence>
+      
+      {/* More Markets Button and Expandable Section */}
+      {secondaryMarkets.length > 0 && hasRealOdds && !isBettingClosed && (
+        <>
+          <button
+            onClick={() => setShowMoreMarkets(!showMoreMarkets)}
+            className="w-full mt-2 py-1.5 flex items-center justify-center gap-1 text-xs text-cyan-400 hover:text-cyan-300 transition-colors border-t border-cyan-900/20"
+            data-testid={`btn-more-markets-${event.id}`}
+          >
+            <MoreHorizontal size={14} />
+            <span>{showMoreMarkets ? 'Hide Markets' : `+${secondaryMarkets.length} More Markets`}</span>
+            {showMoreMarkets ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          
+          <AnimatePresence>
+            {showMoreMarkets && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div className="px-4 py-3 bg-[#0a0a0a] space-y-3">
+                  {secondaryMarkets.map((market) => (
+                    <div key={market.id} className="space-y-2">
+                      <div className="text-xs text-gray-400 font-medium">{market.name}</div>
+                      <div className="flex flex-wrap gap-1">
+                        {market.outcomes.map((outcome) => (
+                          <button
+                            key={outcome.id}
+                            onClick={() => {
+                              addBet({
+                                id: `${event.id}-${market.id}-${outcome.id}`,
+                                eventId: String(event.id),
+                                eventName: `${event.homeTeam} vs ${event.awayTeam}`,
+                                marketId: String(market.id),
+                                market: market.name,
+                                outcomeId: String(outcome.id),
+                                selectionId: String(outcome.id),
+                                selectionName: outcome.name,
+                                odds: outcome.odds,
+                                homeTeam: event.homeTeam,
+                                awayTeam: event.awayTeam,
+                                isLive: event.isLive || false,
+                              });
+                              toast({ 
+                                title: "Added to bet slip", 
+                                description: `${market.name}: ${outcome.name} @ ${outcome.odds.toFixed(2)}` 
+                              });
+                            }}
+                            className="px-2 py-1 bg-[#1a1a1a] hover:bg-[#222] text-xs rounded transition-colors"
+                            data-testid={`btn-market-${market.id}-${outcome.id}-${event.id}`}
+                          >
+                            <span className="text-gray-400">{outcome.name}</span>
+                            <span className="ml-1 text-cyan-400 font-medium">{outcome.odds.toFixed(2)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </>
+      )}
     </div>
   );
 }

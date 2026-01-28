@@ -17,15 +17,16 @@ import {
   Clock
 } from 'lucide-react';
 import { useBetting } from '@/context/BettingContext';
-import { Event } from '@/types';
-import sportMarketsAdapter, { SportIds, Market } from '@/lib/sportMarketsAdapter';
+import { Event, Market } from '@/types';
+import sportMarketsAdapter, { SportIds } from '@/lib/sportMarketsAdapter';
+import { Separator } from '@/components/ui/separator';
 
 // Inline sport event card component definition since we had import issues
 const SportEventCard = ({ event, sportId }: { event: Event, sportId: number }) => {
   const { addBet } = useBetting();
   
   // Get markets for this event based on sport type
-  let markets = event.markets || [];
+  let markets: any[] = event.markets || [];
   
   // If no markets provided, use default ones based on sport
   if (!markets || markets.length === 0) {
@@ -35,8 +36,8 @@ const SportEventCard = ({ event, sportId }: { event: Event, sportId: number }) =
       event.awayTeam
     );
   } else {
-    // Enhance the existing markets
-    markets = sportMarketsAdapter.enhanceMarketsForSport(markets, sportId);
+    // Enhance the existing markets and add missing secondary markets
+    markets = sportMarketsAdapter.enhanceMarketsForSport(markets as any, sportId, event.homeTeam, event.awayTeam);
   }
   
   const primaryMarket = markets[0];
