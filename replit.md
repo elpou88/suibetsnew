@@ -86,7 +86,7 @@ Preferred communication style: Simple, everyday language.
   - Each currency pool distributed independently to holders
   - Claimable amounts show both SUI and SBETS
   - API returns: `totalRevenueSui`, `totalRevenueSbets`, `claimableSui`, `claimableSbets`
-- **Holder Discovery**: Uses BlockVision API (if BLOCKVISION_API_KEY set) to fetch ALL on-chain SBETS token holders, fallback to database wallets
+- **Holder Discovery**: Uses BlockVision API to fetch ALL on-chain SBETS token holders (456 holders as of Jan 28, 2026). Fetches 50 holders per page with 1.5s delay to avoid rate limiting. Falls back to database wallets if BlockVision unavailable.
 - **Share Calculation (Fixed January 28, 2026)**: User's share = (their SBETS / TOTAL ON-CHAIN SUPPLY) × 30% of each currency pool
   - Uses actual total supply from blockchain (10 billion SBETS), NOT just sum of known holders
   - Example: 6.168M SBETS = 0.0617% share (6.168M / 10B), not 4% as previously calculated

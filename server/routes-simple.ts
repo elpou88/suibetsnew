@@ -3136,6 +3136,10 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
             if (!response.ok) {
               const errorText = await response.text();
               console.warn(`[Revenue] BlockVision API error: ${response.status} - ${errorText}`);
+              // If we hit rate limit but have some holders, keep them
+              if (holders.length > 0) {
+                console.log(`[Revenue] Rate limited but keeping ${holders.length} holders already fetched`);
+              }
               break;
             }
             
@@ -3146,10 +3150,10 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
             const holderData = data.result?.data || data.data || [];
             if (Array.isArray(holderData)) {
               for (const h of holderData) {
-                const address = h.address || h.owner;
+                const address = h.account || h.address || h.owner;
                 if (!address || PLATFORM_WALLETS.includes(address)) continue;
                 
-                const balance = parseInt(h.quantity || h.balance || '0') / 1e9;
+                const balance = parseFloat(h.balance || h.quantity || '0');
                 if (balance > 0) {
                   holders.push({ address, balance, percentage: 0 });
                   circulatingSupply += balance;
@@ -3162,6 +3166,11 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
             
             // Safety limit: max 20 pages (1000 holders)
             if (page >= 20) break;
+            
+            // Add delay between requests to avoid rate limiting (1.5 seconds)
+            if (cursor) {
+              await new Promise(resolve => setTimeout(resolve, 1500));
+            }
             
           } while (cursor);
           
