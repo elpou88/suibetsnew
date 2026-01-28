@@ -826,8 +826,10 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
   // Get secondary markets for this event (BTTS, Double Chance, etc.)
   const secondaryMarkets = useMemo(() => {
     if (event.sportId !== 1) return []; // Only soccer has secondary markets
-    return sportMarketsAdapter.getDefaultMarkets(1, event.homeTeam, event.awayTeam).slice(1);
-  }, [event.id, event.homeTeam, event.awayTeam, event.sportId]);
+    return sportMarketsAdapter.getDefaultMarkets(1, event.homeTeam, event.awayTeam)
+      .slice(1)
+      .filter(m => !isMarketClosed(m.id));
+  }, [event.id, event.homeTeam, event.awayTeam, event.sportId, minuteNum]);
   
   const hasRealOdds = event.homeOdds !== null && event.homeOdds !== undefined && event.homeOdds > 0;
   const odds = {
@@ -839,6 +841,21 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
   // Check if betting is closed (last 10 minutes of live match - minute >= 80)
   const minuteNum = event.minute ? parseInt(event.minute.toString().replace(/[^0-9]/g, '')) : 0;
   const isBettingClosed = event.isLive && minuteNum >= 80;
+
+  // Helper to check if a market is closed based on match minute
+  const isMarketClosed = (marketId: string) => {
+    if (!event.isLive) return false;
+    const marketLower = marketId.toLowerCase();
+    const isFirstHalf = marketLower.includes('1st_half') || 
+                       marketLower.includes('1st-half') ||
+                       marketLower.includes('first_half') ||
+                       marketLower.includes('first-half') ||
+                       marketLower.includes('half_time_result') ||
+                       marketLower.includes('half-time-result');
+    
+    if (isFirstHalf && minuteNum > 45) return true;
+    return false;
+  };
   
   // Simulated odds movement (in real app, this would compare to previous odds)
   const getOddsMovement = (oddsValue: number): 'up' | 'down' | 'stable' => {
