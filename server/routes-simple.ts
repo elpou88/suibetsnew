@@ -3125,17 +3125,27 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
             
             const response = await fetch(
               `https://api.blockvision.org/v2/sui/coin/holders?${params}`,
-              { headers: { 'Authorization': `Bearer ${blockvisionKey}` } }
+              { 
+                headers: { 
+                  'accept': 'application/json',
+                  'x-api-key': blockvisionKey 
+                } 
+              }
             );
             
             if (!response.ok) {
-              console.warn(`[Revenue] BlockVision API error: ${response.status}`);
+              const errorText = await response.text();
+              console.warn(`[Revenue] BlockVision API error: ${response.status} - ${errorText}`);
               break;
             }
             
             const data = await response.json();
-            if (data.data && Array.isArray(data.data)) {
-              for (const h of data.data) {
+            console.log(`[Revenue] BlockVision response page ${page}: code=${data.code}, total=${data.result?.total || 0}, items=${data.result?.data?.length || 0}`);
+            
+            // Handle the nested result structure
+            const holderData = data.result?.data || data.data || [];
+            if (Array.isArray(holderData)) {
+              for (const h of holderData) {
                 const address = h.address || h.owner;
                 if (!address || PLATFORM_WALLETS.includes(address)) continue;
                 
@@ -3147,7 +3157,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
               }
             }
             
-            cursor = data.nextPageCursor || null;
+            cursor = data.result?.nextPageCursor || data.nextPageCursor || null;
             page++;
             
             // Safety limit: max 20 pages (1000 holders)
