@@ -840,8 +840,7 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
   
   // Check if betting is closed (last 10 minutes of live match - minute >= 80)
   const minuteNum = event.minute ? parseInt(event.minute.toString().replace(/[^0-9]/g, '')) : 0;
-  const isBettingClosed = event.isLive && minuteNum >= 80;
-
+  
   // Helper to check if a market is closed based on match minute
   const isMarketClosed = (marketId: string) => {
     if (!event.isLive) return false;
@@ -856,6 +855,8 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
     if (isFirstHalf && minuteNum > 45) return true;
     return false;
   };
+
+  const isBettingClosed = event.isLive && minuteNum >= 80;
   
   // Simulated odds movement (in real app, this would compare to previous odds)
   const getOddsMovement = (oddsValue: number): 'up' | 'down' | 'stable' => {
