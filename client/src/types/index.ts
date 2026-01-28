@@ -69,6 +69,22 @@ export interface SelectedBet {
   isLive?: boolean; // Indicates if this is a live event
   matchMinute?: number; // Current match minute for live events (betting blocked >= 80)
   uniqueId?: string; // Optional unique identifier to prevent duplicates
+  homeTeam?: string; // Home team for settlement matching
+  awayTeam?: string; // Away team for settlement matching
+}
+
+// Market type for betting markets
+export interface Market {
+  id: number | string;
+  name: string;
+  type?: string;
+  status?: string;
+  outcomes: {
+    id: string | number;
+    name: string;
+    odds: number;
+    probability?: number;
+  }[];
 }
 
 export interface ConnectWalletModalProps {

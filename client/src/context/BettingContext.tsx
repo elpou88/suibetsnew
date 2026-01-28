@@ -196,6 +196,7 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
               walletAddress: user.walletAddress || currentAccount?.address,
               eventId: bet.eventId,
               eventName: bet.eventName,
+              market: bet.market,
               marketId: bet.marketId,
               outcomeId: bet.outcomeId,
               odds: bet.odds,
@@ -207,6 +208,8 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
               status: 'pending',
               isLive: bet.isLive,
               matchMinute: bet.matchMinute,
+              homeTeam: bet.homeTeam,
+              awayTeam: bet.awayTeam
             });
 
             if (response.ok) {

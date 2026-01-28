@@ -3,19 +3,9 @@ import { Link } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ActivityIcon, Clock, ChevronDown, ChevronUp } from 'lucide-react';
-import { Event } from '@/types';
+import { Event, Market } from '@/types';
 import { useBetting } from '@/context/BettingContext';
 import sportMarketsAdapter from '@/lib/sportMarketsAdapter';
-
-interface Market {
-  id: string | number;
-  name: string;
-  outcomes: {
-    id: string | number;
-    name: string;
-    odds: number;
-  }[];
-}
 
 interface SportEventCardProps {
   event: Event;
@@ -82,7 +72,9 @@ const SportEventCard: React.FC<SportEventCardProps> = ({ event, sportId }) => {
       market: market?.name || 'Match Result',
       marketId: typeof market?.id === 'number' ? market.id : parseInt(String(market?.id)),
       isLive: event.isLive,
-      uniqueId: Math.random().toString(36).substring(2, 8)
+      uniqueId: Math.random().toString(36).substring(2, 8),
+      homeTeam: event.homeTeam,
+      awayTeam: event.awayTeam
     };
     
     addBet(bet);
