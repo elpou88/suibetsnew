@@ -3046,7 +3046,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       
       // Save claim to database for persistence across server restarts
       const sharePercentage = totalSupply > 0 ? (userSbets / totalSupply) * 100 : 0;
-      const saved = await saveRevenueClaim(walletAddress, startOfWeek, userSbets, sharePercentage, claimSui, claimSbets, suiTxHash || '', sbetsTxHash);
+      const saved = await saveRevenueClaim(walletAddress, startOfWeek, userSbets, sharePercentage, claimSui, claimSbets, suiTxHash || '', sbetsTxHash || null);
       
       if (!saved) {
         console.warn('[Revenue] Failed to persist claim to database - claim may be counted again');
@@ -3073,7 +3073,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
   
   // Helper function to fetch SBETS holders
   // Cache for SBETS holders data (refresh every 5 minutes)
-  let sbetsHoldersCache: { totalSupply: number; holders: Array<{ address: string; balance: number; percentage: number }>; lastUpdated: number } | null = null;
+  let sbetsHoldersCache: { totalSupply: number; circulatingSupply: number; holders: Array<{ address: string; balance: number; percentage: number }>; lastUpdated: number } | null = null;
   const SBETS_HOLDERS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
   
   // Platform wallets to EXCLUDE from revenue distribution (these are platform-owned, not circulating)
@@ -3086,10 +3086,10 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     '0x798e8bb6db3f9c0233ca3521a7b5431af39350b3092144c74be033b468e48426', // Known user
   ];
   
-  async function fetchSbetsHolders(): Promise<{ totalSupply: number; holders: Array<{ address: string; balance: number; percentage: number }> }> {
+  async function fetchSbetsHolders(): Promise<{ totalSupply: number; circulatingSupply: number; holders: Array<{ address: string; balance: number; percentage: number }> }> {
     // Return cached data if still fresh
     if (sbetsHoldersCache && (Date.now() - sbetsHoldersCache.lastUpdated) < SBETS_HOLDERS_CACHE_TTL) {
-      return { totalSupply: sbetsHoldersCache.totalSupply, holders: sbetsHoldersCache.holders };
+      return { totalSupply: sbetsHoldersCache.totalSupply, circulatingSupply: sbetsHoldersCache.circulatingSupply || sbetsHoldersCache.totalSupply, holders: sbetsHoldersCache.holders };
     }
     
     try {
@@ -3097,15 +3097,15 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const suiClient = new SuiClient({ url: getFullnodeUrl('mainnet') });
       
       const coinType = SBETS_TOKEN_TYPE;
-      let totalSupply = 50_000_000; // Default 50M SBETS
+      let totalSupply = 50_000_000_000; // Default 50 BILLION SBETS (actual minted amount)
       
-      // Get actual total supply from blockchain
+      // Get actual total supply from blockchain - this is what we use for share calculation
       try {
         const supplyInfo = await suiClient.getTotalSupply({ coinType });
         totalSupply = parseInt(supplyInfo.value) / 1e9;
         console.log(`[Revenue] SBETS total supply from chain: ${totalSupply.toLocaleString()}`);
       } catch (e) {
-        console.log('[Revenue] Using default SBETS supply: 50M');
+        console.log('[Revenue] Using default SBETS supply: 50B');
       }
       
       const holders: Array<{ address: string; balance: number; percentage: number }> = [];
@@ -3199,25 +3199,26 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         }
       }
       
-      // Calculate percentages
+      // Calculate percentages based on TOTAL supply (not just known holders)
       for (const holder of holders) {
-        holder.percentage = circulatingSupply > 0 ? (holder.balance / circulatingSupply) * 100 : 0;
+        holder.percentage = totalSupply > 0 ? (holder.balance / totalSupply) * 100 : 0;
       }
       
       holders.sort((a, b) => b.balance - a.balance);
       
-      console.log(`[Revenue] Found ${holders.length} SBETS holders with total ${circulatingSupply.toLocaleString()} SBETS`);
+      console.log(`[Revenue] Found ${holders.length} SBETS holders with ${circulatingSupply.toLocaleString()} known SBETS out of ${totalSupply.toLocaleString()} total supply`);
       
       sbetsHoldersCache = { 
-        totalSupply: circulatingSupply > 0 ? circulatingSupply : totalSupply, 
+        totalSupply,  // ALWAYS use on-chain total supply for share calculation
+        circulatingSupply: circulatingSupply > 0 ? circulatingSupply : totalSupply,
         holders, 
         lastUpdated: Date.now() 
       };
       
-      return { totalSupply: sbetsHoldersCache.totalSupply, holders };
+      return { totalSupply: sbetsHoldersCache.totalSupply, circulatingSupply: sbetsHoldersCache.circulatingSupply, holders };
     } catch (error) {
       console.error('Error fetching SBETS holders:', error);
-      return { totalSupply: 50_000_000, holders: [] };
+      return { totalSupply: 50_000_000_000, circulatingSupply: 50_000_000_000, holders: [] };
     }
   }
   
