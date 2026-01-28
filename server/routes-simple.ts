@@ -1609,17 +1609,35 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
             });
           }
           
-          // Check trusted minute against 80-minute cutoff
-          if (eventLookup.minute >= 80) {
-            console.log(`❌ Bet rejected (server-verified): Live match at ${eventLookup.minute} minutes (>= 80 min cutoff), eventId: ${eventId}, client claimed isLive: ${isLive}`);
-            return res.status(400).json({ 
-              message: "Betting closed for this match (80+ minutes played)",
-              code: "MATCH_TIME_EXCEEDED",
-              serverVerified: true
-            });
-          }
-          // Live match under 80 minutes with fresh cache and verified minute - allow bet to proceed
-          console.log(`✅ Live bet allowed: eventId ${eventId}, minute: ${eventLookup.minute}, cache age: ${Math.round(eventLookup.cacheAgeMs/1000)}s`);
+        // Check trusted minute against 80-minute cutoff
+        if (eventLookup.minute >= 80) {
+          console.log(`❌ Bet rejected (server-verified): Live match at ${eventLookup.minute} minutes (>= 80 min cutoff), eventId: ${eventId}, client claimed isLive: ${isLive}`);
+          return res.status(400).json({ 
+            message: "Betting closed for this match (80+ minutes played)",
+            code: "MATCH_TIME_EXCEEDED",
+            serverVerified: true
+          });
+        }
+
+        // ANTI-CHEAT: Market-specific time validation
+        const marketLower = marketId.toLowerCase();
+        const firstHalfMarkets = ['half_time_result', 'ht_ft', '1st_half_goals', 'first_half_winner', 'half-time-result', '1st-half-goals'];
+        const isFirstHalfMarket = firstHalfMarkets.includes(marketLower) || 
+                                marketLower.includes('1st_half') || 
+                                marketLower.includes('1st-half') ||
+                                marketLower.includes('first_half') ||
+                                marketLower.includes('first-half');
+        
+        if (isFirstHalfMarket && eventLookup.minute > 45) {
+          console.log(`❌ Bet rejected (anti-cheat): First half market ${marketId} selected at minute ${eventLookup.minute}`);
+          return res.status(400).json({
+            message: "This market is closed (First half has ended)",
+            code: "MARKET_CLOSED_HALF_TIME"
+          });
+        }
+        
+        // Live match under 80 minutes with fresh cache and verified minute - allow bet to proceed
+        console.log(`✅ Live bet allowed: eventId ${eventId}, minute: ${eventLookup.minute}, cache age: ${Math.round(eventLookup.cacheAgeMs/1000)}s`);
         } else if (eventLookup.source === 'upcoming') {
           // Event found in upcoming cache - but check if it SHOULD be live based on start time
           if (eventLookup.shouldBeLive) {
