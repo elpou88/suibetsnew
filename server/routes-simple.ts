@@ -2822,14 +2822,24 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         return betDate >= startOfWeek;
       });
       
+      // Price conversion: Convert all revenue to SUI equivalent for consistency
+      const SUI_PRICE_USD = 1.50;
+      const SBETS_PRICE_USD = 0.000001;
+      const sbetsToSuiRatio = SBETS_PRICE_USD / SUI_PRICE_USD;
+      
       const weeklyRevenue = weeklyBets.reduce((sum: number, bet: any) => {
+        let revenue = 0;
         if (bet.status === 'lost') {
-          return sum + (bet.betAmount || 0);
+          revenue = bet.betAmount || 0;
         } else if (bet.status === 'won' && bet.potentialWin) {
           const profit = bet.potentialWin - bet.betAmount;
-          return sum + (profit * 0.01);
+          revenue = profit * 0.01;
         }
-        return sum;
+        // Convert SBETS to SUI equivalent
+        if (bet.currency === 'SBETS') {
+          revenue = revenue * sbetsToSuiRatio;
+        }
+        return sum + revenue;
       }, 0);
       
       const holderPool = weeklyRevenue * REVENUE_SHARE_PERCENTAGE;
@@ -3103,6 +3113,11 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const settledBets = await getSettledBetsForRevenue();
       const weeklyData: Map<string, number> = new Map();
       
+      // Price conversion: Convert all revenue to SUI equivalent for consistency
+      const SUI_PRICE_USD = 1.50;
+      const SBETS_PRICE_USD = 0.000001;
+      const sbetsToSuiRatio = SBETS_PRICE_USD / SUI_PRICE_USD;
+      
       for (const bet of settledBets) {
         const betDate = new Date(bet.createdAt || 0);
         const weekStart = new Date(betDate);
@@ -3116,6 +3131,10 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         } else if (bet.status === 'won' && bet.potentialWin) {
           const profit = bet.potentialWin - bet.betAmount;
           revenue = profit * 0.01;
+        }
+        // Convert SBETS to SUI equivalent
+        if (bet.currency === 'SBETS') {
+          revenue = revenue * sbetsToSuiRatio;
         }
         
         weeklyData.set(weekKey, (weeklyData.get(weekKey) || 0) + revenue);

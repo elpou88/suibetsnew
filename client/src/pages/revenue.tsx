@@ -142,7 +142,7 @@ export default function RevenuePage() {
   };
 
   const formatUSD = (suiAmount: number) => {
-    const suiPrice = 4.5;
+    const suiPrice = 1.50; // Updated January 27, 2026
     const usdValue = suiAmount * suiPrice;
     return `$${usdValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`;
   };
