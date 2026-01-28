@@ -840,7 +840,6 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
   }, [event?.isLive, minuteNum]);
 
   // Helper to check if a market is closed based on match minute
-  // Wrap in useCallback or ensure it handles missing/invalid marketId
   const isMarketClosed = useCallback((marketId: any) => {
     if (!event?.isLive || !marketId) return false;
     try {
@@ -850,9 +849,13 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
                          marketStr.includes('first_half') ||
                          marketStr.includes('first-half') ||
                          marketStr.includes('half_time_result') ||
-                         marketStr.includes('half-time-result');
+                         marketStr.includes('half-time-result') ||
+                         marketStr === '4';
       
-      if (isFirstHalf && minuteNum > 45) return true;
+      if (isFirstHalf && minuteNum >= 45) return true;
+      
+      // Also block full-time result and other markets after minute 80
+      if (minuteNum >= 80) return true;
     } catch (e) {
       console.error("Error in isMarketClosed:", e);
     }

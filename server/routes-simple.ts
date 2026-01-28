@@ -1478,6 +1478,38 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const eventId = String(data.eventId);
       const { eventName, homeTeam, awayTeam, marketId, outcomeId, odds, betAmount, currency, prediction, feeCurrency, paymentMethod, txHash, onChainBetId, status, isLive, matchMinute, walletAddress } = data;
       
+      // Anti-cheat: Block first-half markets after minute 45 and all markets after minute 80
+      const isFirstHalfMarket = marketId && (
+        String(marketId).includes('1st_half') || 
+        String(marketId).includes('1st-half') ||
+        String(marketId).includes('first_half') ||
+        String(marketId).includes('first-half') ||
+        String(marketId).includes('half_time_result') ||
+        String(marketId).includes('half-time-result') ||
+        marketId === "4" // First Half Result market ID
+      );
+
+      const currentMinute = matchMinute || (isLive ? parseInt(String(apiSportsService.lookupEventSync(eventId).minute || 0)) : 0);
+
+      if (isLive) {
+        if (isFirstHalfMarket && currentMinute >= 45) {
+          console.warn(`[Anti-Cheat] Blocking late 1st half bet: event ${eventId}, minute ${currentMinute}`);
+          return res.status(400).json({ 
+            success: false, 
+            message: "MARKET_CLOSED_HALF_TIME",
+            details: "This market closed at the end of the first half."
+          });
+        }
+        if (currentMinute >= 80) {
+          console.warn(`[Anti-Cheat] Blocking late match bet: event ${eventId}, minute ${currentMinute}`);
+          return res.status(400).json({ 
+            success: false, 
+            message: "MATCH_CUTOFF",
+            details: "Betting is closed after the 80th minute."
+          });
+        }
+      }
+
       // MAX STAKE VALIDATION - Backend enforcement (100 SUI / 10M SBETS)
       // Use feeCurrency as primary indicator (client sends this), fallback to currency
       const betCurrency = feeCurrency || currency || 'SUI';
