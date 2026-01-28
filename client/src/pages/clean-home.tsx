@@ -828,15 +828,15 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
   const isBettingClosed = event.isLive && minuteNum >= 80;
 
   // Helper to check if a market is closed based on match minute
-  const isMarketClosed = (marketId: string) => {
-    if (!event.isLive) return false;
-    const marketLower = marketId.toLowerCase();
-    const isFirstHalf = marketLower.includes('1st_half') || 
-                       marketLower.includes('1st-half') ||
-                       marketLower.includes('first_half') ||
-                       marketLower.includes('first-half') ||
-                       marketLower.includes('half_time_result') ||
-                       marketLower.includes('half-time-result');
+  const isMarketClosed = (marketId: any) => {
+    if (!event.isLive || !marketId) return false;
+    const marketStr = String(marketId).toLowerCase();
+    const isFirstHalf = marketStr.includes('1st_half') || 
+                       marketStr.includes('1st-half') ||
+                       marketStr.includes('first_half') ||
+                       marketStr.includes('first-half') ||
+                       marketStr.includes('half_time_result') ||
+                       marketStr.includes('half-time-result');
     
     if (isFirstHalf && minuteNum > 45) return true;
     return false;
