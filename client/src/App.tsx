@@ -60,6 +60,8 @@ import RulesPage from "@/pages/rules";
 import IntegrityPage from "@/pages/integrity";
 import AffiliatePage from "@/pages/affiliate";
 import BlogPage from "@/pages/blog";
+import LeaderboardPage from "@/pages/leaderboard";
+import { SessionTimer } from "@/components/ResponsibleGaming";
 
 function App() {
   console.log("Starting React application");
@@ -145,6 +147,7 @@ function App() {
                           <Route path="/bet-history" component={BetHistoryPage} />
                           <Route path="/dividends" component={DividendsReal} />
                           <Route path="/revenue" component={RevenuePage} />
+                          <Route path="/leaderboard" component={LeaderboardPage} />
                           <Route path="/storage" component={StoragePage} />
                           <Route path="/live-scores" component={LiveScoresPage} />
                           
@@ -194,6 +197,7 @@ function App() {
                         </div>
                       </div>
                       <SpecialLinks />
+                      <SessionTimer />
                       <Toaster />
                     </BettingProvider>
                     </SettingsProvider>

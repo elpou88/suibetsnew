@@ -97,6 +97,30 @@ Preferred communication style: Simple, everyday language.
 - **Database Accounts**: Revenue tracked in 3 separate DB accounts for transparency
 - **Price Constants**: SUI = $1.50 USD, SBETS = $0.000001 USD (consistent across all endpoints)
 
+### Leaderboard System (Added January 28, 2026)
+- **Weekly/Monthly/All-Time Rankings**: Top winners by profit
+- **Metrics Tracked**: Total bets, win rate, profit/loss
+- **API Endpoint**: GET `/api/leaderboard?period=weekly|monthly|allTime`
+
+### User Betting Limits (Added January 28, 2026)
+- **Daily/Weekly/Monthly Limits**: User-set spending limits in USD
+- **Session Timer**: Reality check reminders (default 60 min intervals)
+- **Self-Exclusion**: Option to temporarily exclude from betting
+- **API Endpoints**: GET/POST `/api/user/limits`
+
+### Referral System (Added January 28, 2026)
+- **Referral Codes**: Generated from wallet address
+- **Bonus Structure**: $10 free bet for every 100 referrals
+- **Tracking**: Pending, qualified, and rewarded referrals
+- **API Endpoints**: GET `/api/referral/code`, GET `/api/referral/stats`, POST `/api/referral/track`
+
+### Additional Betting Markets (Added January 28, 2026)
+- **BTTS (Both Teams to Score)**: Yes/No market
+- **Double Chance**: 1X, X2, or 12 outcomes
+- **Half-Time Result**: Bet on 1st half outcome
+- **Over/Under Goals**: Existing (O/U 0.5, 1.5, 2.5, 3.5)
+- **Correct Score**: Existing (exact final score)
+
 ## External Dependencies
 
 ### Sports Data Providers

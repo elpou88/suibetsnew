@@ -1493,6 +1493,77 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         });
       }
       
+      // USER BETTING LIMITS CHECK (validate only, update after bet success)
+      const SUI_PRICE_USD = 1.50;
+      const SBETS_PRICE_USD = 0.000001;
+      const betUsdValue = betCurrency === 'SBETS' ? betAmount * SBETS_PRICE_USD : betAmount * SUI_PRICE_USD;
+      let limitsCheckPassed = false;
+      let userWalletForLimits: string | null = null;
+      
+      try {
+        const { userLimits } = await import('@shared/schema');
+        const { db } = await import('./db');
+        const { eq } = await import('drizzle-orm');
+        userWalletForLimits = walletAddress || userId;
+        
+        if (userWalletForLimits && userWalletForLimits.startsWith('0x')) {
+          const [limits] = await db.select().from(userLimits).where(eq(userLimits.walletAddress, userWalletForLimits));
+          
+          if (limits) {
+            const now = new Date();
+            
+            // Reset spent amounts based on time windows
+            let dailySpent = limits.dailySpent || 0;
+            let weeklySpent = limits.weeklySpent || 0;
+            let monthlySpent = limits.monthlySpent || 0;
+            
+            // Reset daily if last reset was before today
+            if (limits.lastResetDaily) {
+              const lastDaily = new Date(limits.lastResetDaily);
+              if (lastDaily.toDateString() !== now.toDateString()) {
+                dailySpent = 0;
+              }
+            }
+            
+            // Reset weekly if last reset was more than 7 days ago
+            if (limits.lastResetWeekly) {
+              const lastWeekly = new Date(limits.lastResetWeekly);
+              if (now.getTime() - lastWeekly.getTime() > 7 * 24 * 60 * 60 * 1000) {
+                weeklySpent = 0;
+              }
+            }
+            
+            // Reset monthly if last reset was in a different month
+            if (limits.lastResetMonthly) {
+              const lastMonthly = new Date(limits.lastResetMonthly);
+              if (lastMonthly.getMonth() !== now.getMonth() || lastMonthly.getFullYear() !== now.getFullYear()) {
+                monthlySpent = 0;
+              }
+            }
+            
+            // Check self-exclusion
+            if (limits.selfExclusionUntil && new Date(limits.selfExclusionUntil) > now) {
+              return res.status(403).json({ message: 'Self-exclusion active', code: 'SELF_EXCLUDED' });
+            }
+            
+            // Check limits (validation only, no update yet)
+            if (limits.dailyLimit && dailySpent + betUsdValue > limits.dailyLimit) {
+              return res.status(403).json({ message: `Daily limit of $${limits.dailyLimit} reached`, code: 'DAILY_LIMIT_EXCEEDED' });
+            }
+            if (limits.weeklyLimit && weeklySpent + betUsdValue > limits.weeklyLimit) {
+              return res.status(403).json({ message: `Weekly limit of $${limits.weeklyLimit} reached`, code: 'WEEKLY_LIMIT_EXCEEDED' });
+            }
+            if (limits.monthlyLimit && monthlySpent + betUsdValue > limits.monthlyLimit) {
+              return res.status(403).json({ message: `Monthly limit of $${limits.monthlyLimit} reached`, code: 'MONTHLY_LIMIT_EXCEEDED' });
+            }
+            
+            limitsCheckPassed = true;
+          }
+        }
+      } catch (limitsError) {
+        console.log('Limits check skipped:', limitsError);
+      }
+      
       // SERVER-SIDE VALIDATION: Unified event registry lookup
       // CRITICAL: Server is authoritative about event status - never trust client isLive/matchMinute
       // Security: FAIL-CLOSED - Event must exist in server cache (live or upcoming) to accept bet
@@ -1619,6 +1690,55 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
 
       // Store bet in storage
       const storedBet = await storage.createBet(bet);
+      
+      // UPDATE LIMITS AFTER SUCCESSFUL BET PLACEMENT
+      if (limitsCheckPassed && userWalletForLimits) {
+        try {
+          const { userLimits: userLimitsTable } = await import('@shared/schema');
+          const { db: dbInstance } = await import('./db');
+          const { eq: eqOp } = await import('drizzle-orm');
+          const now = new Date();
+          
+          const [currentLimits] = await dbInstance.select().from(userLimitsTable).where(eqOp(userLimitsTable.walletAddress, userWalletForLimits));
+          if (currentLimits) {
+            // Calculate spent with time-window resets
+            let dailySpent = currentLimits.dailySpent || 0;
+            let weeklySpent = currentLimits.weeklySpent || 0;
+            let monthlySpent = currentLimits.monthlySpent || 0;
+            let lastResetDaily = currentLimits.lastResetDaily;
+            let lastResetWeekly = currentLimits.lastResetWeekly;
+            let lastResetMonthly = currentLimits.lastResetMonthly;
+            
+            if (lastResetDaily && new Date(lastResetDaily).toDateString() !== now.toDateString()) {
+              dailySpent = 0;
+              lastResetDaily = now;
+            }
+            if (lastResetWeekly && now.getTime() - new Date(lastResetWeekly).getTime() > 7 * 24 * 60 * 60 * 1000) {
+              weeklySpent = 0;
+              lastResetWeekly = now;
+            }
+            if (lastResetMonthly) {
+              const lm = new Date(lastResetMonthly);
+              if (lm.getMonth() !== now.getMonth() || lm.getFullYear() !== now.getFullYear()) {
+                monthlySpent = 0;
+                lastResetMonthly = now;
+              }
+            }
+            
+            await dbInstance.update(userLimitsTable).set({
+              dailySpent: dailySpent + betUsdValue,
+              weeklySpent: weeklySpent + betUsdValue,
+              monthlySpent: monthlySpent + betUsdValue,
+              lastResetDaily,
+              lastResetWeekly,
+              lastResetMonthly,
+              updatedAt: now
+            }).where(eqOp(userLimitsTable.walletAddress, userWalletForLimits));
+          }
+        } catch (updateError) {
+          console.log('Limits update after bet failed:', updateError);
+        }
+      }
 
       // Record bet on blockchain for verification (platform bets only)
       let onChainBet = null;
@@ -3283,6 +3403,260 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       return [];
     }
   }
+
+  // =====================================================
+  // LEADERBOARD ROUTES
+  // =====================================================
+  
+  app.get('/api/leaderboard', async (req: Request, res: Response) => {
+    try {
+      const period = (req.query.period as string) || 'weekly';
+      const allBets = await storage.getAllBets();
+      
+      // Calculate date range
+      const now = new Date();
+      let startDate: Date;
+      if (period === 'weekly') {
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      } else if (period === 'monthly') {
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      } else {
+        startDate = new Date(0);
+      }
+      
+      // Filter bets by period and calculate profits
+      const walletStats: Record<string, { profit: number; totalBets: number; wins: number; currency: string }> = {};
+      
+      for (const bet of allBets) {
+        if (!bet.walletAddress && !bet.userId) continue;
+        const wallet = bet.walletAddress || bet.userId;
+        const betDate = new Date(bet.createdAt || 0);
+        if (betDate < startDate) continue;
+        
+        if (!walletStats[wallet]) {
+          walletStats[wallet] = { profit: 0, totalBets: 0, wins: 0, currency: bet.currency || 'SUI' };
+        }
+        
+        walletStats[wallet].totalBets++;
+        
+        if (bet.status === 'won' || bet.status === 'paid_out') {
+          const payout = bet.payout || bet.potentialWin || 0;
+          const profit = payout - (bet.betAmount || 0);
+          walletStats[wallet].profit += profit;
+          walletStats[wallet].wins++;
+        } else if (bet.status === 'lost') {
+          walletStats[wallet].profit -= bet.betAmount || 0;
+        }
+      }
+      
+      // Convert to array and sort by profit
+      const leaderboard = Object.entries(walletStats)
+        .filter(([_, stats]) => stats.totalBets >= 1)
+        .map(([wallet, stats], index) => ({
+          rank: index + 1,
+          wallet,
+          profit: stats.profit,
+          totalBets: stats.totalBets,
+          winRate: stats.totalBets > 0 ? (stats.wins / stats.totalBets) * 100 : 0,
+          currency: stats.currency
+        }))
+        .sort((a, b) => b.profit - a.profit)
+        .slice(0, 50)
+        .map((entry, index) => ({ ...entry, rank: index + 1 }));
+      
+      res.json({ leaderboard });
+    } catch (error) {
+      console.error('Leaderboard error:', error);
+      res.status(500).json({ error: 'Failed to get leaderboard' });
+    }
+  });
+
+  // =====================================================
+  // USER LIMITS ROUTES
+  // =====================================================
+  
+  app.get('/api/user/limits', async (req: Request, res: Response) => {
+    try {
+      const wallet = req.query.wallet as string;
+      if (!wallet) {
+        return res.status(400).json({ error: 'Wallet address required' });
+      }
+      
+      const { userLimits } = await import('@shared/schema');
+      const { db } = await import('./db');
+      const { eq } = await import('drizzle-orm');
+      
+      const [limits] = await db.select().from(userLimits).where(eq(userLimits.walletAddress, wallet));
+      
+      if (!limits) {
+        return res.json({ limits: {
+          dailyLimit: null,
+          weeklyLimit: null,
+          monthlyLimit: null,
+          dailySpent: 0,
+          weeklySpent: 0,
+          monthlySpent: 0,
+          sessionReminderMinutes: 60,
+          selfExclusionUntil: null
+        }});
+      }
+      
+      res.json({ limits });
+    } catch (error) {
+      console.error('Get limits error:', error);
+      res.status(500).json({ error: 'Failed to get limits' });
+    }
+  });
+  
+  app.post('/api/user/limits', async (req: Request, res: Response) => {
+    try {
+      const { wallet, dailyLimit, weeklyLimit, monthlyLimit, sessionReminderMinutes } = req.body;
+      if (!wallet) {
+        return res.status(400).json({ error: 'Wallet address required' });
+      }
+      
+      const { userLimits } = await import('@shared/schema');
+      const { db } = await import('./db');
+      const { eq } = await import('drizzle-orm');
+      
+      const [existing] = await db.select().from(userLimits).where(eq(userLimits.walletAddress, wallet));
+      
+      if (existing) {
+        await db.update(userLimits)
+          .set({
+            dailyLimit,
+            weeklyLimit,
+            monthlyLimit,
+            sessionReminderMinutes: sessionReminderMinutes || 60,
+            updatedAt: new Date()
+          })
+          .where(eq(userLimits.walletAddress, wallet));
+      } else {
+        await db.insert(userLimits).values({
+          walletAddress: wallet,
+          dailyLimit,
+          weeklyLimit,
+          monthlyLimit,
+          sessionReminderMinutes: sessionReminderMinutes || 60
+        });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Set limits error:', error);
+      res.status(500).json({ error: 'Failed to set limits' });
+    }
+  });
+
+  // =====================================================
+  // REFERRAL ROUTES
+  // =====================================================
+  
+  // In-memory referral code mapping (code -> wallet)
+  const referralCodeMap: Record<string, string> = {};
+  
+  app.get('/api/referral/code', async (req: Request, res: Response) => {
+    try {
+      const wallet = req.query.wallet as string;
+      if (!wallet) {
+        return res.status(400).json({ error: 'Wallet address required' });
+      }
+      
+      // Generate a unique referral code from wallet
+      const code = wallet.slice(2, 10).toUpperCase();
+      referralCodeMap[code] = wallet; // Store mapping
+      res.json({ code, link: `https://suibets.app/?ref=${code}` });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to generate referral code' });
+    }
+  });
+  
+  app.get('/api/referral/stats', async (req: Request, res: Response) => {
+    try {
+      const wallet = req.query.wallet as string;
+      if (!wallet) {
+        return res.status(400).json({ error: 'Wallet address required' });
+      }
+      
+      const { referrals } = await import('@shared/schema');
+      const { db } = await import('./db');
+      const { eq } = await import('drizzle-orm');
+      
+      const userReferrals = await db.select().from(referrals).where(eq(referrals.referrerWallet, wallet));
+      
+      const totalReferrals = userReferrals.length;
+      const qualifiedReferrals = userReferrals.filter((r: any) => r.status === 'qualified' || r.status === 'rewarded').length;
+      const pendingReferrals = userReferrals.filter((r: any) => r.status === 'pending').length;
+      const totalEarned = userReferrals.reduce((sum: number, r: any) => sum + (r.rewardAmount || 0), 0);
+      
+      // $10 bonus for every 100 invites
+      const bonusesEarned = Math.floor(totalReferrals / 100);
+      const progressToNext = totalReferrals % 100;
+      
+      res.json({
+        totalReferrals,
+        qualifiedReferrals,
+        pendingReferrals,
+        totalEarned,
+        bonusesEarned,
+        bonusAmount: bonusesEarned * 10,
+        progressToNext,
+        nextBonusAt: 100 - progressToNext
+      });
+    } catch (error) {
+      console.error('Referral stats error:', error);
+      res.status(500).json({ error: 'Failed to get referral stats' });
+    }
+  });
+  
+  app.post('/api/referral/track', async (req: Request, res: Response) => {
+    try {
+      const { referralCode, referredWallet } = req.body;
+      if (!referralCode || !referredWallet) {
+        return res.status(400).json({ error: 'Referral code and wallet required' });
+      }
+      
+      const { referrals } = await import('@shared/schema');
+      const { db } = await import('./db');
+      const { eq } = await import('drizzle-orm');
+      
+      // Look up referrer wallet from code mapping or reconstruct from known pattern
+      let referrerWallet = referralCodeMap[referralCode.toUpperCase()];
+      
+      // If not in memory, try to find from existing referrals with same code
+      if (!referrerWallet) {
+        const [existingRef] = await db.select().from(referrals)
+          .where(eq(referrals.referralCode, referralCode.toUpperCase()));
+        if (existingRef) {
+          referrerWallet = existingRef.referrerWallet;
+        }
+      }
+      
+      if (!referrerWallet) {
+        return res.status(400).json({ error: 'Invalid referral code' });
+      }
+      
+      // Check if already referred
+      const [existing] = await db.select().from(referrals)
+        .where(eq(referrals.referredWallet, referredWallet));
+      
+      if (existing) {
+        return res.json({ success: false, message: 'Already referred' });
+      }
+      
+      await db.insert(referrals).values({
+        referrerWallet,
+        referredWallet,
+        referralCode: referralCode.toUpperCase(),
+        status: 'pending'
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Track referral error:', error);
+      res.status(500).json({ error: 'Failed to track referral' });
+    }
+  });
 
   return httpServer;
 }

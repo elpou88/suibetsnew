@@ -552,3 +552,45 @@ export const bettingPromotions = pgTable("betting_promotions", {
 export const insertBettingPromotionSchema = createInsertSchema(bettingPromotions).omit({ id: true, createdAt: true });
 export type InsertBettingPromotion = z.infer<typeof insertBettingPromotionSchema>;
 export type BettingPromotion = typeof bettingPromotions.$inferSelect;
+
+// Referral tracking table
+export const referrals = pgTable("referrals", {
+  id: serial("id").primaryKey(),
+  referrerWallet: text("referrer_wallet").notNull(), // User who referred
+  referredWallet: text("referred_wallet").notNull(), // User who was referred
+  referralCode: text("referral_code").notNull(), // The code used
+  status: text("status").default("pending"), // pending, qualified, rewarded
+  referredBetAmount: real("referred_bet_amount").default(0), // Total bets by referred user
+  rewardAmount: real("reward_amount").default(0), // Reward amount earned
+  rewardCurrency: text("reward_currency").default("USD"), // Currency of reward
+  createdAt: timestamp("created_at").defaultNow(),
+  qualifiedAt: timestamp("qualified_at"), // When referral became qualified
+  rewardedAt: timestamp("rewarded_at") // When reward was paid
+});
+
+export const insertReferralSchema = createInsertSchema(referrals).omit({ id: true, createdAt: true });
+export type InsertReferral = z.infer<typeof insertReferralSchema>;
+export type Referral = typeof referrals.$inferSelect;
+
+// User betting limits table
+export const userLimits = pgTable("user_limits", {
+  id: serial("id").primaryKey(),
+  walletAddress: text("wallet_address").notNull().unique(),
+  dailyLimit: real("daily_limit"), // Max bet per day in USD
+  weeklyLimit: real("weekly_limit"), // Max bet per week in USD
+  monthlyLimit: real("monthly_limit"), // Max bet per month in USD
+  dailySpent: real("daily_spent").default(0), // Amount spent today
+  weeklySpent: real("weekly_spent").default(0), // Amount spent this week
+  monthlySpent: real("monthly_spent").default(0), // Amount spent this month
+  lastResetDaily: timestamp("last_reset_daily").defaultNow(),
+  lastResetWeekly: timestamp("last_reset_weekly").defaultNow(),
+  lastResetMonthly: timestamp("last_reset_monthly").defaultNow(),
+  selfExclusionUntil: timestamp("self_exclusion_until"), // Self-exclusion end date
+  sessionReminderMinutes: integer("session_reminder_minutes").default(60), // Reality check interval
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
+export const insertUserLimitSchema = createInsertSchema(userLimits).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertUserLimit = z.infer<typeof insertUserLimitSchema>;
+export type UserLimit = typeof userLimits.$inferSelect;

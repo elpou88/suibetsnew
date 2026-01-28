@@ -295,6 +295,33 @@ async function seedMarketTypes() {
         requiresNumericValue: true,
         displayOrder: 5,
         createdAt: new Date()
+      },
+      {
+        code: "BTTS",
+        name: "Both Teams to Score",
+        description: "Bet on whether both teams will score in the match",
+        category: "main",
+        isActive: true,
+        displayOrder: 6,
+        createdAt: new Date()
+      },
+      {
+        code: "DOUBLE_CHANCE",
+        name: "Double Chance",
+        description: "Bet on two of three possible outcomes (1X, X2, or 12)",
+        category: "main",
+        isActive: true,
+        displayOrder: 7,
+        createdAt: new Date()
+      },
+      {
+        code: "HALF_TIME",
+        name: "Half-Time Result",
+        description: "Bet on the result at half-time",
+        category: "main",
+        isActive: true,
+        displayOrder: 8,
+        createdAt: new Date()
       }
     ];
     
