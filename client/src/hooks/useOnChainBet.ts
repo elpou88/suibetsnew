@@ -142,14 +142,17 @@ export function useOnChainBet() {
     setIsLoading(true);
     setError(null);
 
+    // Get fresh account status
+    const activeAccount = currentAccount;
+
     try {
       // CRITICAL: Check wallet is still connected before attempting transaction
       // This prevents "Not connected" errors when placing multiple bets
-      if (!currentAccount?.address) {
+      if (!activeAccount?.address) {
         console.error('[useOnChainBet] Wallet not connected, aborting transaction');
         throw new Error('Wallet disconnected. Please reconnect your wallet and try again.');
       }
-      console.log('[useOnChainBet] Wallet connected:', currentAccount.address);
+      console.log('[useOnChainBet] Wallet connected:', activeAccount.address);
       
       const { eventId, marketId, prediction, betAmount, odds, walrusBlobId = '', coinType = 'SUI', sbetsCoinObjectId, walletAddress } = params;
       

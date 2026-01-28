@@ -826,9 +826,8 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
   // Get secondary markets for this event (BTTS, Double Chance, etc.)
   const secondaryMarkets = useMemo(() => {
     if (event.sportId !== 1) return []; // Only soccer has secondary markets
-    const allMarkets = sportMarketsAdapter.getDefaultMarkets(1, event.homeTeam, event.awayTeam);
-    return allMarkets.slice(1); // Skip the primary Match Result market
-  }, [event.homeTeam, event.awayTeam, event.sportId]);
+    return sportMarketsAdapter.getDefaultMarkets(1, event.homeTeam, event.awayTeam).slice(1);
+  }, [event.id, event.homeTeam, event.awayTeam, event.sportId]);
   
   const hasRealOdds = event.homeOdds !== null && event.homeOdds !== undefined && event.homeOdds > 0;
   const odds = {
