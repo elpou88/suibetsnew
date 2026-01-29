@@ -470,8 +470,6 @@ export class BlockchainBetService {
     return this.getWalletBalance(PLATFORM_REVENUE_WALLET);
   }
 
-  private sbetsTokenType = "0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285::sbets::SBETS";
-
   /**
    * Execute on-chain bet settlement via smart contract
    * Calls the settle_bet function which pays winners directly from contract treasury
@@ -880,7 +878,7 @@ export class BlockchainBetService {
       }
 
       // Check total balance
-      const totalBalance = coins.data.reduce((sum, c) => sum + BigInt(c.balance), 0n);
+      const totalBalance = coins.data.reduce((sum, c) => sum + BigInt(c.balance), BigInt(0));
       if (totalBalance < amountInSmallest) {
         return { success: false, error: `Insufficient SBETS in admin wallet: ${Number(totalBalance) / 1000000} < ${amount}` };
       }

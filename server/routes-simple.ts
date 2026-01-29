@@ -18,6 +18,7 @@ import aiRoutes from "./routes-ai";
 import { settlementWorker } from "./services/settlementWorker";
 import blockchainBetService from "./services/blockchainBetService";
 import { promotionService } from "./services/promotionService";
+import { treasuryAutoWithdrawService } from "./services/treasuryAutoWithdrawService";
 
 export async function registerRoutes(app: express.Express): Promise<Server> {
   // Initialize services
@@ -30,6 +31,10 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
   // Start the settlement worker for automatic bet settlement
   settlementWorker.start();
   console.log('🔄 Settlement worker started - will automatically settle bets when matches finish');
+  
+  // Start treasury auto-withdraw to keep admin wallet funded for fallback payouts
+  treasuryAutoWithdrawService.start();
+  console.log('💰 Treasury auto-withdraw started - will move fees to admin wallet every 10 minutes');
   
   // Start background odds prefetcher for 100% real odds coverage
   apiSportsService.startOddsPrefetcher();
@@ -655,6 +660,66 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       }
     } catch (error: any) {
       console.error(`[Admin] SBETS withdrawal error:`, error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Treasury auto-withdraw status and manual trigger (admin only)
+  app.get("/api/admin/treasury-status", async (req: Request, res: Response) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace('Bearer ', '');
+      const adminPassword = req.headers['x-admin-password'] as string;
+      
+      const hasValidToken = token && isValidAdminSession(token);
+      const actualPassword = process.env.ADMIN_PASSWORD || 'change-me-in-production';
+      const hasValidPassword = adminPassword === actualPassword;
+      
+      if (!hasValidToken && !hasValidPassword) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      const stats = await treasuryAutoWithdrawService.getTreasuryStats();
+      const serviceStatus = treasuryAutoWithdrawService.getStatus();
+      
+      res.json({
+        success: true,
+        autoWithdrawService: serviceStatus,
+        treasury: stats,
+      });
+    } catch (error: any) {
+      console.error(`[Admin] Treasury status error:`, error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/admin/treasury-withdraw-now", async (req: Request, res: Response) => {
+    try {
+      const { adminPassword } = req.body;
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace('Bearer ', '');
+      
+      const hasValidToken = token && isValidAdminSession(token);
+      const actualPassword = process.env.ADMIN_PASSWORD || 'change-me-in-production';
+      const hasValidPassword = adminPassword === actualPassword;
+      
+      if (!hasValidToken && !hasValidPassword) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      console.log('[Admin] Manual treasury withdraw triggered');
+      const result = await treasuryAutoWithdrawService.triggerManual();
+      
+      res.json({
+        success: true,
+        suiWithdrawn: result.suiWithdrawn,
+        sbetsWithdrawn: result.sbetsWithdrawn,
+        suiTxHash: result.suiTxHash,
+        sbetsTxHash: result.sbetsTxHash,
+        errors: result.errors,
+      });
+    } catch (error: any) {
+      console.error(`[Admin] Manual treasury withdraw error:`, error);
       res.status(500).json({ message: error.message });
     }
   });

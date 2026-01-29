@@ -72,6 +72,20 @@ Preferred communication style: Simple, everyday language.
 - **Auto-Payout**: Winners from fallback settlement receive tokens sent directly to their wallet from admin wallet.
 - **Voided Legacy Bets**: 3 legacy parlay bets from user wallets voided on Jan 29, 2026 to prevent settlement retry loops.
 
+### Treasury Auto-Withdraw System (Added January 29, 2026)
+- **Problem**: User stakes go to on-chain treasury, but fallback payouts come from admin wallet.
+- **Solution**: Auto-withdraw accrued fees from on-chain treasury to admin wallet every 10 minutes.
+- **Contract Structure**:
+  - `treasury_sui/treasury_sbets`: Main stakes pool (NOT withdrawable via fees function)
+  - `accrued_fees_sui/accrued_fees_sbets`: 1% fees from winnings (withdrawable)
+- **Service**: `treasuryAutoWithdrawService` - runs every 10 minutes on server startup.
+- **Thresholds**: Withdraws if fees >= 0.001 SUI or >= 100 SBETS (withdraws 95% to leave buffer).
+- **Admin Endpoints**:
+  - GET `/api/admin/treasury-status` - View treasury balances and service status
+  - POST `/api/admin/treasury-withdraw-now` - Manual immediate withdraw trigger
+  - POST `/api/admin/withdraw-fees` - Withdraw specific SUI amount
+  - POST `/api/admin/withdraw-fees-sbets` - Withdraw specific SBETS amount
+
 ### Automatic On-Chain Payouts for DB Settlements (January 27, 2026)
 - **Feature**: Winners from DB-only settlements now receive automatic on-chain payouts to their wallet
 - **Source**: Funds sent from admin wallet (should be funded from treasury withdrawals)
