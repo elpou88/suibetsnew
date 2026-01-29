@@ -2875,7 +2875,8 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
   // Helper to get settled bets
   async function getSettledBetsForRevenue(): Promise<any[]> {
     const allBets = await storage.getAllBets();
-    return allBets.filter((bet: any) => bet.status === 'won' || bet.status === 'lost');
+    // Include 'paid_out' status - these are winning bets that have been paid (1% fee = revenue)
+    return allBets.filter((bet: any) => bet.status === 'won' || bet.status === 'lost' || bet.status === 'paid_out');
   }
   
   // Helper to get claims from database
@@ -2957,9 +2958,9 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const endOfWeek = new Date(startOfWeek);
       endOfWeek.setDate(startOfWeek.getDate() + 6);
       
-      // Filter bets for this week
+      // Filter bets for this week (use placedAt from storage, not createdAt)
       const weeklyBets = settledBets.filter((bet: any) => {
-        const betDate = new Date(bet.createdAt || 0);
+        const betDate = new Date(bet.placedAt || bet.createdAt || 0);
         return betDate >= startOfWeek && betDate <= endOfWeek;
       });
       
@@ -2974,10 +2975,12 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         if (bet.currency !== 'SUI') return sum;
         let revenue = 0;
         if (bet.status === 'lost') {
-          revenue = bet.betAmount || 0;
-        } else if (bet.status === 'won' && bet.potentialWin) {
-          const profit = bet.potentialWin - bet.betAmount;
-          revenue = profit * 0.01;
+          revenue = bet.betAmount || bet.stake || 0;
+        } else if ((bet.status === 'won' || bet.status === 'paid_out') && (bet.potentialPayout || bet.potentialWin)) {
+          const payout = bet.potentialPayout || bet.potentialWin;
+          const stake = bet.betAmount || bet.stake || 0;
+          const profit = payout - stake;
+          revenue = profit * 0.01; // 1% fee on profit
         }
         return sum + revenue;
       }, 0);
@@ -2986,10 +2989,12 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         if (bet.currency !== 'SBETS') return sum;
         let revenue = 0;
         if (bet.status === 'lost') {
-          revenue = bet.betAmount || 0;
-        } else if (bet.status === 'won' && bet.potentialWin) {
-          const profit = bet.potentialWin - bet.betAmount;
-          revenue = profit * 0.01;
+          revenue = bet.betAmount || bet.stake || 0;
+        } else if ((bet.status === 'won' || bet.status === 'paid_out') && (bet.potentialPayout || bet.potentialWin)) {
+          const payout = bet.potentialPayout || bet.potentialWin;
+          const stake = bet.betAmount || bet.stake || 0;
+          const profit = payout - stake;
+          revenue = profit * 0.01; // 1% fee on profit
         }
         return sum + revenue;
       }, 0);
@@ -2999,16 +3004,18 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       
       // Calculate all-time total revenue - track separately
       const REVENUE_START_DATE = new Date('2026-01-27T00:00:00Z');
-      const allTimeBets = settledBets.filter((bet: any) => new Date(bet.createdAt || 0) >= REVENUE_START_DATE);
+      const allTimeBets = settledBets.filter((bet: any) => new Date(bet.placedAt || bet.createdAt || 0) >= REVENUE_START_DATE);
       
       const allTimeRevenueSui = allTimeBets.reduce((sum: number, bet: any) => {
         if (bet.currency !== 'SUI') return sum;
         let revenue = 0;
         if (bet.status === 'lost') {
-          revenue = bet.betAmount || 0;
-        } else if ((bet.status === 'won' || bet.status === 'paid_out') && bet.potentialWin) {
-          const profit = bet.potentialWin - bet.betAmount;
-          revenue = profit * 0.01;
+          revenue = bet.betAmount || bet.stake || 0;
+        } else if ((bet.status === 'won' || bet.status === 'paid_out') && (bet.potentialPayout || bet.potentialWin)) {
+          const payout = bet.potentialPayout || bet.potentialWin;
+          const stake = bet.betAmount || bet.stake || 0;
+          const profit = payout - stake;
+          revenue = profit * 0.01; // 1% fee on profit
         }
         return sum + revenue;
       }, 0);
@@ -3017,10 +3024,12 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         if (bet.currency !== 'SBETS') return sum;
         let revenue = 0;
         if (bet.status === 'lost') {
-          revenue = bet.betAmount || 0;
-        } else if ((bet.status === 'won' || bet.status === 'paid_out') && bet.potentialWin) {
-          const profit = bet.potentialWin - bet.betAmount;
-          revenue = profit * 0.01;
+          revenue = bet.betAmount || bet.stake || 0;
+        } else if ((bet.status === 'won' || bet.status === 'paid_out') && (bet.potentialPayout || bet.potentialWin)) {
+          const payout = bet.potentialPayout || bet.potentialWin;
+          const stake = bet.betAmount || bet.stake || 0;
+          const profit = payout - stake;
+          revenue = profit * 0.01; // 1% fee on profit
         }
         return sum + revenue;
       }, 0);
