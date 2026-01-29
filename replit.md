@@ -151,11 +151,16 @@ Preferred communication style: Simple, everyday language.
 - **Sui Network**: Layer 1 blockchain.
 - **Move Language**: For smart contract development.
 - **SBETS Token (Mainnet)**: `0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285::sbets::SBETS`
-- **Deployed Contract (Mainnet)**:
-    - Package ID: `0x936e79b406296551171bc148b0e1fe7d32534c446a93f5a18766569d8cc736a6`
-    - BettingPlatform (Shared): `0x94a14c61edc4e51b39775b811f42c8a8af96488005af9179315ddb80389f480b`
-    - AdminCap: `0x2b4ace9a99fc6ccc09695cf58b6a317be6f219d76a22e1f099bd505141e270ee`
+- **Deployed Contract (Mainnet) - V5 deployed January 29, 2026**:
+    - Package ID: `0x737324ddac9fb96e3d7ffab524f5489c1a0b3e5b4bffa2f244303005001b4ada`
+    - BettingPlatform (Shared): `0x5fc1073c9533c6737fa3a0882055d1778602681df70bdabde96b0127b588f082`
+    - AdminCap: `0xf51a04becf8c215dee71c9b92a063e4c5ef1ebc2fc3fad0797196895f8589296`
     - Admin Wallet (owns AdminCap): `0x20850db591c4d575b5238baf975e54580d800e69b8b5b421de796a311d3bea50`
+- **Legacy Contract (for settling 8 existing bets)**:
+    - Package ID: `0x936e79b406296551171bc148b0e1fe7d32534c446a93f5a18766569d8cc736a6`
+    - BettingPlatform: `0x94a14c61edc4e51b39775b811f42c8a8af96488005af9179315ddb80389f480b`
+    - AdminCap: `0x2b4ace9a99fc6ccc09695cf58b6a317be6f219d76a22e1f099bd505141e270ee`
+    - Treasury: 2.37 SUI, 8.14B SBETS (locked for legacy bet settlements)
 
 ### Betting Promotion System (Active: January 27 - February 10, 2026)
 - **Promotion**: Bet $15 (in SUI or SBETS) → Get $5 FREE bonus

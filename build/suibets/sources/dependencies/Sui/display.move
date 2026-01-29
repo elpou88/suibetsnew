@@ -90,20 +90,24 @@ public fun new_with_fields<T: key>(
     let len = fields.length();
     assert!(len == values.length(), EVecLengthMismatch);
 
+    let mut i = 0;
     let mut display = new<T>(pub, ctx);
-    fields.zip_do!(values, |field, value| display.add_internal(field, value));
+    while (i < len) {
+        display.add_internal(fields[i], values[i]);
+        i = i + 1;
+    };
+
     display
 }
 
 // === Entry functions: Create ===
 
-#[allow(lint(self_transfer, public_entry))]
+#[allow(lint(self_transfer))]
 /// Create a new empty Display<T> object and keep it.
 public entry fun create_and_keep<T: key>(pub: &Publisher, ctx: &mut TxContext) {
     transfer::public_transfer(new<T>(pub, ctx), ctx.sender())
 }
 
-#[allow(lint(public_entry))]
 /// Manually bump the version and emit an event with the updated version's contents.
 public entry fun update_version<T: key>(display: &mut Display<T>) {
     display.version = display.version + 1;
@@ -116,13 +120,11 @@ public entry fun update_version<T: key>(display: &mut Display<T>) {
 
 // === Entry functions: Add/Modify fields ===
 
-#[allow(lint(public_entry))]
 /// Sets a custom `name` field with the `value`.
 public entry fun add<T: key>(self: &mut Display<T>, name: String, value: String) {
     self.add_internal(name, value)
 }
 
-#[allow(lint(public_entry))]
 /// Sets multiple `fields` with `values`.
 public entry fun add_multiple<T: key>(
     self: &mut Display<T>,
@@ -131,10 +133,14 @@ public entry fun add_multiple<T: key>(
 ) {
     let len = fields.length();
     assert!(len == values.length(), EVecLengthMismatch);
-    fields.zip_do!(values, |field, value| self.add_internal(field, value));
+
+    let mut i = 0;
+    while (i < len) {
+        self.add_internal(fields[i], values[i]);
+        i = i + 1;
+    };
 }
 
-#[allow(lint(public_entry))]
 /// Change the value of the field.
 /// TODO (long run): version changes;
 public entry fun edit<T: key>(self: &mut Display<T>, name: String, value: String) {
@@ -142,7 +148,6 @@ public entry fun edit<T: key>(self: &mut Display<T>, name: String, value: String
     self.add_internal(name, value)
 }
 
-#[allow(lint(public_entry))]
 /// Remove the key from the Display.
 public entry fun remove<T: key>(self: &mut Display<T>, name: String) {
     self.fields.remove(&name);

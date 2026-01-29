@@ -11,7 +11,10 @@ const TX_HASH_LENGTH: u64 = 32;
 /// Expected an tx hash of length 32, but found a different length
 const EBadTxHashLength: u64 = 0;
 
-#[allow(unused_field)]
+#[test_only]
+/// Attempt to get the most recent created object ID when none has been created.
+const ENoIDsCreated: u64 = 1;
+
 /// Information about the transaction currently being executed.
 /// This cannot be constructed by a transaction--it is a privileged object created by
 /// the VM and passed in to the entrypoint of the transaction as `&mut TxContext`.
@@ -31,10 +34,9 @@ public struct TxContext has drop {
 
 /// Return the address of the user that signed the current
 /// transaction
-public fun sender(_self: &TxContext): address {
-    native_sender()
+public fun sender(self: &TxContext): address {
+    self.sender
 }
-native fun native_sender(): address;
 
 /// Return the transaction digest (hash of transaction inputs).
 /// Please do not use as a source of randomness.
@@ -43,95 +45,36 @@ public fun digest(self: &TxContext): &vector<u8> {
 }
 
 /// Return the current epoch
-public fun epoch(_self: &TxContext): u64 {
-    native_epoch()
+public fun epoch(self: &TxContext): u64 {
+    self.epoch
 }
-native fun native_epoch(): u64;
 
 /// Return the epoch start time as a unix timestamp in milliseconds.
-public fun epoch_timestamp_ms(_self: &TxContext): u64 {
-    native_epoch_timestamp_ms()
-}
-native fun native_epoch_timestamp_ms(): u64;
-
-/// Return the adress of the transaction sponsor or `None` if there was no sponsor.
-public fun sponsor(_self: &TxContext): Option<address> {
-    option_sponsor()
+public fun epoch_timestamp_ms(self: &TxContext): u64 {
+    self.epoch_timestamp_ms
 }
 
 /// Create an `address` that has not been used. As it is an object address, it will never
 /// occur as the address for a user.
 /// In other words, the generated address is a globally unique object ID.
-public fun fresh_object_address(_ctx: &mut TxContext): address {
-    fresh_id()
+public fun fresh_object_address(ctx: &mut TxContext): address {
+    let ids_created = ctx.ids_created;
+    let id = derive_id(*&ctx.tx_hash, ids_created);
+    ctx.ids_created = ids_created + 1;
+    id
 }
-native fun fresh_id(): address;
 
-/// Return the reference gas price in effect for the epoch the transaction
-/// is being executed in.
-public fun reference_gas_price(_self: &TxContext): u64 {
-    native_rgp()
+#[allow(unused_function)]
+/// Return the number of id's created by the current transaction.
+/// Hidden for now, but may expose later
+fun ids_created(self: &TxContext): u64 {
+    self.ids_created
 }
-native fun native_rgp(): u64;
 
-/// Return the gas price submitted for the current transaction.
-/// That is the value the user submitted with the transaction data.
-public fun gas_price(_self: &TxContext): u64 {
-    native_gas_price()
-}
-native fun native_gas_price(): u64;
+/// Native function for deriving an ID via hash(tx_hash || ids_created)
+native fun derive_id(tx_hash: vector<u8>, ids_created: u64): address;
 
 // ==== test-only functions ====
-#[test_only]
-/// Return the number of id's created by the current transaction.
-public fun ids_created(_self: &TxContext): u64 {
-    native_ids_created()
-}
-#[allow(unused_function)]
-native fun native_ids_created(): u64;
-
-#[test_only]
-/// Return the gas budget for the current transaction.
-public fun gas_budget(_self: &TxContext): u64 {
-    native_gas_budget()
-}
-#[allow(unused_function)]
-// native function to retrieve gas budget, currently not exposed
-native fun native_gas_budget(): u64;
-
-#[test_only]
-/// Create a `TxContext` for testing. All fields can be provided.
-public fun create(
-    sender: address,
-    tx_hash: vector<u8>,
-    epoch: u64,
-    epoch_timestamp_ms: u64,
-    ids_created: u64,
-    rgp: u64,
-    gas_price: u64,
-    gas_budget: u64,
-    sponsor: Option<address>,
-): TxContext {
-    assert!(tx_hash.length() == TX_HASH_LENGTH, EBadTxHashLength);
-    replace(
-        sender,
-        tx_hash,
-        epoch,
-        epoch_timestamp_ms,
-        ids_created,
-        rgp,
-        gas_price,
-        gas_budget,
-        sponsor.to_vec(),
-    );
-    TxContext {
-        sender: @0x0,
-        tx_hash,
-        epoch: 0,
-        epoch_timestamp_ms: 0,
-        ids_created: 0,
-    }
-}
 
 #[test_only]
 /// Create a `TxContext` for testing
@@ -143,17 +86,7 @@ public fun new(
     ids_created: u64,
 ): TxContext {
     assert!(tx_hash.length() == TX_HASH_LENGTH, EBadTxHashLength);
-    create(
-        sender,
-        tx_hash,
-        epoch,
-        epoch_timestamp_ms,
-        ids_created,
-        native_rgp(),
-        native_gas_price(),
-        native_gas_budget(),
-        option_sponsor(),
-    )
+    TxContext { sender, tx_hash, epoch, epoch_timestamp_ms, ids_created }
 }
 
 #[test_only]
@@ -178,7 +111,7 @@ public fun dummy(): TxContext {
 #[test_only]
 /// Utility for creating 256 unique input hashes.
 /// These hashes are guaranteed to be unique given a unique `hint: u64`
-public fun dummy_tx_hash_with_hint(hint: u64): vector<u8> {
+fun dummy_tx_hash_with_hint(hint: u64): vector<u8> {
     let mut tx_hash = std::bcs::to_bytes(&hint);
     while (tx_hash.length() < TX_HASH_LENGTH) tx_hash.push_back(0);
     tx_hash
@@ -191,63 +124,18 @@ public fun get_ids_created(self: &TxContext): u64 {
 
 #[test_only]
 /// Return the most recent created object ID.
-public fun last_created_object_id(_self: &TxContext): address {
-    last_created_id()
+public fun last_created_object_id(self: &TxContext): address {
+    let ids_created = self.ids_created;
+    assert!(ids_created > 0, ENoIDsCreated);
+    derive_id(*&self.tx_hash, ids_created - 1)
 }
-#[test_only]
-native fun last_created_id(): address;
 
 #[test_only]
 public fun increment_epoch_number(self: &mut TxContext) {
-    let epoch = self.epoch() + 1;
-    replace(
-        native_sender(),
-        self.tx_hash,
-        epoch,
-        native_epoch_timestamp_ms(),
-        native_ids_created(),
-        native_rgp(),
-        native_gas_price(),
-        native_gas_budget(),
-        native_sponsor(),
-    );
+    self.epoch = self.epoch + 1
 }
 
 #[test_only]
 public fun increment_epoch_timestamp(self: &mut TxContext, delta_ms: u64) {
-    let epoch_timestamp_ms = self.epoch_timestamp_ms() + delta_ms;
-    replace(
-        native_sender(),
-        self.tx_hash,
-        native_epoch(),
-        epoch_timestamp_ms,
-        native_ids_created(),
-        native_rgp(),
-        native_gas_price(),
-        native_gas_budget(),
-        native_sponsor(),
-    );
+    self.epoch_timestamp_ms = self.epoch_timestamp_ms + delta_ms
 }
-
-fun option_sponsor(): Option<address> {
-    let sponsor = native_sponsor();
-    if (sponsor.length() == 0) option::none() else option::some(sponsor[0])
-}
-native fun native_sponsor(): vector<address>;
-
-#[test_only]
-native fun replace(
-    sender: address,
-    tx_hash: vector<u8>,
-    epoch: u64,
-    epoch_timestamp_ms: u64,
-    ids_created: u64,
-    rgp: u64,
-    gas_price: u64,
-    gas_budget: u64,
-    sponsor: vector<address>,
-);
-
-#[allow(unused_function)]
-/// Native function for deriving an ID via hash(tx_hash || ids_created)
-native fun derive_id(tx_hash: vector<u8>, ids_created: u64): address;

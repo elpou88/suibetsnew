@@ -25,12 +25,12 @@ public struct Borrow { ref: address, obj: ID }
 /// Create a new `Referent` struct
 public fun new<T: key + store>(value: T, ctx: &mut TxContext): Referent<T> {
     Referent {
-        id: ctx.fresh_object_address(),
+        id: tx_context::fresh_object_address(ctx),
         value: option::some(value),
     }
 }
 
-/// Borrow the `T` from the `Referent`, receiving the `T` and a `Borrow`
+/// Borrow the `T` from the `Referent` receiving the `T` and a `Borrow`
 /// hot potato.
 public fun borrow<T: key + store>(self: &mut Referent<T>): (T, Borrow) {
     let value = self.value.extract();
@@ -62,77 +62,59 @@ public fun destroy<T: key + store>(self: Referent<T>): T {
 
 #[test_only]
 public struct Test has key, store {
-    id: UID,
+    id: object::UID,
 }
 
 #[test]
 fun test_borrow() {
-    let ctx = &mut tx_context::dummy();
+    let ctx = &mut sui::tx_context::dummy();
     let mut ref = new(Test { id: object::new(ctx) }, ctx);
 
-    let (value, borrow) = ref.borrow();
-    ref.put_back(value, borrow);
+    let (value, borrow) = borrow(&mut ref);
+    put_back(&mut ref, value, borrow);
 
-    let Test { id } = ref.destroy();
+    let Test { id } = destroy(ref);
     id.delete();
 }
 
-#[test, expected_failure(abort_code = EWrongValue)]
+#[test]
+#[expected_failure(abort_code = EWrongValue)]
 /// The `value` is swapped with another instance of the type `T`.
 fun test_object_swap() {
-    let ctx = &mut tx_context::dummy();
-    let mut ref_1 = new(Test { id: object::new(ctx) }, ctx);
-    let mut ref_2 = new(Test { id: object::new(ctx) }, ctx);
-
-    let (v_1, b_1) = ref_1.borrow();
-    let (v_2, b_2) = ref_2.borrow();
-
-    ref_1.put_back(v_2, b_1);
-    ref_2.put_back(v_1, b_2);
-
-    let Test { id } = ref_1.destroy();
-    id.delete();
-
-    let Test { id } = ref_2.destroy();
-    id.delete();
-}
-
-#[test, expected_failure(abort_code = EWrongValue)]
-/// The `value` is swapped with another instance of the type `T`.
-fun test_borrow_swap() {
     let ctx = &mut sui::tx_context::dummy();
     let mut ref_1 = new(Test { id: object::new(ctx) }, ctx);
     let mut ref_2 = new(Test { id: object::new(ctx) }, ctx);
 
-    let (v_1, b_1) = ref_1.borrow();
-    let (v_2, b_2) = ref_2.borrow();
+    let (v_1, b_1) = borrow(&mut ref_1);
+    let (v_2, b_2) = borrow(&mut ref_2);
 
-    ref_1.put_back(v_1, b_2);
-    ref_2.put_back(v_2, b_1);
+    put_back(&mut ref_1, v_2, b_1);
+    put_back(&mut ref_2, v_1, b_2);
 
-    let Test { id } = ref_1.destroy();
+    let Test { id } = destroy(ref_1);
     id.delete();
 
-    let Test { id } = ref_2.destroy();
+    let Test { id } = destroy(ref_2);
     id.delete();
 }
 
-#[test, expected_failure(abort_code = EWrongBorrow)]
+#[test]
+#[expected_failure(abort_code = EWrongBorrow)]
 /// The both `borrow` and `value` are swapped with another `Referent`.
 fun test_borrow_fail() {
-    let ctx = &mut tx_context::dummy();
+    let ctx = &mut sui::tx_context::dummy();
     let mut ref_1 = new(Test { id: object::new(ctx) }, ctx);
     let mut ref_2 = new(Test { id: object::new(ctx) }, ctx);
 
-    let (v_1, b_1) = ref_1.borrow();
-    let (v_2, b_2) = ref_2.borrow();
+    let (v_1, b_1) = borrow(&mut ref_1);
+    let (v_2, b_2) = borrow(&mut ref_2);
 
-    ref_1.put_back(v_2, b_2);
-    ref_2.put_back(v_1, b_1);
+    put_back(&mut ref_1, v_2, b_2);
+    put_back(&mut ref_2, v_1, b_1);
 
-    let Test { id } = ref_1.destroy();
+    let Test { id } = destroy(ref_1);
     id.delete();
 
-    let Test { id } = ref_2.destroy();
+    let Test { id } = destroy(ref_2);
     id.delete();
 }

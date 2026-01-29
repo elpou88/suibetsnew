@@ -221,9 +221,9 @@ Fee Structure: 1% fee on profit only (not on stake). Winners receive stake + (pr
             <div className="flex items-center justify-between p-4 bg-black/50 rounded-xl">
               <span className="text-gray-400">Betting Platform</span>
               <div className="flex items-center gap-2">
-                <code className="text-cyan-400 text-sm">0x94a14c...9f480b</code>
+                <code className="text-cyan-400 text-sm">0x5fc107...88f082</code>
                 <a 
-                  href="https://suiscan.xyz/mainnet/object/0x94a14c61edc4e51b39775b811f42c8a8af96488005af9179315ddb80389f480b"
+                  href="https://suiscan.xyz/mainnet/object/0x5fc1073c9533c6737fa3a0882055d1778602681df70bdabde96b0127b588f082"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-cyan-400 hover:text-cyan-300"
@@ -236,9 +236,9 @@ Fee Structure: 1% fee on profit only (not on stake). Winners receive stake + (pr
             <div className="flex items-center justify-between p-4 bg-black/50 rounded-xl">
               <span className="text-gray-400">Betting Package</span>
               <div className="flex items-center gap-2">
-                <code className="text-cyan-400 text-sm">0x936e79...c736a6</code>
+                <code className="text-cyan-400 text-sm">0x737324...1b4ada</code>
                 <a 
-                  href="https://suiscan.xyz/mainnet/object/0x936e79b406296551171bc148b0e1fe7d32534c446a93f5a18766569d8cc736a6"
+                  href="https://suiscan.xyz/mainnet/object/0x737324ddac9fb96e3d7ffab524f5489c1a0b3e5b4bffa2f244303005001b4ada"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-cyan-400 hover:text-cyan-300"

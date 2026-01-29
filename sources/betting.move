@@ -23,6 +23,7 @@ module suibets::betting {
     const EExceedsMaxBet: u64 = 8;
     const EExceedsMinBet: u64 = 9;
     const ENotOneTimeWitness: u64 = 10;
+    const EInsufficientTreasury: u64 = 11;
 
     // Bet status constants
     const STATUS_PENDING: u8 = 0;
@@ -83,7 +84,7 @@ module suibets::betting {
         max_bet_sbets: u64,
     }
 
-    // Individual bet object owned by bettor
+    // Individual bet object - SHARED so admin can settle
     public struct Bet has key, store {
         id: UID,
         bettor: address,
@@ -161,6 +162,13 @@ module suibets::betting {
         timestamp: u64,
     }
 
+    public struct TreasuryWithdrawn has copy, drop {
+        platform_id: ID,
+        amount: u64,
+        coin_type: u8,
+        timestamp: u64,
+    }
+
     // Initialize the betting platform with OTW verification
     fun init(witness: BETTING, ctx: &mut TxContext) {
         assert!(types::is_one_time_witness(&witness), ENotOneTimeWitness);
@@ -207,6 +215,7 @@ module suibets::betting {
     // ============ SUI BETTING ============
 
     // Place a bet with SUI (anyone can call)
+    // CRITICAL: Bets are SHARED objects so admin can settle them
     public entry fun place_bet(
         platform: &mut BettingPlatform,
         payment: Coin<SUI>,
@@ -275,7 +284,8 @@ module suibets::betting {
             timestamp,
         });
 
-        transfer::transfer(bet, bettor);
+        // CRITICAL FIX: Share the bet object so admin can settle it
+        transfer::share_object(bet);
     }
 
     // Settle a SUI bet (requires OracleCap)
@@ -305,7 +315,7 @@ module suibets::betting {
             platform.accrued_fees_sui = platform.accrued_fees_sui + win_fee;
             bet.platform_fee = win_fee;
             
-            assert!(balance::value(&platform.treasury_sui) >= net_payout, EInsufficientBalance);
+            assert!(balance::value(&platform.treasury_sui) >= net_payout, EInsufficientTreasury);
             
             let payout_balance = balance::split(&mut platform.treasury_sui, net_payout);
             let payout_coin = coin::from_balance(payout_balance, ctx);
@@ -334,7 +344,7 @@ module suibets::betting {
         }
     }
 
-    // Settle a SUI bet with AdminCap
+    // Settle a SUI bet with AdminCap - PAYS FROM TREASURY AUTOMATICALLY
     public entry fun settle_bet_admin(
         _admin_cap: &AdminCap,
         platform: &mut BettingPlatform,
@@ -361,8 +371,10 @@ module suibets::betting {
             platform.accrued_fees_sui = platform.accrued_fees_sui + win_fee;
             bet.platform_fee = win_fee;
             
-            assert!(balance::value(&platform.treasury_sui) >= net_payout, EInsufficientBalance);
+            // CRITICAL: Check treasury has enough funds for payout
+            assert!(balance::value(&platform.treasury_sui) >= net_payout, EInsufficientTreasury);
             
+            // Pay winner from treasury
             let payout_balance = balance::split(&mut platform.treasury_sui, net_payout);
             let payout_coin = coin::from_balance(payout_balance, ctx);
             transfer::public_transfer(payout_coin, bet.bettor);
@@ -461,6 +473,7 @@ module suibets::betting {
     // ============ SBETS BETTING ============
 
     // Place a bet with SBETS (anyone can call)
+    // CRITICAL: Bets are SHARED objects so admin can settle them
     public entry fun place_bet_sbets(
         platform: &mut BettingPlatform,
         payment: Coin<SBETS>,
@@ -529,7 +542,8 @@ module suibets::betting {
             timestamp,
         });
 
-        transfer::transfer(bet, bettor);
+        // CRITICAL FIX: Share the bet object so admin can settle it
+        transfer::share_object(bet);
     }
 
     // Settle a SBETS bet (requires OracleCap)
@@ -559,7 +573,7 @@ module suibets::betting {
             platform.accrued_fees_sbets = platform.accrued_fees_sbets + win_fee;
             bet.platform_fee = win_fee;
             
-            assert!(balance::value(&platform.treasury_sbets) >= net_payout, EInsufficientBalance);
+            assert!(balance::value(&platform.treasury_sbets) >= net_payout, EInsufficientTreasury);
             
             let payout_balance = balance::split(&mut platform.treasury_sbets, net_payout);
             let payout_coin = coin::from_balance(payout_balance, ctx);
@@ -588,7 +602,7 @@ module suibets::betting {
         }
     }
 
-    // Settle a SBETS bet with AdminCap
+    // Settle a SBETS bet with AdminCap - PAYS FROM TREASURY AUTOMATICALLY
     public entry fun settle_bet_sbets_admin(
         _admin_cap: &AdminCap,
         platform: &mut BettingPlatform,
@@ -615,8 +629,10 @@ module suibets::betting {
             platform.accrued_fees_sbets = platform.accrued_fees_sbets + win_fee;
             bet.platform_fee = win_fee;
             
-            assert!(balance::value(&platform.treasury_sbets) >= net_payout, EInsufficientBalance);
+            // CRITICAL: Check treasury has enough funds for payout
+            assert!(balance::value(&platform.treasury_sbets) >= net_payout, EInsufficientTreasury);
             
+            // Pay winner from treasury
             let payout_balance = balance::split(&mut platform.treasury_sbets, net_payout);
             let payout_coin = coin::from_balance(payout_balance, ctx);
             transfer::public_transfer(payout_coin, bet.bettor);
@@ -754,7 +770,7 @@ module suibets::betting {
         });
     }
 
-    // Withdraw accrued fees (SUI)
+    // Withdraw accrued fees (SUI) - only fees, not main treasury
     public entry fun withdraw_fees(
         _admin_cap: &AdminCap,
         platform: &mut BettingPlatform,
@@ -763,6 +779,7 @@ module suibets::betting {
         ctx: &mut TxContext
     ) {
         assert!(amount <= platform.accrued_fees_sui, EInsufficientBalance);
+        assert!(balance::value(&platform.treasury_sui) >= amount, EInsufficientTreasury);
         
         let fees_balance = balance::split(&mut platform.treasury_sui, amount);
         let fees_coin = coin::from_balance(fees_balance, ctx);
@@ -778,7 +795,7 @@ module suibets::betting {
         });
     }
 
-    // Withdraw accrued fees (SBETS)
+    // Withdraw accrued fees (SBETS) - only fees, not main treasury
     public entry fun withdraw_fees_sbets(
         _admin_cap: &AdminCap,
         platform: &mut BettingPlatform,
@@ -787,6 +804,7 @@ module suibets::betting {
         ctx: &mut TxContext
     ) {
         assert!(amount <= platform.accrued_fees_sbets, EInsufficientBalance);
+        assert!(balance::value(&platform.treasury_sbets) >= amount, EInsufficientTreasury);
         
         let fees_balance = balance::split(&mut platform.treasury_sbets, amount);
         let fees_coin = coin::from_balance(fees_balance, ctx);
@@ -795,6 +813,50 @@ module suibets::betting {
         platform.accrued_fees_sbets = platform.accrued_fees_sbets - amount;
 
         event::emit(FeesWithdrawn {
+            platform_id: object::id(platform),
+            amount,
+            coin_type: COIN_TYPE_SBETS,
+            timestamp: clock::timestamp_ms(clock),
+        });
+    }
+
+    // NEW: Withdraw from main treasury (SUI) - admin can access full treasury for payouts
+    public entry fun withdraw_treasury(
+        _admin_cap: &AdminCap,
+        platform: &mut BettingPlatform,
+        amount: u64,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        assert!(balance::value(&platform.treasury_sui) >= amount, EInsufficientTreasury);
+        
+        let treasury_balance = balance::split(&mut platform.treasury_sui, amount);
+        let treasury_coin = coin::from_balance(treasury_balance, ctx);
+        transfer::public_transfer(treasury_coin, tx_context::sender(ctx));
+
+        event::emit(TreasuryWithdrawn {
+            platform_id: object::id(platform),
+            amount,
+            coin_type: COIN_TYPE_SUI,
+            timestamp: clock::timestamp_ms(clock),
+        });
+    }
+
+    // NEW: Withdraw from main treasury (SBETS) - admin can access full treasury for payouts
+    public entry fun withdraw_treasury_sbets(
+        _admin_cap: &AdminCap,
+        platform: &mut BettingPlatform,
+        amount: u64,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        assert!(balance::value(&platform.treasury_sbets) >= amount, EInsufficientTreasury);
+        
+        let treasury_balance = balance::split(&mut platform.treasury_sbets, amount);
+        let treasury_coin = coin::from_balance(treasury_balance, ctx);
+        transfer::public_transfer(treasury_coin, tx_context::sender(ctx));
+
+        event::emit(TreasuryWithdrawn {
             platform_id: object::id(platform),
             amount,
             coin_type: COIN_TYPE_SBETS,
@@ -887,18 +949,48 @@ module suibets::betting {
 
     // ============ VIEW FUNCTIONS ============
 
-    public fun get_platform_stats(platform: &BettingPlatform): (u64, u64, u64, u64, u64, bool) {
+    public fun get_bet_info(bet: &Bet): (address, u64, u64, u64, u8, u8) {
+        (bet.bettor, bet.stake, bet.odds, bet.potential_payout, bet.status, bet.coin_type)
+    }
+
+    public fun get_platform_stats(platform: &BettingPlatform): (u64, u64, u64, u64, u64, u64, u64, u64, bool) {
         (
+            balance::value(&platform.treasury_sui),
+            balance::value(&platform.treasury_sbets),
             platform.total_bets,
             platform.total_volume_sui,
             platform.total_volume_sbets,
-            balance::value(&platform.treasury_sui),
-            balance::value(&platform.treasury_sbets),
+            platform.total_potential_liability_sui,
+            platform.total_potential_liability_sbets,
+            platform.platform_fee_bps,
             platform.paused
         )
     }
 
-    public fun get_bet_info(bet: &Bet): (address, u64, u64, u8, u8) {
-        (bet.bettor, bet.stake, bet.odds, bet.status, bet.coin_type)
+    public fun get_accrued_fees(platform: &BettingPlatform): (u64, u64) {
+        (platform.accrued_fees_sui, platform.accrued_fees_sbets)
+    }
+
+    public fun get_bet_limits_sui(platform: &BettingPlatform): (u64, u64) {
+        (platform.min_bet_sui, platform.max_bet_sui)
+    }
+
+    public fun get_bet_limits_sbets(platform: &BettingPlatform): (u64, u64) {
+        (platform.min_bet_sbets, platform.max_bet_sbets)
+    }
+
+    // Get bet prediction for settlement matching
+    public fun get_bet_prediction(bet: &Bet): vector<u8> {
+        bet.prediction
+    }
+
+    // Get bet event_id for settlement matching
+    public fun get_bet_event_id(bet: &Bet): vector<u8> {
+        bet.event_id
+    }
+
+    // Get bet market_id for settlement matching
+    public fun get_bet_market_id(bet: &Bet): vector<u8> {
+        bet.market_id
     }
 }

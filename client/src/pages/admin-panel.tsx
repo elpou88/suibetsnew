@@ -10,10 +10,10 @@ import { useCurrentAccount, useSignAndExecuteTransaction, useSuiClient } from '@
 import { Transaction } from '@mysten/sui/transactions';
 import { ConnectButton } from '@mysten/dapp-kit';
 
-// Contract addresses - redeployed January 27, 2026 with shared object fix
-const BETTING_PACKAGE_ID = import.meta.env.VITE_BETTING_PACKAGE_ID || '0x936e79b406296551171bc148b0e1fe7d32534c446a93f5a18766569d8cc736a6';
-const BETTING_PLATFORM_ID = import.meta.env.VITE_BETTING_PLATFORM_ID || '0x94a14c61edc4e51b39775b811f42c8a8af96488005af9179315ddb80389f480b';
-const ADMIN_CAP_ID = '0x2b4ace9a99fc6ccc09695cf58b6a317be6f219d76a22e1f099bd505141e270ee';
+// Contract addresses - redeployed January 29, 2026 with shared object fix
+const BETTING_PACKAGE_ID = import.meta.env.VITE_BETTING_PACKAGE_ID || '0x737324ddac9fb96e3d7ffab524f5489c1a0b3e5b4bffa2f244303005001b4ada';
+const BETTING_PLATFORM_ID = import.meta.env.VITE_BETTING_PLATFORM_ID || '0x5fc1073c9533c6737fa3a0882055d1778602681df70bdabde96b0127b588f082';
+const ADMIN_CAP_ID = '0xf51a04becf8c215dee71c9b92a063e4c5ef1ebc2fc3fad0797196895f8589296';
 const CLOCK_OBJECT_ID = '0x6';
 const SBETS_TOKEN_TYPE = '0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285::sbets::SBETS';
 

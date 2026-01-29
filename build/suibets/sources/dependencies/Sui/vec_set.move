@@ -37,26 +37,23 @@ public fun insert<K: copy + drop>(self: &mut VecSet<K>, key: K) {
 
 /// Remove the entry `key` from self. Aborts if `key` is not present in `self`.
 public fun remove<K: copy + drop>(self: &mut VecSet<K>, key: &K) {
-    let idx = self.contents.find_index!(|k| k == key).destroy_or!(abort EKeyDoesNotExist);
+    let idx = get_idx(self, key);
     self.contents.remove(idx);
 }
 
 /// Return true if `self` contains an entry for `key`, false otherwise
 public fun contains<K: copy + drop>(self: &VecSet<K>, key: &K): bool {
-    'search: {
-        self.contents.do_ref!(|k| if (k == key) return 'search true);
-        false
-    }
+    get_idx_opt(self, key).is_some()
 }
 
 /// Return the number of entries in `self`
-public fun length<K: copy + drop>(self: &VecSet<K>): u64 {
+public fun size<K: copy + drop>(self: &VecSet<K>): u64 {
     self.contents.length()
 }
 
 /// Return true if `self` has 0 elements, false otherwise
 public fun is_empty<K: copy + drop>(self: &VecSet<K>): bool {
-    self.length() == 0
+    size(self) == 0
 }
 
 /// Unpack `self` into vectors of keys.
@@ -69,9 +66,10 @@ public fun into_keys<K: copy + drop>(self: VecSet<K>): vector<K> {
 /// Construct a new `VecSet` from a vector of keys.
 /// The keys are stored in insertion order (the original `keys` ordering)
 /// and are *not* sorted.
-public fun from_keys<K: copy + drop>(keys: vector<K>): VecSet<K> {
+public fun from_keys<K: copy + drop>(mut keys: vector<K>): VecSet<K> {
+    keys.reverse();
     let mut set = empty();
-    keys.do!(|key| set.insert(key));
+    while (keys.length() != 0) set.insert(keys.pop_back());
     set
 }
 
@@ -82,8 +80,26 @@ public fun keys<K: copy + drop>(self: &VecSet<K>): &vector<K> {
     &self.contents
 }
 
-#[deprecated(note = b"Renamed to `length` for consistency.")]
-/// Return the number of entries in `self`
-public fun size<K: copy + drop>(self: &VecSet<K>): u64 {
-    self.contents.length()
+// == Helper functions ==
+
+/// Find the index of `key` in `self`. Return `None` if `key` is not in `self`.
+/// Note that keys are stored in insertion order, *not* sorted.
+fun get_idx_opt<K: copy + drop>(self: &VecSet<K>, key: &K): Option<u64> {
+    let mut i = 0;
+    let n = size(self);
+    while (i < n) {
+        if (&self.contents[i] == key) {
+            return option::some(i)
+        };
+        i = i + 1;
+    };
+    option::none()
+}
+
+/// Find the index of `key` in `self`. Aborts if `key` is not in `self`.
+/// Note that map entries are stored in insertion order, *not* sorted.
+fun get_idx<K: copy + drop>(self: &VecSet<K>, key: &K): u64 {
+    let idx_opt = get_idx_opt(self, key);
+    assert!(idx_opt.is_some(), EKeyDoesNotExist);
+    idx_opt.destroy_some()
 }
