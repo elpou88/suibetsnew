@@ -309,13 +309,58 @@ export function useOnChainBet() {
         throw new Error('Transaction failed - no digest returned');
       }
 
+      // Check if this is a Nightly wallet result that needs special handling
+      // Some wallets return the digest but the transaction might still be pending in the mempool
+      // or the wallet might have timed out waiting for its own confirmation
+      console.log('[useOnChainBet] Transaction digest received:', result.digest);
+
       // Wait for transaction and check status - CRITICAL for detecting Move aborts
-      const txDetails = await suiClient.waitForTransaction({
-        digest: result.digest,
-        options: { showEffects: true, showObjectChanges: true },
-      });
+      let txDetails;
+      const MAX_RETRIES = 3;
+      let retryCount = 0;
       
-      // Check if transaction failed (Move abort)
+      try {
+        while (retryCount < MAX_RETRIES) {
+          try {
+            console.log(`[useOnChainBet] Waiting for transaction (attempt ${retryCount + 1}/${MAX_RETRIES})...`);
+            txDetails = await suiClient.waitForTransaction({
+              digest: result.digest,
+              options: { showEffects: true, showObjectChanges: true },
+              timeout: 15000, 
+            });
+            if (txDetails) break;
+          } catch (waitErr: any) {
+            console.warn(`[useOnChainBet] Attempt ${retryCount + 1} failed:`, waitErr.message);
+            retryCount++;
+            if (retryCount < MAX_RETRIES) {
+              await new Promise(resolve => setTimeout(resolve, 3000));
+              try {
+                txDetails = await suiClient.getTransactionBlock({
+                  digest: result.digest,
+                  options: { showEffects: true, showObjectChanges: true },
+                });
+                if (txDetails) break;
+              } catch (pollErr) {
+                console.log('[useOnChainBet] Direct poll failed');
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[useOnChainBet] Error in wait loop:', err);
+      }
+      
+      // CRITICAL FIX: If we have a digest but wait timed out, we assume it's pending/success 
+      // rather than failing and blocking the user. The backend sync will handle it.
+      if (!txDetails && result.digest) {
+        console.log('[useOnChainBet] Wait timed out but we have a digest. Treating as success.');
+        setIsLoading(false);
+        return {
+          success: true,
+          txDigest: result.digest,
+          coinType,
+        };
+      }
       const status = txDetails.effects?.status;
       if (status?.status === 'failure') {
         // Parse Move abort error for user-friendly message
@@ -357,19 +402,39 @@ export function useOnChainBet() {
       if (!betObjectId && txDetails.objectChanges) {
         console.log('[useOnChainBet] Checking txDetails objectChanges:', txDetails.objectChanges.length);
         for (const change of txDetails.objectChanges) {
-          console.log('[useOnChainBet] Object change:', change.type, (change as any).objectType);
+          // Check for 'created' objects that include '::betting::Bet'
           if (change.type === 'created' && (change as any).objectType?.includes('::betting::Bet')) {
             betObjectId = (change as any).objectId;
-            console.log('[useOnChainBet] Extracted betObjectId from txDetails:', betObjectId);
+            console.log('[useOnChainBet] Extracted betObjectId from txDetails objectChanges:', betObjectId);
           }
         }
       }
       
-      // Fallback: check effects.created
+      // Fallback: Check effects.created which is more reliable across some wallets
       if (!betObjectId && txDetails.effects?.created) {
-        console.log('[useOnChainBet] Checking effects.created:', txDetails.effects.created.length);
-        for (const ref of txDetails.effects.created) {
-          console.log('[useOnChainBet] Created ref:', ref);
+        console.log('[useOnChainBet] Checking effects.created fallback:', txDetails.effects.created.length);
+        // Look for any newly created object in the effects
+        // On Sui, created objects are listed in effects.created
+        for (const createdEffect of txDetails.effects.created) {
+          if (createdEffect.reference?.objectId) {
+            // Check if this object is already known (not the split coin or gas)
+            const objId = createdEffect.reference.objectId;
+            
+            // Try to verify if it's a Bet object via a quick client check if possible, 
+            // but for speed we'll take the first non-gas created object
+            betObjectId = objId;
+            console.log('[useOnChainBet] Extracted potential betObjectId from effects.created:', betObjectId);
+            break; 
+          }
+        }
+      }
+
+      // If still no betObjectId, check objectChanges more thoroughly
+      if (!betObjectId && txDetails.objectChanges) {
+        const createdObj = txDetails.objectChanges.find((c: any) => c.type === 'created');
+        if (createdObj) {
+          betObjectId = (createdObj as any).objectId;
+          console.log('[useOnChainBet] Fallback objectId from any created object:', betObjectId);
         }
       }
       

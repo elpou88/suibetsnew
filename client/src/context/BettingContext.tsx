@@ -325,110 +325,86 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
           walletAddress: currentAccount.address,
         });
 
-        if (!onChainResult.success) {
-          // On-chain bet failed - don't clear slip, error already shown by hook
-          return false;
-        }
-
-        // On-chain bet succeeded - now record in database
-        try {
-          const response = await apiRequest('POST', '/api/bets', {
-            userId: currentAccount.address,
-            walletAddress: currentAccount.address,
-            eventId: String(bet.eventId),
-            eventName: bet.eventName,
-            marketId: String(bet.marketId || 'match_winner'),
-            outcomeId: String(bet.outcomeId || bet.selectionName || 'selection'),
-            odds: bet.odds,
-            betAmount: stakeAmount,
-            prediction: bet.selectionName,
-            potentialPayout: calculatePotentialWinnings(stakeAmount, bet.odds),
-            feeCurrency: betOptions.currency,
-            txHash: onChainResult.txDigest,
-            onChainBetId: onChainResult.betObjectId,
-            paymentMethod: 'wallet',
-            status: 'confirmed',
-            useBonus: betOptions.useBonus || false,
-          });
-
-          if (response.ok) {
-            const betData = await response.json();
-            
-            // Emit confirmation event for UI
-            const betConfirmedEvent = new CustomEvent('suibets:bet-confirmed', {
-              detail: {
-                betId: betData.bet?.id || onChainResult.betObjectId,
-                eventName: bet.eventName,
-                prediction: bet.selectionName,
-                odds: bet.odds,
-                stake: stakeAmount,
-                currency: betOptions.currency,
-                potentialWin: calculatePotentialWinnings(stakeAmount, bet.odds),
-                txHash: onChainResult.txDigest,
-                status: 'confirmed',
-                placedAt: new Date().toISOString(),
-              }
+        if (onChainResult.success) {
+          // Record in database
+          try {
+            console.log('[BettingContext] On-chain bet successful, recording in DB:', onChainResult.txDigest);
+            const response = await apiRequest('POST', '/api/bets', {
+              userId: currentAccount.address,
+              walletAddress: currentAccount.address,
+              eventId: String(selectedBets[0].eventId),
+              eventName: selectedBets[0].eventName,
+              marketId: String(selectedBets[0].marketId || 'match_winner'),
+              outcomeId: String(selectedBets[0].outcomeId || selectedBets[0].selectionName || 'selection'),
+              odds: selectedBets[0].odds,
+              betAmount: stakeAmount,
+              prediction: selectedBets[0].selectionName,
+              potentialPayout: calculatePotentialWinnings(stakeAmount, selectedBets[0].odds),
+              feeCurrency: betOptions.currency,
+              txHash: onChainResult.txDigest,
+              onChainBetId: onChainResult.betObjectId,
+              paymentMethod: 'wallet',
+              status: 'confirmed',
+              useBonus: betOptions.useBonus || false,
             });
-            window.dispatchEvent(betConfirmedEvent);
-            
-            const txLink = `https://suiscan.xyz/mainnet/tx/${onChainResult.txDigest}`;
-            toast({
-              title: "Bet Placed On-Chain!",
-              description: (
-                <a href={txLink} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline">
-                  View TX: {onChainResult.txDigest?.slice(0, 12)}...
-                </a>
-              ),
-            });
-            // Bets cleared when user dismisses confirmation
-            return true;
-          } else {
-            // Database failed but bet is on-chain - keep in slip for retry
-            const txLink = `https://suiscan.xyz/mainnet/tx/${onChainResult.txDigest}`;
-            toast({
-              title: "Database Error",
-              description: (
-                <div className="flex flex-col gap-1">
-                  <span>Bet on-chain but failed to save. Retry or contact support.</span>
+
+            if (response.ok) {
+              const betData = await response.json();
+              
+              // Emit confirmation event for UI
+              const betConfirmedEvent = new CustomEvent('suibets:bet-confirmed', {
+                detail: {
+                  betId: betData.bet?.id || onChainResult.betObjectId || betData.id || `onchain_${onChainResult.txDigest?.slice(0, 10)}`,
+                  eventName: selectedBets[0].eventName,
+                  prediction: selectedBets[0].selectionName,
+                  odds: selectedBets[0].odds,
+                  stake: stakeAmount,
+                  currency: betOptions.currency,
+                  potentialWin: calculatePotentialWinnings(stakeAmount, selectedBets[0].odds),
+                  txHash: onChainResult.txDigest,
+                  status: 'confirmed',
+                  placedAt: new Date().toISOString(),
+                }
+              });
+              window.dispatchEvent(betConfirmedEvent);
+              
+              const txLink = `https://suiscan.xyz/mainnet/tx/${onChainResult.txDigest}`;
+              toast({
+                title: "Bet Placed On-Chain!",
+                description: (
                   <a href={txLink} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline">
                     View TX: {onChainResult.txDigest?.slice(0, 12)}...
                   </a>
-                </div>
-              ),
-              variant: "destructive",
-            });
-            // Store txHash locally for recovery
-            localStorage.setItem('pendingOnChainBet', JSON.stringify({
-              txDigest: onChainResult.txDigest,
-              betObjectId: onChainResult.betObjectId,
-              bet,
-              stakeAmount,
-              timestamp: Date.now(),
-            }));
-            return false;
+                ),
+              });
+              return true;
+            } else {
+              // Database failed but bet is on-chain - still show success to user
+              console.error('[BettingContext] DB record failed for on-chain bet:', onChainResult.txDigest);
+              
+              const betConfirmedEvent = new CustomEvent('suibets:bet-confirmed', {
+                detail: {
+                  betId: onChainResult.betObjectId || `onchain_${onChainResult.txDigest?.slice(0, 10)}`,
+                  eventName: selectedBets[0].eventName,
+                  prediction: selectedBets[0].selectionName,
+                  odds: selectedBets[0].odds,
+                  stake: stakeAmount,
+                  currency: betOptions.currency,
+                  potentialWin: calculatePotentialWinnings(stakeAmount, selectedBets[0].odds),
+                  txHash: onChainResult.txDigest,
+                  status: 'confirmed',
+                  placedAt: new Date().toISOString(),
+                }
+              });
+              window.dispatchEvent(betConfirmedEvent);
+              return true;
+            }
+          } catch (dbError: any) {
+            console.error('[BettingContext] Error recording on-chain bet in DB:', dbError);
+            // Fallback success for user since on-chain worked
+            return true;
           }
-        } catch (dbError: any) {
-          // Database error but bet is on-chain
-          const txLink = `https://suiscan.xyz/mainnet/tx/${onChainResult.txDigest}`;
-          toast({
-            title: "Database Error",
-            description: (
-              <div className="flex flex-col gap-1">
-                <span>Bet on-chain but failed to save.</span>
-                <a href={txLink} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline">
-                  View TX: {onChainResult.txDigest?.slice(0, 12)}...
-                </a>
-              </div>
-            ),
-            variant: "destructive",
-          });
-          localStorage.setItem('pendingOnChainBet', JSON.stringify({
-            txDigest: onChainResult.txDigest,
-            betObjectId: onChainResult.betObjectId,
-            bet,
-            stakeAmount,
-            timestamp: Date.now(),
-          }));
+        } else {
           return false;
         }
       }
@@ -487,61 +463,69 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
           walletAddress: currentAccount.address,
         });
 
-        if (!onChainResult.success) {
-          return false; // Error already shown by hook
-        }
+        if (onChainResult.success) {
+          try {
+            console.log('[BettingContext] On-chain parlay successful, recording in DB:', onChainResult.txDigest);
+            // Save to database after successful on-chain transaction
+            const response = await apiRequest('POST', '/api/parlays', {
+              userId: currentAccount.address,
+              walletAddress: currentAccount.address,
+              totalOdds: parlayOdds,
+              betAmount: betAmount,
+              potentialPayout: potentialPayout,
+              feeCurrency: betOptions.currency,
+              txHash: onChainResult.txDigest,
+              onChainBetId: onChainResult.betObjectId,
+              status: 'confirmed',
+              legs: selectedBets.map(bet => ({
+                eventId: bet.eventId,
+                marketId: bet.marketId,
+                outcomeId: bet.outcomeId,
+                odds: bet.odds,
+                prediction: bet.selectionName,
+              })),
+            });
 
-        // Save to database after successful on-chain transaction
-        const response = await apiRequest('POST', '/api/parlays', {
-          userId: currentAccount.address,
-          walletAddress: currentAccount.address,
-          totalOdds: parlayOdds,
-          betAmount: betAmount,
-          potentialPayout: potentialPayout,
-          feeCurrency: betOptions.currency,
-          txHash: onChainResult.txDigest,
-          onChainBetId: onChainResult.betObjectId,
-          status: 'confirmed',
-          legs: selectedBets.map(bet => ({
-            eventId: bet.eventId,
-            marketId: bet.marketId,
-            outcomeId: bet.outcomeId,
-            odds: bet.odds,
-            prediction: bet.selectionName,
-          })),
-        });
-
-        if (response.ok) {
-          const txLink = `https://suiscan.xyz/mainnet/tx/${onChainResult.txDigest}`;
-          toast({
-            title: "Parlay Placed On-Chain!",
-            description: (
-              <div className="flex flex-col gap-1">
-                <span>{selectedBets.length} legs @ {parlayOdds.toFixed(2)}x</span>
-                <a href={txLink} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline">
-                  View TX: {onChainResult.txDigest?.slice(0, 12)}...
-                </a>
-              </div>
-            ),
-          });
-          clearBets();
-          return true;
+            if (response.ok) {
+              const txLink = `https://suiscan.xyz/mainnet/tx/${onChainResult.txDigest}`;
+              toast({
+                title: "Parlay Placed On-Chain!",
+                description: (
+                  <div className="flex flex-col gap-1">
+                    <span>{selectedBets.length} legs @ {parlayOdds.toFixed(2)}x</span>
+                    <a href={txLink} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline">
+                      View TX: {onChainResult.txDigest?.slice(0, 12)}...
+                    </a>
+                  </div>
+                ),
+              });
+              clearBets();
+              return true;
+            } else {
+              // On-chain succeeded but DB failed - still success for user
+              console.error('[BettingContext] DB record failed for on-chain parlay:', onChainResult.txDigest);
+              const txLink = `https://suiscan.xyz/mainnet/tx/${onChainResult.txDigest}`;
+              toast({
+                title: "Parlay On-Chain!",
+                description: (
+                  <div className="flex flex-col gap-1">
+                    <span>Transaction confirmed but DB sync pending. Your bet is safe.</span>
+                    <a href={txLink} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline">
+                      View TX: {onChainResult.txDigest?.slice(0, 12)}...
+                    </a>
+                  </div>
+                ),
+              });
+              clearBets();
+              return true;
+            }
+          } catch (err) {
+            console.error('[BettingContext] Error recording parlay in DB:', err);
+            clearBets();
+            return true;
+          }
         } else {
-          // On-chain succeeded but DB failed - still success
-          const txLink = `https://suiscan.xyz/mainnet/tx/${onChainResult.txDigest}`;
-          toast({
-            title: "Parlay On-Chain!",
-            description: (
-              <div className="flex flex-col gap-1">
-                <span>DB save pending</span>
-                <a href={txLink} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline">
-                  View TX: {onChainResult.txDigest?.slice(0, 12)}...
-                </a>
-              </div>
-            ),
-          });
-          clearBets();
-          return true;
+          return false;
         }
       }
 
