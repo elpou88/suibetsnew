@@ -67,6 +67,7 @@ const Layout: React.FC<LayoutProps> = ({
     { label: 'Withdraw', href: '/wallet-dashboard' },
     { label: 'Parlays', href: '/parlays' },
     { label: 'Revenue', href: '/revenue' },
+    { label: 'Leaderboard', href: '/leaderboard' },
     { label: 'Whitepaper', href: '/whitepaper' },
   ];
 

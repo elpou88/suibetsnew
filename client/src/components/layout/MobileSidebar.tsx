@@ -144,6 +144,24 @@ export default function MobileSidebar() {
               </div>
             </Link>
 
+            {/* Leaderboard */}
+            <Link href="/leaderboard">
+              <div 
+                className={`flex items-center px-4 py-3 mx-2 rounded ${
+                  location === '/leaderboard' 
+                    ? 'bg-cyan-500 text-black' 
+                    : 'text-cyan-400 hover:bg-[#042A30]'
+                }`}
+                onClick={() => handleNavigation('/leaderboard')}
+                data-testid="link-mobile-leaderboard"
+              >
+                <div className="w-8 h-8 mr-3 flex items-center justify-center">
+                  <span className="text-lg">🏆</span>
+                </div>
+                <span className={location === '/leaderboard' ? 'font-semibold' : ''}>Leaderboard</span>
+              </div>
+            </Link>
+
             {/* Sports categories */}
             {sports.map((sport) => (
               <Link key={sport.id} href={`/sports-live/${sport.slug}`}>

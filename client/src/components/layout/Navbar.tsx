@@ -61,6 +61,14 @@ export default function Navbar() {
           >
             Revenue
           </a>
+          
+          <a 
+            href="/leaderboard" 
+            className={`${location === "/leaderboard" ? "text-[#FFD700]" : "text-white hover:text-[#FFD700]"} cursor-pointer text-sm lg:text-base font-semibold`}
+            data-testid="link-leaderboard"
+          >
+            Leaderboard
+          </a>
         </div>
       </div>
       
