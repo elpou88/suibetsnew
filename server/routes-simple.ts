@@ -3382,8 +3382,19 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const claimSui = holderPoolSui * userShareRatio;
       const claimSbets = holderPoolSbets * userShareRatio;
       
-      if (claimSui <= 0 && claimSbets <= 0) {
-        return res.status(400).json({ message: 'No revenue to claim this week' });
+      // Minimum claim threshold to avoid dust transactions (gas would cost more than claim)
+      const MIN_CLAIM_SUI = 0.001;
+      const MIN_CLAIM_SBETS = 1;
+      
+      if (claimSui < MIN_CLAIM_SUI && claimSbets < MIN_CLAIM_SBETS) {
+        const sharePercent = (userShareRatio * 100).toFixed(6);
+        return res.status(400).json({ 
+          message: `Your claimable amount is too small (${claimSbets.toFixed(4)} SBETS). You hold ${sharePercent}% of total SBETS supply. Accumulate more SBETS tokens to increase your share.`,
+          claimableSui: claimSui,
+          claimableSbets: claimSbets,
+          sharePercentage: sharePercent,
+          minimumRequired: { sui: MIN_CLAIM_SUI, sbets: MIN_CLAIM_SBETS }
+        });
       }
       
       console.log(`[Revenue] Processing claim: ${walletAddress} claiming ${claimSui} SUI + ${claimSbets} SBETS`);
