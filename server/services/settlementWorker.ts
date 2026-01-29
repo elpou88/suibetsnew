@@ -532,9 +532,13 @@ class SettlementWorkerService {
               }
               console.error(`❌ ON-CHAIN SUI SETTLEMENT FAILED: ${bet.id} - ${settlementResult.error}`);
               
-              // FALLBACK: If TypeMismatch error (legacy contract), use DB-only settlement
-              if (settlementResult.error?.includes('TypeMismatch') || settlementResult.error?.includes('type mismatch')) {
-                console.log(`🔄 LEGACY BET DETECTED (TypeMismatch): Falling back to DB-only settlement for ${bet.id}`);
+              // FALLBACK: If TypeMismatch or ownership error (legacy contract with owned objects), use DB-only settlement
+              const isLegacyBetError = settlementResult.error?.includes('TypeMismatch') || 
+                                       settlementResult.error?.includes('type mismatch') ||
+                                       settlementResult.error?.includes('owned by account address') ||
+                                       settlementResult.error?.includes('not signed by the correct sender');
+              if (isLegacyBetError) {
+                console.log(`🔄 LEGACY BET DETECTED (owned object): Falling back to DB-only settlement with wallet payout for ${bet.id}`);
                 // Fall through to off-chain settlement below
               } else {
                 // Don't mark as settled - will retry next cycle
@@ -626,9 +630,13 @@ class SettlementWorkerService {
               }
               console.error(`❌ ON-CHAIN SBETS SETTLEMENT FAILED: ${bet.id} - ${settlementResult.error}`);
               
-              // FALLBACK: If TypeMismatch error (legacy contract), use DB-only settlement
-              if (settlementResult.error?.includes('TypeMismatch') || settlementResult.error?.includes('type mismatch')) {
-                console.log(`🔄 LEGACY SBETS BET DETECTED (TypeMismatch): Falling back to DB-only settlement for ${bet.id}`);
+              // FALLBACK: If TypeMismatch or ownership error (legacy contract with owned objects), use DB-only settlement
+              const isLegacySbetsBetError = settlementResult.error?.includes('TypeMismatch') || 
+                                            settlementResult.error?.includes('type mismatch') ||
+                                            settlementResult.error?.includes('owned by account address') ||
+                                            settlementResult.error?.includes('not signed by the correct sender');
+              if (isLegacySbetsBetError) {
+                console.log(`🔄 LEGACY SBETS BET DETECTED (owned object): Falling back to DB-only settlement with wallet payout for ${bet.id}`);
                 // Fall through to off-chain settlement below
               } else {
                 continue;

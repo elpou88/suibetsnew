@@ -61,7 +61,6 @@ import RulesPage from "@/pages/rules";
 import IntegrityPage from "@/pages/integrity";
 import AffiliatePage from "@/pages/affiliate";
 import BlogPage from "@/pages/blog";
-import LeaderboardPage from "@/pages/leaderboard";
 import { SessionTimer } from "@/components/ResponsibleGaming";
 
 function App() {

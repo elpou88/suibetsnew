@@ -66,6 +66,12 @@ Preferred communication style: Simple, everyday language.
 - **Status**: New contract deployed and active. All NEW bets will be settleable by admin.
 - **Legacy Bets**: Bets placed on OLD contract (0xfaf371c3c9fe...) were owned by bettors. These have been marked as VOID in database to prevent settlement errors.
 
+### Legacy Bet Handling (Updated January 29, 2026)
+- **Sync Filter**: On-chain bet sync now checks object ownership before syncing. Skips OWNED objects (legacy bets) and only syncs SHARED objects (new contract bets).
+- **Settlement Fallback**: If on-chain settlement fails with ownership errors ("owned by account address" or "not signed by the correct sender"), falls back to DB-only settlement with direct wallet payout.
+- **Auto-Payout**: Winners from fallback settlement receive tokens sent directly to their wallet from admin wallet.
+- **Voided Legacy Bets**: 3 legacy parlay bets from user wallets voided on Jan 29, 2026 to prevent settlement retry loops.
+
 ### Automatic On-Chain Payouts for DB Settlements (January 27, 2026)
 - **Feature**: Winners from DB-only settlements now receive automatic on-chain payouts to their wallet
 - **Source**: Funds sent from admin wallet (should be funded from treasury withdrawals)

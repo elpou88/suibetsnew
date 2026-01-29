@@ -1124,11 +1124,9 @@ export class BlockchainBetService {
             homeTeam = teams[0]?.trim() || "Unknown";
             awayTeam = teams[1]?.trim() || "Unknown";
           }
-          };
           
-          // Decode event_id and prediction from byte arrays
+          // Decode event_id from byte arrays
           const eventId = decodeBytes(parsed.event_id as number[]);
-          const prediction = decodeBytes(parsed.prediction as number[]);
 
           // Check if this bet already exists in database by bet_object_id
           const { storage } = await import('../storage');
@@ -1136,6 +1134,25 @@ export class BlockchainBetService {
           
           if (existingBets && existingBets.length > 0) {
             continue; // Already tracked
+          }
+
+          // CRITICAL: Check if bet object is SHARED (new contract) or OWNED (legacy contract)
+          // Legacy bets from before Jan 27, 2026 are owned objects and cannot be settled by admin
+          try {
+            const betObj = await this.client.getObject({
+              id: betObjectId,
+              options: { showOwner: true }
+            });
+            
+            const owner = betObj.data?.owner;
+            // If owner is an address (not "Shared"), this is a legacy owned bet - skip it
+            if (owner && typeof owner === 'object' && 'AddressOwner' in owner) {
+              console.log(`⚠️ SKIPPING legacy owned bet ${betObjectId.slice(0, 12)}... (owned by ${(owner as any).AddressOwner.slice(0, 12)}...)`);
+              continue; // Skip legacy owned bets - they cannot be settled
+            }
+          } catch (ownerCheckError) {
+            console.warn(`⚠️ Could not verify bet ownership for ${betObjectId.slice(0, 12)}..., skipping`);
+            continue;
           }
 
           // Get current on-chain status and additional data
