@@ -739,6 +739,13 @@ export default function AdminPanel() {
     }
     // Always fetch platform info
     fetchPlatformInfo();
+    
+    // Auto-refresh treasury data every 15 seconds
+    const refreshInterval = setInterval(() => {
+      fetchPlatformInfo();
+    }, 15000);
+    
+    return () => clearInterval(refreshInterval);
   }, [fetchPlatformInfo]);
 
   // Sync input values when platform info loads
@@ -864,11 +871,22 @@ export default function AdminPanel() {
 
         {/* Treasury Management Section - Always visible */}
         <Card className="bg-gradient-to-r from-cyan-900/30 to-blue-900/30 border-cyan-500/30 mb-8">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between gap-4">
             <CardTitle className="text-xl text-white flex items-center gap-2">
               <Wallet className="w-6 h-6 text-cyan-400" />
               Treasury Management
             </CardTitle>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={() => fetchPlatformInfo()}
+              disabled={loadingPlatform}
+              className="border-cyan-500/50 text-cyan-400 hover:bg-cyan-900/30"
+              data-testid="button-refresh-treasury"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${loadingPlatform ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
           </CardHeader>
           <CardContent>
             {loadingPlatform ? (
