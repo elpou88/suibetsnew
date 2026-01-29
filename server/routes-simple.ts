@@ -3226,19 +3226,22 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       startOfWeek.setHours(0, 0, 0, 0);
       
       const weeklyBets = settledBets.filter((bet: any) => {
-        const betDate = new Date(bet.createdAt || 0);
+        const betDate = new Date(bet.placedAt || bet.createdAt || 0);
         return betDate >= startOfWeek;
       });
       
       // Track revenue separately for SUI and SBETS
+      // FIXED: Include 'paid_out' status (winners that have been paid)
       const weeklyRevenueSui = weeklyBets.reduce((sum: number, bet: any) => {
         if (bet.currency !== 'SUI') return sum;
         let revenue = 0;
         if (bet.status === 'lost') {
-          revenue = bet.betAmount || 0;
-        } else if (bet.status === 'won' && bet.potentialWin) {
-          const profit = bet.potentialWin - bet.betAmount;
-          revenue = profit * 0.01;
+          revenue = bet.betAmount || bet.stake || 0;
+        } else if ((bet.status === 'won' || bet.status === 'paid_out') && (bet.potentialPayout || bet.potentialWin)) {
+          const payout = bet.potentialPayout || bet.potentialWin;
+          const stake = bet.betAmount || bet.stake || 0;
+          const profit = payout - stake;
+          revenue = profit * 0.01; // 1% fee on profit
         }
         return sum + revenue;
       }, 0);
@@ -3247,10 +3250,12 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         if (bet.currency !== 'SBETS') return sum;
         let revenue = 0;
         if (bet.status === 'lost') {
-          revenue = bet.betAmount || 0;
-        } else if (bet.status === 'won' && bet.potentialWin) {
-          const profit = bet.potentialWin - bet.betAmount;
-          revenue = profit * 0.01;
+          revenue = bet.betAmount || bet.stake || 0;
+        } else if ((bet.status === 'won' || bet.status === 'paid_out') && (bet.potentialPayout || bet.potentialWin)) {
+          const payout = bet.potentialPayout || bet.potentialWin;
+          const stake = bet.betAmount || bet.stake || 0;
+          const profit = payout - stake;
+          revenue = profit * 0.01; // 1% fee on profit
         }
         return sum + revenue;
       }, 0);
