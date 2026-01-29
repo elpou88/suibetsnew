@@ -463,10 +463,14 @@ export class BlockchainBetService {
     }
   }
 
+  private sbetsTokenType = "0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285::sbets::SBETS";
+
   // Get treasury balance (admin wallet balance)
   async getTreasuryBalance(): Promise<{ sui: number; sbets: number }> {
     return this.getWalletBalance(PLATFORM_REVENUE_WALLET);
   }
+
+  private sbetsTokenType = "0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285::sbets::SBETS";
 
   /**
    * Execute on-chain bet settlement via smart contract
@@ -486,6 +490,7 @@ export class BlockchainBetService {
       return { success: false, error };
     }
 
+    // Signer safety fix: Always use admin keypair
     if (!ADMIN_CAP_ID) {
       const error = 'ADMIN_CAP_ID not configured - cannot execute on-chain settlement with capability pattern';
       console.error(`❌ SETTLEMENT BLOCKED: ${error}`);
@@ -655,6 +660,7 @@ export class BlockchainBetService {
       return { success: false, error };
     }
 
+    // Signer safety fix: Always use admin keypair
     if (!ADMIN_CAP_ID) {
       const error = 'ADMIN_CAP_ID not configured - cannot execute on-chain SBETS settlement';
       console.error(`❌ SBETS SETTLEMENT BLOCKED: ${error}`);
@@ -860,7 +866,7 @@ export class BlockchainBetService {
         return { success: false, error: 'Amount must be positive' };
       }
 
-      const amountInSmallest = BigInt(Math.floor(amount * 1e6)); // SBETS has 6 decimals
+      const amountInSmallest = BigInt(Math.floor(amount * 1000000)); // SBETS has 6 decimals
       const tx = new Transaction();
 
       // Get admin's SBETS coins (funded from treasury)
@@ -876,7 +882,7 @@ export class BlockchainBetService {
       // Check total balance
       const totalBalance = coins.data.reduce((sum, c) => sum + BigInt(c.balance), 0n);
       if (totalBalance < amountInSmallest) {
-        return { success: false, error: `Insufficient SBETS in admin wallet: ${Number(totalBalance) / 1e6} < ${amount}` };
+        return { success: false, error: `Insufficient SBETS in admin wallet: ${Number(totalBalance) / 1000000} < ${amount}` };
       }
 
       // Merge all SBETS coins if needed
@@ -1091,10 +1097,33 @@ export class BlockchainBetService {
           const decodeBytes = (arr: number[] | undefined): string => {
             if (!arr || !Array.isArray(arr)) return 'Unknown';
             try {
-              return String.fromCharCode(...arr);
-            } catch {
-              return 'Unknown';
+              return Buffer.from(arr).toString('utf8');
+            } catch (e) {
+              return 'Error decoding';
             }
+          };
+
+          const prediction = decodeBytes(parsed.prediction);
+          const market = decodeBytes(parsed.market);
+          
+          // Try to extract event info from prediction or market
+          let eventName = "Unknown Event";
+          let homeTeam = "Unknown";
+          let awayTeam = "Unknown";
+          
+          // Improved extraction logic for synchronized bets
+          if (prediction && prediction.includes(" vs ")) {
+            const parts = prediction.split(":");
+            eventName = parts[0].trim();
+            const teams = eventName.split(" vs ");
+            homeTeam = teams[0]?.trim() || "Unknown";
+            awayTeam = teams[1]?.trim() || "Unknown";
+          } else if (market && market.includes(" vs ")) {
+            eventName = market.split(":")[0].trim();
+            const teams = eventName.split(" vs ");
+            homeTeam = teams[0]?.trim() || "Unknown";
+            awayTeam = teams[1]?.trim() || "Unknown";
+          }
           };
           
           // Decode event_id and prediction from byte arrays

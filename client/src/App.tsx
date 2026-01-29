@@ -55,6 +55,7 @@ import AdminPanel from "@/pages/admin-panel";
 // Informational Pages
 import PrivacyPolicy from "@/pages/privacy";
 import FAQPage from "@/pages/faq";
+import LeaderboardPage from "@/pages/leaderboard";
 import ResponsibleGambling from "@/pages/responsible";
 import RulesPage from "@/pages/rules";
 import IntegrityPage from "@/pages/integrity";
