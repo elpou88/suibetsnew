@@ -75,6 +75,7 @@ export interface PlaceBetOptions {
   betType?: 'single' | 'parlay';
   currency?: 'SUI' | 'SBETS';
   acceptOddsChange?: boolean;
+  useBonus?: boolean; // Use free bet bonus balance
 }
 
 // Bet history entry

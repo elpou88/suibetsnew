@@ -1627,7 +1627,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       // Cast to strings since transform always converts to string
       const userId = String(data.userId);
       const eventId = String(data.eventId);
-      const { eventName, homeTeam, awayTeam, marketId, outcomeId, odds, betAmount, currency, prediction, feeCurrency, paymentMethod, txHash, onChainBetId, status, isLive, matchMinute, walletAddress } = data;
+      const { eventName, homeTeam, awayTeam, marketId, outcomeId, odds, betAmount, currency, prediction, feeCurrency, paymentMethod, txHash, onChainBetId, status, isLive, matchMinute, walletAddress, useBonus } = data;
       
       // Anti-cheat: Block first-half markets after minute 45 and all markets after minute 80
       const isFirstHalfMarket = !!data.marketId && (
@@ -1686,6 +1686,25 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         await promotionService.trackBetAndAwardBonus(walletAddress || userId, betAmount, betCurrency as 'SUI' | 'SBETS');
       } catch (promoError) {
         console.warn('[PROMO] Failed to track bet for promotion:', promoError);
+      }
+      
+      // Handle FREE BET bonus usage
+      let bonusUsedAmount = 0;
+      if (useBonus) {
+        try {
+          const promoStatus = await promotionService.getPromotionStatus(walletAddress || userId);
+          if (promoStatus.bonusBalance > 0) {
+            // Use bonus up to the bet amount (converted to USD)
+            const maxBonusToUse = Math.min(promoStatus.bonusBalance, betUsdValue);
+            const usedSuccess = await promotionService.useBonusBalance(walletAddress || userId, maxBonusToUse);
+            if (usedSuccess) {
+              bonusUsedAmount = maxBonusToUse;
+              console.log(`🎁 FREE BET: Used $${bonusUsedAmount.toFixed(2)} bonus for ${walletAddress || userId}`);
+            }
+          }
+        } catch (bonusError) {
+          console.warn('[BONUS] Failed to use bonus balance:', bonusError);
+        }
       }
       
       let limitsCheckPassed = false;

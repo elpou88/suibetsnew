@@ -348,6 +348,7 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
             onChainBetId: onChainResult.betObjectId,
             paymentMethod: 'wallet',
             status: 'confirmed',
+            useBonus: betOptions.useBonus || false,
           });
 
           if (response.ok) {

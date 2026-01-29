@@ -2,10 +2,11 @@ import React, { ReactNode, useState } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
+import { useCurrentAccount } from '@mysten/dapp-kit';
 import { 
   Home, TrendingUp, Megaphone, Bell, Settings, 
   Clock, Wallet, ChevronLeft, Landmark, 
-  TrendingDown, Trophy, MenuIcon, MessageCircle
+  TrendingDown, Trophy, MenuIcon, MessageCircle, Gift, Star
 } from 'lucide-react';
 import { ConnectWalletModal } from '@/components/modals/ConnectWalletModal';
 const suibetsLogo = "/images/suibets-logo.jpg";
@@ -23,6 +24,24 @@ const Layout: React.FC<LayoutProps> = ({
 }) => {
   const [location, setLocation] = useLocation();
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+  const currentAccount = useCurrentAccount();
+  
+  // Fetch promotion status
+  const { data: promotionData } = useQuery<{
+    isActive: boolean;
+    bonusBalance: number;
+    totalBetUsd: number;
+    thresholdUsd: number;
+  }>({
+    queryKey: ['/api/promotion/status', currentAccount?.address],
+    queryFn: async () => {
+      const res = await fetch(`/api/promotion/status?wallet=${currentAccount?.address}`);
+      if (!res.ok) throw new Error('Failed to fetch promotion status');
+      return res.json();
+    },
+    enabled: !!currentAccount?.address,
+    refetchInterval: 15000,
+  });
   
   // Fetch upcoming events for the ticker
   const { data: upcomingEvents = [] } = useQuery<any[]>({
@@ -154,6 +173,35 @@ const Layout: React.FC<LayoutProps> = ({
           ))}
         </div>
       </header>
+      
+      {/* Promotion Banner - Bet $15 Get $5 Free */}
+      <div 
+        className="bg-gradient-to-r from-yellow-600 via-orange-500 to-yellow-600 border-b border-yellow-400/50 cursor-pointer hover:brightness-110 transition-all"
+        onClick={() => setLocation('/promotions')}
+        data-testid="promo-top-banner"
+      >
+        <div className="container mx-auto px-4 py-2 flex items-center justify-center gap-3">
+          <div className="flex items-center gap-2">
+            <Gift className="w-5 h-5 text-white animate-bounce" />
+            <span className="text-white font-bold text-sm md:text-base">
+              BET $15 → GET $5 FREE!
+            </span>
+            <Star className="w-4 h-4 text-yellow-200 fill-yellow-200" />
+          </div>
+          {currentAccount?.address && promotionData && (
+            <div className="hidden md:flex items-center gap-2 text-white/90 text-sm">
+              <span className="bg-black/30 px-2 py-0.5 rounded-full">
+                Progress: ${promotionData.totalBetUsd?.toFixed(2) || "0.00"}/$15
+              </span>
+              {promotionData.bonusBalance > 0 && (
+                <span className="bg-green-500 text-white px-2 py-0.5 rounded-full font-bold animate-pulse">
+                  ${promotionData.bonusBalance.toFixed(2)} FREE!
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
       
       {/* Display title if provided and not showing back button */}
       {title && !showBackButton && (

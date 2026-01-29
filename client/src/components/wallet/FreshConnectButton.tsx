@@ -1,7 +1,8 @@
 import { useCurrentAccount, useDisconnectWallet, useConnectWallet, useWallets } from '@mysten/dapp-kit';
 import { Button } from '@/components/ui/button';
-import { Wallet, ChevronDown, LogOut, RefreshCw } from 'lucide-react';
+import { Wallet, ChevronDown, LogOut, RefreshCw, Gift } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +29,23 @@ export function FreshConnectButton() {
   
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [connectingWallet, setConnectingWallet] = useState<string | null>(null);
+  
+  // Fetch bonus balance
+  const { data: promotionData } = useQuery<{
+    isActive: boolean;
+    bonusBalance: number;
+    totalBetUsd: number;
+    thresholdUsd: number;
+  }>({
+    queryKey: ['/api/promotion/status', currentAccount?.address],
+    queryFn: async () => {
+      const res = await fetch(`/api/promotion/status?wallet=${currentAccount?.address}`);
+      if (!res.ok) throw new Error('Failed to fetch promotion status');
+      return res.json();
+    },
+    enabled: !!currentAccount?.address,
+    refetchInterval: 30000,
+  });
   
   // Log wallet detection for debugging
   useEffect(() => {
@@ -112,6 +130,18 @@ export function FreshConnectButton() {
           <div className="px-2 py-2 text-xs text-cyan-400 font-mono">
             {shortenAddress(currentAccount.address)}
           </div>
+          {/* Show Bonus Balance if user has any */}
+          {promotionData && promotionData.bonusBalance > 0 && (
+            <div className="mx-2 mb-2 p-2 bg-green-500/10 border border-green-500/30 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Gift className="w-4 h-4 text-green-400" />
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-green-400/70 uppercase">Free Bet Balance</span>
+                  <span className="text-green-400 font-bold text-sm">${promotionData.bonusBalance.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+          )}
           <DropdownMenuSeparator className="bg-cyan-800/30" />
           <DropdownMenuItem 
             className="cursor-pointer text-white hover:bg-cyan-900/50"

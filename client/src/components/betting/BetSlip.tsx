@@ -30,6 +30,7 @@ export function BetSlip() {
   const [betCurrency, setBetCurrency] = useState<'SUI' | 'SBETS'>('SUI');
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [confirmedBet, setConfirmedBet] = useState<BetConfirmation | null>(null);
+  const [useBonus, setUseBonus] = useState(false);
   
   // Fetch promotion bonus balance
   const { data: promotionData } = useQuery<{
@@ -228,12 +229,15 @@ export function BetSlip() {
       const success = await placeBet(currentTotal, {
         betType,
         currency: betCurrency,
-        acceptOddsChange: true
+        acceptOddsChange: true,
+        useBonus: useBonus && bonusBalance > 0
       });
       
       if (success) {
         // Bet confirmation is shown via the event listener
         // Bets will be cleared when user dismisses the confirmation
+        // Reset bonus toggle after successful bet
+        setUseBonus(false);
       } else {
         toast({
           title: "Bet Failed",
@@ -556,7 +560,38 @@ export function BetSlip() {
                 </button>
               </div>
             </div>
-            <div className="flex items-center justify-between">
+            
+            {/* Use Bonus Toggle - Show when user has bonus balance */}
+            {bonusBalance > 0 && (
+              <div className="flex items-center justify-between bg-green-500/10 border border-green-500/30 rounded-lg p-3 mt-2">
+                <div className="flex items-center gap-2">
+                  <Gift className="w-4 h-4 text-green-400" />
+                  <div className="flex flex-col">
+                    <span className="text-green-400 font-bold text-sm">Use FREE Bet</span>
+                    <span className="text-green-400/70 text-xs">${bonusBalance.toFixed(2)} available</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setUseBonus(!useBonus)}
+                  className={`w-12 h-6 rounded-full transition-colors ${
+                    useBonus ? 'bg-green-500' : 'bg-gray-600'
+                  } relative`}
+                  data-testid="toggle-use-bonus"
+                >
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                    useBonus ? 'right-1' : 'left-1'
+                  }`} />
+                </button>
+              </div>
+            )}
+            
+            {useBonus && bonusBalance > 0 && (
+              <div className="text-center text-xs text-green-400 mt-2 bg-green-500/10 py-1 rounded">
+                Your ${Math.min(bonusBalance, totalStake * 1.5).toFixed(2)} FREE bet will be applied!
+              </div>
+            )}
+            
+            <div className="flex items-center justify-between mt-2">
               <span className="text-gray-400 text-sm">Potential Win:</span>
               <span className="text-cyan-400 font-bold text-lg">{potentialWinnings.toFixed(2)} {betCurrency}</span>
             </div>
