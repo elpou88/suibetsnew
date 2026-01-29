@@ -195,9 +195,16 @@ class SettlementWorkerService {
         }
       }
 
+      // Separate single bets from parlay bets
+      const singleBets = pendingBets.filter(bet => !this.isParlayBet(bet));
+      const parlayBets = pendingBets.filter(bet => this.isParlayBet(bet));
+      
+      console.log(`📊 Processing ${singleBets.length} single bets, ${parlayBets.length} parlay bets`);
+      
+      // Process single bets
       for (const match of finishedMatches) {
         // IMPROVED MATCHING: Use multiple strategies to find bets for this match
-        const betsForMatch = pendingBets.filter(bet => {
+        const betsForMatch = singleBets.filter(bet => {
           // Strategy 1: Exact external event ID match (most reliable) - compare as strings
           const betExtId = String(bet.externalEventId || '').trim();
           const matchId = String(match.eventId || '').trim();
@@ -238,9 +245,233 @@ class SettlementWorkerService {
           await this.settleBetsForMatch(match, betsForMatch);
         }
       }
+      
+      // Process parlay bets - need all legs to be finished
+      if (parlayBets.length > 0) {
+        await this.settleParlayBets(parlayBets, finishedMatches);
+      }
     } catch (error) {
       console.error('❌ SettlementWorker checkAndSettleBets error:', error);
     }
+  }
+  
+  private isParlayBet(bet: UnsettledBet): boolean {
+    // Parlay bets have prediction field as JSON array and empty externalEventId
+    try {
+      const pred = bet.prediction || '';
+      return pred.startsWith('[') && pred.includes('"eventId"');
+    } catch {
+      return false;
+    }
+  }
+  
+  private async settleParlayBets(parlayBets: UnsettledBet[], finishedMatches: FinishedMatch[]) {
+    console.log(`🎰 Processing ${parlayBets.length} parlay bets...`);
+    
+    // Create a map of finished matches by eventId for quick lookup
+    const finishedMatchMap = new Map<string, FinishedMatch>();
+    for (const match of finishedMatches) {
+      finishedMatchMap.set(String(match.eventId).trim(), match);
+    }
+    
+    for (const bet of parlayBets) {
+      try {
+        // Parse parlay legs from prediction
+        const legs = JSON.parse(bet.prediction) as Array<{
+          eventId: string;
+          marketId?: string;
+          outcomeId?: string;
+          odds: number;
+          prediction: string;
+          selection?: string;
+        }>;
+        
+        if (!Array.isArray(legs) || legs.length === 0) {
+          console.log(`⚠️ Parlay bet ${bet.id} has invalid legs structure`);
+          continue;
+        }
+        
+        console.log(`🎯 Parlay bet ${bet.id.slice(0, 10)}... has ${legs.length} legs`);
+        
+        // Check if ALL legs have finished matches
+        let allLegsFinished = true;
+        let anyLegLost = false;
+        const legResults: { eventId: string; prediction: string; won: boolean; match?: FinishedMatch }[] = [];
+        
+        for (const leg of legs) {
+          const eventId = String(leg.eventId).trim();
+          const match = finishedMatchMap.get(eventId);
+          
+          if (!match) {
+            console.log(`⏳ Parlay leg ${eventId} not yet finished`);
+            allLegsFinished = false;
+            break;
+          }
+          
+          // Evaluate this leg's prediction
+          const prediction = leg.prediction || leg.selection || '';
+          const legWon = this.evaluateLegPrediction(prediction, match, leg.marketId, leg.outcomeId);
+          
+          legResults.push({ eventId, prediction, won: legWon, match });
+          
+          if (!legWon) {
+            anyLegLost = true;
+            console.log(`❌ Parlay leg LOST: ${prediction} for ${match.homeTeam} vs ${match.awayTeam} (${match.homeScore}-${match.awayScore})`);
+          } else {
+            console.log(`✅ Parlay leg WON: ${prediction} for ${match.homeTeam} vs ${match.awayTeam} (${match.homeScore}-${match.awayScore})`);
+          }
+        }
+        
+        if (!allLegsFinished) {
+          console.log(`⏳ Parlay bet ${bet.id.slice(0, 10)}... waiting for ${legs.length - legResults.length} more legs to finish`);
+          continue;
+        }
+        
+        // All legs finished - settle the parlay
+        const parlayWon = !anyLegLost;
+        console.log(`🎰 PARLAY SETTLED: ${bet.id.slice(0, 10)}... ${parlayWon ? 'WON' : 'LOST'} (${legResults.filter(l => l.won).length}/${legs.length} legs won)`);
+        
+        // Use the first leg's match for settlement (for event tracking)
+        const firstMatch = legResults[0]?.match;
+        if (firstMatch) {
+          // Create a modified bet with pre-computed parlay outcome
+          // We set status to 'won' if parlay won, so settleBetsForMatch will process it correctly
+          const modifiedBet: UnsettledBet = {
+            ...bet,
+            // Override prediction to match result for proper settlement flow
+            // If parlay won, we force the determineBetOutcome to return true
+            status: parlayWon ? 'won' : 'pending'
+          };
+          
+          // Call the standard settlement flow with the parlay bet
+          // If parlayWon is true, status='won' causes settlement to skip determineBetOutcome and payout
+          // If parlayWon is false, we need to force a loss
+          if (parlayWon) {
+            await this.settleBetsForMatch(firstMatch, [modifiedBet]);
+          } else {
+            // For lost parlays, we need to mark as lost directly
+            await this.settleParlaySingleBet(bet, firstMatch, false);
+          }
+        }
+        
+      } catch (error) {
+        console.error(`❌ Error processing parlay bet ${bet.id}:`, error);
+      }
+    }
+  }
+  
+  private async settleParlaySingleBet(bet: UnsettledBet, match: FinishedMatch, isWinner: boolean) {
+    // DUPLICATE SETTLEMENT PREVENTION: Skip if already settled this session
+    if (this.settledBetIds.has(bet.id)) {
+      console.log(`⚠️ SKIPPING: Parlay bet ${bet.id} already processed this session`);
+      return;
+    }
+    
+    const grossPayout = isWinner ? bet.potentialWin : 0;
+    const profit = isWinner ? (grossPayout - bet.stake) : 0;
+    const platformFee = profit > 0 ? profit * 0.01 : 0;
+    
+    // Check for on-chain bet
+    const hasOnChainBet = bet.betObjectId && blockchainBetService.isAdminKeyConfigured();
+    const isSbetsOnChainBet = bet.currency === 'SBETS' && hasOnChainBet;
+    const isSuiOnChainBet = bet.currency === 'SUI' && hasOnChainBet;
+    
+    if (isSuiOnChainBet || isSbetsOnChainBet) {
+      console.log(`🔗 ON-CHAIN PARLAY SETTLEMENT: Bet ${bet.id.slice(0, 10)}... via smart contract`);
+      
+      // PRE-CHECK: Verify bet isn't already settled on-chain
+      const onChainInfo = await blockchainBetService.getOnChainBetInfo(bet.betObjectId!);
+      if (onChainInfo?.settled) {
+        console.log(`⚠️ PARLAY ALREADY SETTLED ON-CHAIN: ${bet.betObjectId} - updating database only`);
+        const finalStatus = isWinner ? 'paid_out' : 'lost';
+        await storage.updateBetStatus(bet.id, finalStatus, grossPayout);
+        this.settledBetIds.add(bet.id);
+        return;
+      }
+      
+      if (!onChainInfo) {
+        console.warn(`⚠️ PARLAY BET OBJECT NOT FOUND ON-CHAIN: ${bet.betObjectId} - marking for manual resolution`);
+        await storage.updateBetStatus(bet.id, isWinner ? 'won' : 'lost', grossPayout);
+        this.settledBetIds.add(bet.id);
+        return;
+      }
+      
+      // Small delay between on-chain transactions
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const settlementResult = await blockchainBetService.executeSettleBetOnChain(
+        bet.betObjectId!,
+        isWinner
+      );
+      
+      if (settlementResult.success) {
+        const finalStatus = isWinner ? 'paid_out' : 'lost';
+        const statusUpdated = await storage.updateBetStatus(bet.id, finalStatus, grossPayout, settlementResult.txHash);
+        if (statusUpdated) {
+          console.log(`✅ ON-CHAIN PARLAY SETTLED: ${bet.id.slice(0, 10)}... ${finalStatus} | TX: ${settlementResult.txHash}`);
+          this.settledBetIds.add(bet.id);
+        }
+        return;
+      } else {
+        console.error(`❌ ON-CHAIN PARLAY SETTLEMENT FAILED: ${settlementResult.error}`);
+        // Mark as lost in DB for retry later
+        await storage.updateBetStatus(bet.id, 'lost', 0);
+        this.settledBetIds.add(bet.id);
+        return;
+      }
+    }
+    
+    // Off-chain fallback
+    const finalStatus = isWinner ? 'paid_out' : 'lost';
+    const statusUpdated = await storage.updateBetStatus(bet.id, finalStatus, grossPayout);
+    if (statusUpdated) {
+      console.log(`✅ OFF-CHAIN PARLAY SETTLED: ${bet.id.slice(0, 10)}... ${finalStatus}`);
+      this.settledBetIds.add(bet.id);
+    }
+  }
+  
+  private evaluateLegPrediction(prediction: string, match: FinishedMatch, marketId?: string, outcomeId?: string): boolean {
+    // Handle Double Chance market (dc_1x, dc_12, dc_x2)
+    if (marketId === '3' || outcomeId?.startsWith('dc_')) {
+      const outcome = outcomeId || '';
+      if (outcome === 'dc_1x' || outcome.includes('home or draw')) {
+        return match.winner === 'home' || match.winner === 'draw';
+      }
+      if (outcome === 'dc_12' || outcome.includes('home or away')) {
+        return match.winner === 'home' || match.winner === 'away';
+      }
+      if (outcome === 'dc_x2' || outcome.includes('draw or away')) {
+        return match.winner === 'draw' || match.winner === 'away';
+      }
+    }
+    
+    // Fallback to standard prediction logic
+    const pred = prediction.toLowerCase().trim();
+    const homeTeam = match.homeTeam.toLowerCase();
+    const awayTeam = match.awayTeam.toLowerCase();
+    
+    // Match Winner
+    if (pred.includes(homeTeam) || pred === 'home' || pred === '1') {
+      return match.winner === 'home';
+    }
+    if (pred.includes(awayTeam) || pred === 'away' || pred === '2') {
+      return match.winner === 'away';
+    }
+    if (pred === 'draw' || pred === 'x' || pred === 'tie') {
+      return match.winner === 'draw';
+    }
+    
+    // Double Chance by prediction text
+    if (pred.includes('or draw')) {
+      if (pred.includes(homeTeam)) {
+        return match.winner === 'home' || match.winner === 'draw';
+      }
+      if (pred.includes(awayTeam)) {
+        return match.winner === 'draw' || match.winner === 'away';
+      }
+    }
+    
+    return false;
   }
 
   private async getFinishedMatches(): Promise<FinishedMatch[]> {
