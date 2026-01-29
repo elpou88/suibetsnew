@@ -15,8 +15,10 @@ import {
   TrendingDown,
   ExternalLink,
   Filter,
-  ArrowLeft
+  ArrowLeft,
+  Share2
 } from 'lucide-react';
+import { ShareableBetCard } from '@/components/betting/ShareableBetCard';
 
 interface Bet {
   id: string;
@@ -38,6 +40,7 @@ export default function BetHistoryPage() {
   const currentAccount = useCurrentAccount();
   const [filter, setFilter] = useState<string>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [shareBet, setShareBet] = useState<Bet | null>(null);
   
   // Only fetch data when wallet is connected - prevents mock data
   const walletAddress = currentAccount?.address;
@@ -338,6 +341,14 @@ export default function BetHistoryPage() {
                         <ExternalLink className="h-3 w-3" />
                       </a>
                     )}
+                    <button
+                      onClick={() => setShareBet(bet)}
+                      className="mt-2 flex items-center gap-1 text-xs text-gray-400 hover:text-cyan-400 transition-colors"
+                      data-testid={`button-share-${bet.id}`}
+                    >
+                      <Share2 className="h-4 w-4" />
+                      Share
+                    </button>
                   </div>
                 </div>
               ))}
@@ -345,6 +356,32 @@ export default function BetHistoryPage() {
           )}
         </div>
       </div>
+      
+      {/* Shareable Bet Card Modal */}
+      {shareBet && (
+        <ShareableBetCard
+          bet={{
+            id: parseInt(shareBet.id) || 0,
+            eventName: getBetDisplayName(shareBet),
+            prediction: getSelectionDisplay(shareBet),
+            odds: shareBet.odds || 1,
+            betAmount: shareBet.stake || 0,
+            potentialPayout: shareBet.potentialWin || (shareBet.stake * shareBet.odds),
+            currency: shareBet.currency || 'SUI',
+            status: shareBet.status,
+            createdAt: shareBet.placedAt,
+            txHash: shareBet.txHash,
+          }}
+          isParlay={isParlay(shareBet)}
+          parlayLegs={isParlay(shareBet) ? getParlaySelections(shareBet).map(leg => ({
+            eventName: leg.eventName,
+            selection: leg.selection || (leg as any).prediction || 'Pick',
+            odds: leg.odds
+          })) : []}
+          isOpen={!!shareBet}
+          onClose={() => setShareBet(null)}
+        />
+      )}
     </div>
   );
 }
