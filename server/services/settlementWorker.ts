@@ -669,12 +669,13 @@ class SettlementWorkerService {
               }
               // CRITICAL: Record 1% platform fee as revenue
               await balanceService.addRevenue(platformFee, bet.currency as 'SUI' | 'SBETS');
-              // Now upgrade status to 'paid_out' since payout succeeded
-              await storage.updateBetStatus(bet.id, 'paid_out', grossPayout);
-              console.log(`💰 WINNER (DB): ${bet.userId} won ${netPayout} ${bet.currency} (fee: ${platformFee} ${bet.currency} -> revenue) - PAID OUT`);
+              console.log(`💰 WINNER (DB): ${bet.userId} won ${netPayout} ${bet.currency} (fee: ${platformFee} ${bet.currency} -> revenue)`);
               
               // AUTOMATIC ON-CHAIN PAYOUT: Send winnings directly to user's wallet from treasury funds
               const userWallet = bet.userId;
+              let payoutSuccess = false;
+              let payoutTxHash: string | undefined;
+              
               if (userWallet && userWallet.startsWith('0x') && userWallet.length >= 64) {
                 try {
                   console.log(`🔄 AUTO-PAYOUT: Sending ${netPayout} ${bet.currency} to ${userWallet.slice(0,10)}...`);
@@ -685,16 +686,27 @@ class SettlementWorkerService {
                     payoutResult = await blockchainBetService.sendSbetsToUser(userWallet, netPayout);
                   }
                   
-                  if (payoutResult?.success) {
+                  if (payoutResult?.success && payoutResult?.txHash) {
                     console.log(`✅ AUTO-PAYOUT SUCCESS: ${netPayout} ${bet.currency} sent to ${userWallet.slice(0,10)}... | TX: ${payoutResult.txHash}`);
+                    payoutSuccess = true;
+                    payoutTxHash = payoutResult.txHash;
                   } else {
-                    console.warn(`⚠️ AUTO-PAYOUT FAILED (internal balance still credited): ${payoutResult?.error || 'Unknown error'}`);
+                    console.warn(`⚠️ AUTO-PAYOUT FAILED: ${payoutResult?.error || 'Unknown error'} - keeping as 'won' for retry`);
                   }
                 } catch (payoutError: any) {
-                  console.warn(`⚠️ AUTO-PAYOUT ERROR (internal balance still credited): ${payoutError.message}`);
+                  console.warn(`⚠️ AUTO-PAYOUT ERROR: ${payoutError.message} - keeping as 'won' for retry`);
                 }
               } else {
                 console.log(`ℹ️ No valid wallet for auto-payout (userId: ${bet.userId?.slice(0,20)}...) - internal balance credited`);
+              }
+              
+              // Only mark as 'paid_out' if on-chain payout succeeded, otherwise keep as 'won' for retry
+              if (payoutSuccess && payoutTxHash) {
+                await storage.updateBetStatus(bet.id, 'paid_out', grossPayout, payoutTxHash);
+                console.log(`✅ PAID OUT: Bet ${bet.id} marked as paid_out with TX: ${payoutTxHash}`);
+              } else {
+                await storage.updateBetStatus(bet.id, 'won', grossPayout);
+                console.log(`⏳ PENDING PAYOUT: Bet ${bet.id} marked as 'won' - awaiting admin wallet funding for on-chain payout`);
               }
             } else {
               // Lost bet - add full stake to platform revenue

@@ -724,6 +724,92 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
 
+  // Pay unpaid winners - manually trigger on-chain payouts for bets in 'won' status
+  app.post("/api/admin/pay-unpaid-winners", async (req: Request, res: Response) => {
+    try {
+      const { adminPassword } = req.body;
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace('Bearer ', '');
+      
+      const hasValidToken = token && isValidAdminSession(token);
+      const actualPassword = process.env.ADMIN_PASSWORD || 'change-me-in-production';
+      const hasValidPassword = adminPassword === actualPassword;
+      
+      if (!hasValidToken && !hasValidPassword) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      console.log('[Admin] Pay unpaid winners triggered');
+      
+      // Find all bets in 'won' status that haven't been paid on-chain
+      const unpaidBets = await db.execute(sql`
+        SELECT id, wallet_address, bet_amount, potential_payout, currency, status
+        FROM bets 
+        WHERE status = 'won'
+        AND wallet_address != '0x20850db591c4d575b5238baf975e54580d800e69b8b5b421de796a311d3bea50'
+        ORDER BY created_at ASC
+      `);
+      
+      const betsArray = Array.isArray(unpaidBets) ? unpaidBets : (unpaidBets.rows || []);
+      
+      if (betsArray.length === 0) {
+        return res.json({ success: true, message: "No unpaid winners found", paid: 0 });
+      }
+      
+      const results: any[] = [];
+      let paidCount = 0;
+      let failedCount = 0;
+      
+      for (const bet of betsArray) {
+        const betId = bet.id;
+        const wallet = bet.wallet_address;
+        const payout = parseFloat(bet.potential_payout);
+        const currency = bet.currency || 'SUI';
+        
+        console.log(`[Admin] Paying bet ${betId}: ${payout} ${currency} to ${wallet.slice(0,10)}...`);
+        
+        try {
+          let payoutResult;
+          if (currency === 'SUI') {
+            payoutResult = await blockchainBetService.sendSuiToUser(wallet, payout);
+          } else if (currency === 'SBETS') {
+            payoutResult = await blockchainBetService.sendSbetsToUser(wallet, payout);
+          }
+          
+          if (payoutResult?.success && payoutResult?.txHash) {
+            // Update bet status to paid_out with TX hash
+            await db.execute(sql`
+              UPDATE bets SET status = 'paid_out', settlement_tx_hash = ${payoutResult.txHash}
+              WHERE id = ${betId}
+            `);
+            console.log(`✅ Paid bet ${betId}: ${payout} ${currency} | TX: ${payoutResult.txHash}`);
+            results.push({ betId, wallet, payout, currency, success: true, txHash: payoutResult.txHash });
+            paidCount++;
+          } else {
+            console.warn(`⚠️ Failed to pay bet ${betId}: ${payoutResult?.error || 'Unknown error'}`);
+            results.push({ betId, wallet, payout, currency, success: false, error: payoutResult?.error });
+            failedCount++;
+          }
+        } catch (error: any) {
+          console.error(`❌ Error paying bet ${betId}:`, error.message);
+          results.push({ betId, wallet, payout, currency, success: false, error: error.message });
+          failedCount++;
+        }
+      }
+      
+      res.json({
+        success: true,
+        message: `Paid ${paidCount}/${betsArray.length} winners, ${failedCount} failed`,
+        paid: paidCount,
+        failed: failedCount,
+        results
+      });
+    } catch (error: any) {
+      console.error(`[Admin] Pay unpaid winners error:`, error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Liability reconciliation - compare on-chain vs database liability (admin only)
   app.get("/api/admin/liability-reconciliation", async (req: Request, res: Response) => {
     try {
