@@ -85,7 +85,7 @@ export class PromotionService {
       };
     }
 
-    // Create new promotion record
+    // Create new promotion record with upsert to prevent duplicates
     const promoStart = now;
     await db.insert(bettingPromotions).values({
       walletAddress,
@@ -94,7 +94,7 @@ export class PromotionService {
       bonusBalance: 0,
       promotionStart: promoStart,
       promotionEnd: promoEnd
-    });
+    }).onConflictDoNothing();
 
     return {
       totalBetUsd: 0,
