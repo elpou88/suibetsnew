@@ -2977,11 +2977,21 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
   const SBETS_TOKEN_TYPE = '0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285::sbets::SBETS';
   const REVENUE_SHARE_PERCENTAGE = 0.30; // 30% of platform revenue goes to SBETS holders (was 10% + 20% liquidity, now combined)
   
-  // Helper to get settled bets
+  // Contract deployment date - only count revenue from bets placed after this date
+  // This prevents old test bets from inflating revenue statistics
+  // Using 12:00 UTC to exclude synced legacy bets that were imported earlier in the day
+  const CONTRACT_DEPLOYMENT_DATE = new Date('2026-01-29T12:00:00Z');
+  
+  // Helper to get settled bets (only from new contract period)
   async function getSettledBetsForRevenue(): Promise<any[]> {
     const allBets = await storage.getAllBets();
     // Include 'paid_out' status - these are winning bets that have been paid (1% fee = revenue)
-    return allBets.filter((bet: any) => bet.status === 'won' || bet.status === 'lost' || bet.status === 'paid_out');
+    // Filter by contract deployment date to exclude old test bets
+    return allBets.filter((bet: any) => {
+      if (bet.status !== 'won' && bet.status !== 'lost' && bet.status !== 'paid_out') return false;
+      const betDate = new Date(bet.placedAt || bet.createdAt || 0);
+      return betDate >= CONTRACT_DEPLOYMENT_DATE;
+    });
   }
   
   // Helper to get claims from database
