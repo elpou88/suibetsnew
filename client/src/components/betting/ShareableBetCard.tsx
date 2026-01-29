@@ -185,10 +185,11 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
             <div className="relative p-5">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 flex items-center justify-center">
-                    <span className="text-black font-bold text-xs">SB</span>
-                  </div>
-                  <span className="font-bold text-cyan-400 text-lg tracking-wide">SUIBETS</span>
+                  <img 
+                    src="/images/suibets-logo.png" 
+                    alt="SuiBets" 
+                    className="h-10 w-auto"
+                  />
                 </div>
                 <div className={`px-3 py-1 rounded-full text-xs font-bold ${
                   bet.status === 'won' || bet.status === 'paid_out' 
