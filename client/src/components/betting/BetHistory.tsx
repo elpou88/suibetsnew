@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import {
@@ -26,8 +26,10 @@ import {
   RotateCcw, 
   ArrowDownToLine,
   TrendingUp,
-  ExternalLink
+  ExternalLink,
+  Share2
 } from 'lucide-react';
+import { ShareableBetCard } from './ShareableBetCard';
 
 /**
  * BetHistory component displays user's betting history and bet status
@@ -36,6 +38,7 @@ export function BetHistory() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('all');
+  const [shareBet, setShareBet] = useState<any>(null);
 
   // Fetch user's bets using wallet address
   const walletAddress = user?.walletAddress || user?.id;
@@ -312,7 +315,19 @@ export function BetHistory() {
                           </CardDescription>
                         )}
                       </div>
-                      {getStatusBadge(bet.status)}
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setShareBet(bet)}
+                          className="h-8 w-8 text-gray-400 hover:text-cyan-400 hover:bg-cyan-400/10"
+                          title="Share bet"
+                          data-testid={`button-share-${bet.id}`}
+                        >
+                          <Share2 className="w-4 h-4" />
+                        </Button>
+                        {getStatusBadge(bet.status)}
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="pb-2">
@@ -391,6 +406,27 @@ export function BetHistory() {
           )}
         </Tabs>
       </CardContent>
+
+      {shareBet && (
+        <ShareableBetCard
+          bet={{
+            id: shareBet.id,
+            eventName: getBetDisplayName(shareBet),
+            prediction: getPredictionDisplay(shareBet),
+            odds: shareBet.odds || 1,
+            betAmount: shareBet.stake || shareBet.betAmount || 0,
+            potentialPayout: shareBet.potentialWin || shareBet.potentialPayout || ((shareBet.stake || shareBet.betAmount || 0) * (shareBet.odds || 1)),
+            currency: shareBet.currency || shareBet.feeCurrency || 'SUI',
+            status: shareBet.status,
+            createdAt: shareBet.placedAt || shareBet.createdAt,
+            txHash: shareBet.txHash,
+          }}
+          isParlay={isParlay(shareBet)}
+          parlayLegs={isParlay(shareBet) ? getParlaySelections(shareBet) : []}
+          isOpen={!!shareBet}
+          onClose={() => setShareBet(null)}
+        />
+      )}
     </Card>
   );
 }
