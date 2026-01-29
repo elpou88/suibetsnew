@@ -498,7 +498,9 @@ export class DatabaseStorage implements IStorage {
         potentialWin: bet.potentialPayout,
         potentialPayout: bet.potentialPayout, // Include for liability tracking
         status: bet.status,
+        payout: bet.payout, // Actual payout after settlement
         placedAt: bet.createdAt?.toISOString() || new Date().toISOString(),
+        createdAt: bet.createdAt?.toISOString() || new Date().toISOString(), // Alias for compatibility
         settledAt: bet.settledAt?.toISOString(),
         txHash: bet.txHash,
         settlementTxHash: bet.settlementTxHash, // Transaction hash for bet settlement/payout

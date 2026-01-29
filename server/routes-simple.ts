@@ -3693,7 +3693,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       for (const bet of allBets) {
         if (!bet.walletAddress && !bet.userId) continue;
         const wallet = bet.walletAddress || bet.userId;
-        const betDate = new Date(bet.createdAt || 0);
+        const betDate = new Date(bet.placedAt || bet.createdAt || 0);
         if (betDate < startDate) continue;
         
         if (!walletStats[wallet]) {
