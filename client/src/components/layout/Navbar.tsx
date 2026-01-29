@@ -22,24 +22,24 @@ export default function Navbar() {
         </Link>
         
         {/* Desktop navigation */}
-        <div className="hidden md:flex items-center space-x-6 lg:space-x-10 mx-auto">
+        <div className="hidden lg:flex items-center space-x-4 xl:space-x-8 mx-auto">
           <a 
             href="/" 
-            className={`${location === "/" ? "text-[#00FFFF]" : "text-white hover:text-[#00FFFF]"} cursor-pointer text-sm lg:text-base`}
+            className={`${location === "/" ? "text-[#00FFFF]" : "text-white hover:text-[#00FFFF]"} cursor-pointer text-sm font-semibold whitespace-nowrap`}
           >
             Sports
           </a>
           
           <a 
             href="/live-events" 
-            className="text-black bg-gradient-to-r from-[#00FFFF] to-[#00d9ff] px-3 lg:px-4 py-1.5 lg:py-2 rounded-lg cursor-pointer font-semibold text-sm lg:text-base hover:shadow-lg hover:shadow-cyan-400/50 transition-all duration-300"
+            className="text-black bg-gradient-to-r from-[#00FFFF] to-[#00d9ff] px-3 py-1.5 rounded-lg cursor-pointer font-bold text-sm hover:shadow-lg hover:shadow-cyan-400/50 transition-all duration-300 whitespace-nowrap"
           >
             Live<span className="ml-1 inline-block w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
           </a>
           
           <a 
             href="/promotions" 
-            className="text-white bg-gradient-to-r from-blue-600 to-blue-500 px-3 lg:px-4 py-1.5 lg:py-2 rounded-lg cursor-pointer font-semibold text-sm lg:text-base hover:shadow-lg hover:shadow-blue-500/50 transition-all duration-300"
+            className="text-white bg-gradient-to-r from-blue-600 to-blue-500 px-3 py-1.5 rounded-lg cursor-pointer font-bold text-sm hover:shadow-lg hover:shadow-blue-500/50 transition-all duration-300 whitespace-nowrap"
           >
             Promo
           </a>
@@ -48,7 +48,7 @@ export default function Navbar() {
             href="https://app.turbos.finance/#/trade?input=0x2::sui::SUI&output=0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285::sbets::SBETS" 
             target="_blank"
             rel="noopener noreferrer"
-            className="text-black bg-gradient-to-r from-green-400 to-emerald-500 px-3 lg:px-4 py-1.5 lg:py-2 rounded-lg cursor-pointer font-semibold text-sm lg:text-base hover:shadow-lg hover:shadow-green-500/50 transition-all duration-300"
+            className="text-black bg-gradient-to-r from-green-400 to-emerald-500 px-3 py-1.5 rounded-lg cursor-pointer font-bold text-sm hover:shadow-lg hover:shadow-green-500/50 transition-all duration-300 whitespace-nowrap"
             data-testid="link-buy-sbets"
           >
             Buy SBETS
@@ -56,7 +56,7 @@ export default function Navbar() {
           
           <a 
             href="/revenue" 
-            className={`${location === "/revenue" ? "text-[#FFD700]" : "text-white hover:text-[#FFD700]"} cursor-pointer text-sm lg:text-base font-semibold`}
+            className={`${location === "/revenue" ? "text-[#FFD700]" : "text-white hover:text-[#FFD700]"} cursor-pointer text-sm font-bold whitespace-nowrap`}
             data-testid="link-revenue"
           >
             Revenue
@@ -64,7 +64,7 @@ export default function Navbar() {
           
           <a 
             href="/leaderboard" 
-            className={`${location === "/leaderboard" ? "text-[#FFD700]" : "text-white hover:text-[#FFD700]"} cursor-pointer text-sm lg:text-base font-semibold`}
+            className={`${location === "/leaderboard" ? "text-[#FFD700]" : "text-white hover:text-[#FFD700]"} cursor-pointer text-sm font-bold whitespace-nowrap`}
             data-testid="link-leaderboard"
           >
             Leaderboard
@@ -72,7 +72,7 @@ export default function Navbar() {
         </div>
       </div>
       
-      <div className="flex items-center justify-end flex-1 pr-4 gap-2">
+      <div className="flex items-center justify-end flex-1 pr-2 gap-1 sm:gap-2">
         {/* FreshConnectButton handles both connected and disconnected states */}
         <FreshConnectButton />
         
@@ -80,16 +80,16 @@ export default function Navbar() {
         <Button 
           variant="ghost" 
           size="icon"
-          className="text-white hover:text-[#00FFFF] hover:bg-[#112225]"
+          className="text-white hover:text-[#00FFFF] hover:bg-[#112225] h-8 w-8 sm:h-10 sm:w-10"
           onClick={() => setIsNotificationsModalOpen(true)}
           data-testid="button-notifications"
         >
-          <Bell className="h-5 w-5" />
+          <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
         </Button>
         
         {/* Telegram Join Now Button */}
-        <a href="https://t.me/Sui_Bets" target="_blank" rel="noopener noreferrer" className="hidden sm:block">
-          <Button variant="outline" className="border-[#00FFFF] text-[#00FFFF] hover:bg-[#00FFFF]/20 font-medium">
+        <a href="https://t.me/Sui_Bets" target="_blank" rel="noopener noreferrer" className="hidden xl:block">
+          <Button variant="outline" size="sm" className="border-[#00FFFF] text-[#00FFFF] hover:bg-[#00FFFF]/20 font-medium">
             Join Telegram
           </Button>
         </a>
