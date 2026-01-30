@@ -118,9 +118,10 @@ export function BetHistory() {
     }
   };
 
-  // Helper to detect if a bet is a parlay (JSON array in eventName or prediction)
+  // Helper to detect if a bet is a parlay (JSON array or pipe-separated format)
   const isParlay = (bet: any): boolean => {
     try {
+      // Check JSON array format
       if (typeof bet.eventName === 'string' && bet.eventName.startsWith('[')) {
         const parsed = JSON.parse(bet.eventName);
         return Array.isArray(parsed) && parsed.length > 1;
@@ -129,18 +130,55 @@ export function BetHistory() {
         const parsed = JSON.parse(bet.prediction);
         return Array.isArray(parsed) && parsed.length > 1;
       }
+      // Check pipe-separated format (e.g., "FC Porto vs Rangers: Over 1.5 | Lyon vs PAOK: Over 1.5")
+      if (typeof bet.prediction === 'string' && bet.prediction.includes(' | ')) {
+        return true;
+      }
+      // Check external_event_id for parlay prefix
+      if (typeof bet.externalEventId === 'string' && bet.externalEventId.startsWith('parlay_')) {
+        return true;
+      }
     } catch {
       return false;
     }
     return false;
   };
 
-  // Parse parlay selections from JSON
+  // Parse parlay selections from JSON or pipe-separated format
   const getParlaySelections = (bet: any): { eventName: string; selection: string; odds: number }[] => {
     try {
+      // Handle JSON array format
       const jsonStr = bet.eventName?.startsWith('[') ? bet.eventName : bet.prediction;
       if (jsonStr && jsonStr.startsWith('[')) {
-        return JSON.parse(jsonStr);
+        const parsed = JSON.parse(jsonStr);
+        return parsed.map((leg: any) => ({
+          eventName: leg.eventName || leg.eventId || 'Match',
+          selection: leg.selection || leg.prediction || 'Pick',
+          odds: leg.odds || 1
+        }));
+      }
+      
+      // Handle pipe-separated format (e.g., "FC Porto vs Rangers: Over 1.5 | Lyon vs PAOK: Over 1.5")
+      if (typeof bet.prediction === 'string' && bet.prediction.includes(' | ')) {
+        const legs = bet.prediction.split(' | ');
+        return legs.map((leg: string) => {
+          // Parse "Team1 vs Team2: Selection" format
+          const colonIdx = leg.lastIndexOf(':');
+          if (colonIdx > 0) {
+            const eventName = leg.substring(0, colonIdx).trim();
+            const selection = leg.substring(colonIdx + 1).trim();
+            return {
+              eventName,
+              selection,
+              odds: 1 // Individual leg odds not available in this format
+            };
+          }
+          return {
+            eventName: 'Match',
+            selection: leg.trim(),
+            odds: 1
+          };
+        });
       }
     } catch {
       return [];

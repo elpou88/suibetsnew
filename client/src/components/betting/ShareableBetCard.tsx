@@ -158,11 +158,32 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
     }
   };
 
-  const displayLegs = isParlay && parlayLegs.length > 0 ? parlayLegs : [{
-    eventName: bet.eventName,
-    selection: bet.prediction,
-    odds: bet.odds
-  }];
+  // Parse pipe-separated predictions into legs if parlayLegs is empty but prediction contains pipes
+  const parsePipeSeparatedLegs = (): BetLeg[] => {
+    if (typeof bet.prediction === 'string' && bet.prediction.includes(' | ')) {
+      const legs = bet.prediction.split(' | ');
+      return legs.map((leg: string) => {
+        const colonIdx = leg.lastIndexOf(':');
+        if (colonIdx > 0) {
+          const eventName = leg.substring(0, colonIdx).trim();
+          const selection = leg.substring(colonIdx + 1).trim();
+          return { eventName, selection, odds: 1 };
+        }
+        return { eventName: 'Match', selection: leg.trim(), odds: 1 };
+      });
+    }
+    return [];
+  };
+
+  const displayLegs = isParlay && parlayLegs.length > 0 
+    ? parlayLegs 
+    : (isParlay && bet.prediction?.includes(' | '))
+      ? parsePipeSeparatedLegs()
+      : [{
+          eventName: bet.eventName,
+          selection: bet.prediction,
+          odds: bet.odds
+        }];
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -214,8 +235,12 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
                   <div key={idx} className="relative">
                     <div className="absolute -left-[18px] top-1.5 w-2.5 h-2.5 rounded-full bg-cyan-400 border-2 border-[#112225]" />
                     <div className="text-cyan-300 font-semibold text-sm">{leg.selection || leg.prediction}</div>
-                    <div className="text-gray-500 text-xs">{leg.eventName}</div>
-                    {displayLegs.length > 1 && (
+                    <div className="text-gray-500 text-xs">
+                      {leg.eventName && leg.eventName !== 'Unknown Event' && leg.eventName !== 'Match' 
+                        ? leg.eventName 
+                        : ''}
+                    </div>
+                    {displayLegs.length > 1 && leg.odds > 1 && (
                       <div className="text-gray-600 text-xs mt-0.5">@ {leg.odds.toFixed(2)}</div>
                     )}
                   </div>
