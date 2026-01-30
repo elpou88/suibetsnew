@@ -249,7 +249,7 @@ export function BetSlip() {
         currency: betCurrency,
         acceptOddsChange: true,
         useBonus: useBonus && bonusBalance > 0,
-        useFreeBet: false
+        useFreeBet: useFreeBet && freeBetBalance > 0 && betCurrency === 'SBETS'
       });
       
       if (success) {
@@ -596,14 +596,19 @@ export function BetSlip() {
                   <button
                     onClick={() => {
                       setBetCurrency('SBETS');
+                      setUseFreeBet(true);
                       if (selectedBets.length > 0) {
-                        updateStake(selectedBets[0].id, freeBetBalance);
+                        updateStake(selectedBets[0].id, Math.min(freeBetBalance, 1000));
                       }
                     }}
-                    className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-lg text-sm transition-all"
+                    className={`px-4 py-2 font-bold rounded-lg text-sm transition-all ${
+                      useFreeBet 
+                        ? 'bg-cyan-400 text-black ring-2 ring-cyan-300' 
+                        : 'bg-cyan-500 hover:bg-cyan-400 text-black'
+                    }`}
                     data-testid="btn-use-free-sbets"
                   >
-                    USE FREE SBETS
+                    {useFreeBet ? 'USING FREE SBETS' : 'USE FREE SBETS'}
                   </button>
                 </div>
               </div>
