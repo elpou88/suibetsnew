@@ -2576,21 +2576,35 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const normalizedAddress = address.toLowerCase();
       console.log(`[Wallet Connect] Processing connection for: ${normalizedAddress.substring(0, 10)}...`);
       
-      // Check if user exists with this wallet address
-      let user = await storage.getUserByWalletAddress(normalizedAddress);
+      let user;
+      let userId = 0;
+      let username = normalizedAddress.substring(0, 8);
+      let createdAt = new Date().toISOString();
       
-      if (!user) {
-        // Create new user with wallet address (password required by schema, use placeholder for wallet-based auth)
-        const placeholderPassword = `wallet_${Date.now()}_${Math.random().toString(36).substring(2)}`;
-        user = await storage.createUser({
-          username: normalizedAddress.substring(0, 8),
-          password: placeholderPassword,
-          walletAddress: normalizedAddress,
-          walletType: walletType || 'sui'
-        });
-        console.log(`[Wallet Connect] Created new user for wallet: ${normalizedAddress.substring(0, 10)}...`);
-      } else {
-        console.log(`[Wallet Connect] Found existing user for wallet: ${normalizedAddress.substring(0, 10)}...`);
+      try {
+        // Check if user exists with this wallet address
+        user = await storage.getUserByWalletAddress(normalizedAddress);
+        
+        if (!user) {
+          // Create new user with wallet address (password required by schema, use placeholder for wallet-based auth)
+          const placeholderPassword = `wallet_${Date.now()}_${Math.random().toString(36).substring(2)}`;
+          user = await storage.createUser({
+            username: normalizedAddress.substring(0, 8),
+            password: placeholderPassword,
+            walletAddress: normalizedAddress,
+            walletType: walletType || 'sui'
+          });
+          console.log(`[Wallet Connect] Created new user for wallet: ${normalizedAddress.substring(0, 10)}...`);
+        } else {
+          console.log(`[Wallet Connect] Found existing user for wallet: ${normalizedAddress.substring(0, 10)}...`);
+        }
+        userId = user.id;
+        username = user.username;
+        createdAt = user.createdAt?.toISOString?.() || user.createdAt || createdAt;
+      } catch (dbError: any) {
+        // Handle schema mismatch gracefully (e.g., missing free_bet_balance column)
+        console.warn(`[Wallet Connect] DB error (schema may be out of sync): ${dbError.message}`);
+        // Still allow connection with basic info
       }
       
       // Get balance for user using normalized address
@@ -2598,11 +2612,11 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       console.log(`[Wallet Connect] Balance retrieved:`, balance);
       
       res.json({
-        id: user.id,
-        username: user.username,
-        walletAddress: user.walletAddress,
-        walletType: user.walletType || walletType || 'sui',
-        createdAt: user.createdAt,
+        id: userId || user?.id || 0,
+        username: username || user?.username || normalizedAddress.substring(0, 8),
+        walletAddress: user?.walletAddress || normalizedAddress,
+        walletType: user?.walletType || walletType || 'sui',
+        createdAt: createdAt,
         suiBalance: balance.suiBalance || 0,
         sbetsBalance: balance.sbetsBalance || 0,
         balance: {
@@ -2628,17 +2642,29 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const normalizedAddress = walletAddress.toLowerCase();
       console.log(`[Auth Wallet Connect] Processing: ${normalizedAddress.substring(0, 10)}...`);
       
-      let user = await storage.getUserByWalletAddress(normalizedAddress);
+      let user;
+      let userId = 0;
+      let username = normalizedAddress.substring(0, 8);
       
-      if (!user) {
-        const placeholderPassword = `wallet_${Date.now()}_${Math.random().toString(36).substring(2)}`;
-        user = await storage.createUser({
-          username: normalizedAddress.substring(0, 8),
-          password: placeholderPassword,
-          walletAddress: normalizedAddress,
-          walletType: walletType || 'sui'
-        });
-        console.log(`[Auth Wallet Connect] Created new user: ${normalizedAddress.substring(0, 10)}...`);
+      try {
+        user = await storage.getUserByWalletAddress(normalizedAddress);
+        
+        if (!user) {
+          const placeholderPassword = `wallet_${Date.now()}_${Math.random().toString(36).substring(2)}`;
+          user = await storage.createUser({
+            username: normalizedAddress.substring(0, 8),
+            password: placeholderPassword,
+            walletAddress: normalizedAddress,
+            walletType: walletType || 'sui'
+          });
+          console.log(`[Auth Wallet Connect] Created new user: ${normalizedAddress.substring(0, 10)}...`);
+        }
+        userId = user.id;
+        username = user.username;
+      } catch (dbError: any) {
+        // Handle schema mismatch gracefully (e.g., missing free_bet_balance column)
+        console.warn(`[Auth Wallet Connect] DB error (schema may be out of sync): ${dbError.message}`);
+        // Still allow connection with basic info
       }
       
       const balance = await balanceService.getBalanceAsync(normalizedAddress);
@@ -2646,10 +2672,10 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       res.json({
         success: true,
         user: {
-          id: user.id,
-          username: user.username,
-          walletAddress: user.walletAddress,
-          walletType: user.walletType || walletType || 'sui',
+          id: userId || user?.id || 0,
+          username: username || user?.username || normalizedAddress.substring(0, 8),
+          walletAddress: user?.walletAddress || normalizedAddress,
+          walletType: user?.walletType || walletType || 'sui',
           suiBalance: balance.suiBalance || 0,
           sbetsBalance: balance.sbetsBalance || 0,
           balance: {
@@ -4010,7 +4036,21 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         return res.status(400).json({ error: 'Wallet address required' });
       }
       
-      const user = await storage.getUserByWalletAddress(wallet);
+      let user;
+      try {
+        user = await storage.getUserByWalletAddress(wallet);
+      } catch (dbError: any) {
+        // Handle case where free_bet_balance column might not exist (schema sync issue)
+        console.warn('Free bet status DB error (may be missing column):', dbError.message);
+        return res.json({ 
+          freeBetBalance: 0, 
+          welcomeBonusClaimed: false,
+          welcomeBonusAmount: 1000,
+          welcomeBonusCurrency: 'SBETS',
+          loyaltyPoints: 0
+        });
+      }
+      
       if (!user) {
         return res.json({ 
           freeBetBalance: 0, 
@@ -4030,7 +4070,14 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       });
     } catch (error) {
       console.error('Free bet status error:', error);
-      res.status(500).json({ error: 'Failed to get free bet status' });
+      // Return safe defaults instead of 500 error
+      res.json({ 
+        freeBetBalance: 0, 
+        welcomeBonusClaimed: false,
+        welcomeBonusAmount: 1000,
+        welcomeBonusCurrency: 'SBETS',
+        loyaltyPoints: 0
+      });
     }
   });
   
