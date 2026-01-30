@@ -18,19 +18,28 @@ const SportEventCard: React.FC<SportEventCardProps> = ({ event, sportId }) => {
   
   // Helper to get current total goals from event score
   const getCurrentTotalGoals = (): number => {
-    if (!event.score) return 0;
-    
     let homeScore = 0;
     let awayScore = 0;
-    const score = event.score as any;
+    const eventAny = event as any;
     
-    if (typeof score === 'string') {
-      const parts = score.split('-').map((s: string) => parseInt(s.trim()));
-      homeScore = parts[0] || 0;
-      awayScore = parts[1] || 0;
-    } else if (typeof score === 'object' && score !== null) {
-      homeScore = typeof score.home === 'number' ? score.home : parseInt(String(score.home)) || 0;
-      awayScore = typeof score.away === 'number' ? score.away : parseInt(String(score.away)) || 0;
+    // Try direct homeScore/awayScore properties first (most common)
+    if (eventAny.homeScore !== undefined || eventAny.awayScore !== undefined) {
+      homeScore = parseInt(String(eventAny.homeScore)) || 0;
+      awayScore = parseInt(String(eventAny.awayScore)) || 0;
+      return homeScore + awayScore;
+    }
+    
+    // Try score object with home/away
+    const score = event.score as any;
+    if (score) {
+      if (typeof score === 'string') {
+        const parts = score.split('-').map((s: string) => parseInt(s.trim()));
+        homeScore = parts[0] || 0;
+        awayScore = parts[1] || 0;
+      } else if (typeof score === 'object' && score !== null) {
+        homeScore = typeof score.home === 'number' ? score.home : parseInt(String(score.home)) || 0;
+        awayScore = typeof score.away === 'number' ? score.away : parseInt(String(score.away)) || 0;
+      }
     }
     
     return homeScore + awayScore;
