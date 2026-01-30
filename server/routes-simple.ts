@@ -4157,8 +4157,22 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         return res.status(400).json({ error: `Minimum stake is ${MIN_STAKE_SBETS.toLocaleString()} SBETS` });
       }
       
+      // Check user has enough SBETS balance
+      const user = await storage.getUserByWalletAddress(walletAddress);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      const currentSbets = user.sbetsBalance || 0;
+      if (currentSbets < amount) {
+        return res.status(400).json({ error: `Insufficient SBETS. You have ${currentSbets.toLocaleString()}, need ${amount.toLocaleString()}` });
+      }
+      
       const { db } = await import('./db');
       const { wurlusStaking } = await import('@shared/schema');
+      
+      // DEDUCT SBETS from user's wallet balance
+      await storage.updateUserBalance(walletAddress, 0, -amount);
       
       // Create lock period (7 days from now)
       const lockedUntil = new Date(Date.now() + LOCK_PERIOD_DAYS * 24 * 60 * 60 * 1000);
@@ -4174,7 +4188,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         accumulatedRewards: 0
       }).returning();
       
-      console.log(`[STAKING] User ${walletAddress.slice(0, 10)}... staked ${amount.toLocaleString()} SBETS (ID: ${stake.id})`);
+      console.log(`[STAKING] User ${walletAddress.slice(0, 10)}... staked ${amount.toLocaleString()} SBETS (ID: ${stake.id}) - DEDUCTED from balance`);
       
       res.json({ 
         success: true, 
@@ -4237,7 +4251,10 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       
       const totalReturn = (stake.amountStaked || 0) + totalRewards;
       
-      console.log(`[STAKING] User ${walletAddress.slice(0, 10)}... unstaked ${stake.amountStaked?.toLocaleString()} SBETS + ${totalRewards.toFixed(0)} rewards`);
+      // ADD principal + rewards back to user's SBETS balance
+      await storage.updateUserBalance(walletAddress, 0, Math.floor(totalReturn));
+      
+      console.log(`[STAKING] User ${walletAddress.slice(0, 10)}... unstaked ${stake.amountStaked?.toLocaleString()} SBETS + ${totalRewards.toFixed(0)} rewards - ADDED to balance`);
       
       res.json({ 
         success: true, 
@@ -4289,7 +4306,12 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           .where(eq(wurlusStaking.id, stake.id));
       }
       
-      console.log(`[STAKING] User ${walletAddress.slice(0, 10)}... claimed ${totalClaimed.toFixed(0)} SBETS rewards`);
+      // ADD claimed rewards to user's SBETS balance
+      if (totalClaimed > 0) {
+        await storage.updateUserBalance(walletAddress, 0, Math.floor(totalClaimed));
+      }
+      
+      console.log(`[STAKING] User ${walletAddress.slice(0, 10)}... claimed ${totalClaimed.toFixed(0)} SBETS rewards - ADDED to balance`);
       
       res.json({ 
         success: true, 
