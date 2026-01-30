@@ -91,16 +91,79 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
         useCORS: true,
       });
       
-      const link = document.createElement('a');
-      link.download = `suibets-bet-${bet.id}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
+      // Check if on mobile/touch device
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || 
+                       ('ontouchstart' in window);
       
-      toast({
-        title: 'Downloaded!',
-        description: 'Bet slip saved to your device',
-      });
+      if (isMobile) {
+        // Mobile: Use Web Share API if available, otherwise open in new tab
+        canvas.toBlob(async (blob) => {
+          if (!blob) {
+            toast({
+              title: 'Download failed',
+              description: 'Could not generate image',
+              variant: 'destructive',
+            });
+            return;
+          }
+          
+          const file = new File([blob], `suibets-bet-${bet.id}.png`, { type: 'image/png' });
+          
+          // Try native share with download option
+          if (navigator.share && navigator.canShare({ files: [file] })) {
+            try {
+              await navigator.share({
+                files: [file],
+                title: 'SuiBets Bet Slip',
+              });
+              toast({
+                title: 'Shared!',
+                description: 'Save from share menu to download',
+              });
+              return;
+            } catch (shareError) {
+              // User cancelled or share failed, continue to fallback
+            }
+          }
+          
+          // Fallback: Open image in new tab for long-press save
+          const dataUrl = canvas.toDataURL('image/png');
+          const newWindow = window.open();
+          if (newWindow) {
+            newWindow.document.write(`
+              <html>
+                <head><title>SuiBets Bet Slip</title></head>
+                <body style="margin:0;background:#0a1214;display:flex;justify-content:center;align-items:center;min-height:100vh;">
+                  <div style="text-align:center;padding:20px;">
+                    <p style="color:white;font-family:sans-serif;margin-bottom:15px;">Long press image to save</p>
+                    <img src="${dataUrl}" style="max-width:100%;border-radius:12px;" />
+                  </div>
+                </body>
+              </html>
+            `);
+            newWindow.document.close();
+            toast({
+              title: 'Image opened!',
+              description: 'Long press the image to save',
+            });
+          }
+        }, 'image/png');
+      } else {
+        // Desktop: Use traditional download link
+        const link = document.createElement('a');
+        link.download = `suibets-bet-${bet.id}.png`;
+        link.href = canvas.toDataURL('image/png');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        toast({
+          title: 'Downloaded!',
+          description: 'Bet slip saved to your device',
+        });
+      }
     } catch (error) {
+      console.error('Download error:', error);
       toast({
         title: 'Download failed',
         description: 'Could not generate image',
