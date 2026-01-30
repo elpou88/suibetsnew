@@ -3842,43 +3842,86 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         startDate = new Date(0);
       }
       
-      // Filter bets by period and calculate profits
-      const walletStats: Record<string, { profit: number; totalBets: number; wins: number; currency: string }> = {};
+      // Track SUI and SBETS profits separately per wallet
+      const walletStats: Record<string, { 
+        suiProfit: number; 
+        sbetsProfit: number; 
+        suiBets: number;
+        sbetsBets: number;
+        suiWins: number;
+        sbetsWins: number;
+        totalBets: number; 
+        wins: number;
+      }> = {};
       
       for (const bet of allBets) {
         if (!bet.walletAddress && !bet.userId) continue;
-        const wallet = bet.walletAddress || bet.userId;
+        const wallet = bet.walletAddress || String(bet.userId);
         const betDate = new Date(bet.placedAt || bet.createdAt || 0);
         if (betDate < startDate) continue;
         
         if (!walletStats[wallet]) {
-          walletStats[wallet] = { profit: 0, totalBets: 0, wins: 0, currency: bet.currency || 'SUI' };
+          walletStats[wallet] = { 
+            suiProfit: 0, sbetsProfit: 0, 
+            suiBets: 0, sbetsBets: 0,
+            suiWins: 0, sbetsWins: 0,
+            totalBets: 0, wins: 0 
+          };
         }
         
+        const currency = (bet.currency || 'SUI').toUpperCase();
+        const isSbets = currency === 'SBETS';
+        
         walletStats[wallet].totalBets++;
+        if (isSbets) {
+          walletStats[wallet].sbetsBets++;
+        } else {
+          walletStats[wallet].suiBets++;
+        }
         
         if (bet.status === 'won' || bet.status === 'paid_out') {
           const payout = bet.payout || bet.potentialWin || 0;
           const profit = payout - (bet.betAmount || 0);
-          walletStats[wallet].profit += profit;
           walletStats[wallet].wins++;
+          
+          if (isSbets) {
+            walletStats[wallet].sbetsProfit += profit;
+            walletStats[wallet].sbetsWins++;
+          } else {
+            walletStats[wallet].suiProfit += profit;
+            walletStats[wallet].suiWins++;
+          }
         } else if (bet.status === 'lost') {
-          walletStats[wallet].profit -= bet.betAmount || 0;
+          if (isSbets) {
+            walletStats[wallet].sbetsProfit -= bet.betAmount || 0;
+          } else {
+            walletStats[wallet].suiProfit -= bet.betAmount || 0;
+          }
         }
       }
       
-      // Convert to array and sort by profit
+      // Convert SUI and SBETS to USD equivalent for ranking (SUI = $3.50, SBETS = $0.000001)
+      const SUI_USD = 3.50;
+      const SBETS_USD = 0.000001;
+      
+      // Convert to array and sort by total USD value profit
       const leaderboardBase = Object.entries(walletStats)
         .filter(([_, stats]) => stats.totalBets >= 1)
-        .map(([wallet, stats], index) => ({
-          rank: index + 1,
-          wallet,
-          profit: stats.profit,
-          totalBets: stats.totalBets,
-          winRate: stats.totalBets > 0 ? (stats.wins / stats.totalBets) * 100 : 0,
-          currency: stats.currency
-        }))
-        .sort((a, b) => b.profit - a.profit)
+        .map(([wallet, stats]) => {
+          const totalProfitUsd = (stats.suiProfit * SUI_USD) + (stats.sbetsProfit * SBETS_USD);
+          return {
+            rank: 0,
+            wallet,
+            suiProfit: stats.suiProfit,
+            sbetsProfit: stats.sbetsProfit,
+            totalProfitUsd,
+            totalBets: stats.totalBets,
+            suiBets: stats.suiBets,
+            sbetsBets: stats.sbetsBets,
+            winRate: stats.totalBets > 0 ? (stats.wins / stats.totalBets) * 100 : 0
+          };
+        })
+        .sort((a, b) => b.totalProfitUsd - a.totalProfitUsd)
         .slice(0, 50)
         .map((entry, index) => ({ ...entry, rank: index + 1 }));
       
@@ -3888,7 +3931,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           const user = await storage.getUserByWalletAddress(entry.wallet);
           return {
             ...entry,
-            loyaltyPoints: user?.loyaltyPoints || Math.floor(entry.totalBets * 10), // Fallback: 10 pts per bet
+            loyaltyPoints: user?.loyaltyPoints || Math.floor(entry.totalBets * 10),
             loyaltyTier: getLoyaltyTier(user?.loyaltyPoints || Math.floor(entry.totalBets * 10))
           };
         } catch {

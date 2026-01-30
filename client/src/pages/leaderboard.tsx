@@ -9,10 +9,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 interface LeaderboardEntry {
   rank: number;
   wallet: string;
-  profit: number;
+  suiProfit: number;
+  sbetsProfit: number;
+  totalProfitUsd: number;
   totalBets: number;
+  suiBets: number;
+  sbetsBets: number;
   winRate: number;
-  currency: string;
   loyaltyPoints?: number;
   loyaltyTier?: string;
 }
@@ -142,12 +145,27 @@ export default function LeaderboardPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className={`text-xl font-black ${entry.profit >= 0 ? 'text-green-400 drop-shadow-[0_0_8px_rgba(74,222,128,0.3)]' : 'text-red-400'}`}>
-                      {entry.profit >= 0 ? '+' : ''}{entry.profit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                    <div className="text-[10px] uppercase tracking-wider font-bold text-gray-500 mt-0.5">
-                      Total Profit ({entry.currency})
+                  <div className="text-right space-y-1">
+                    {entry.suiProfit !== 0 && (
+                      <div className="flex items-center justify-end gap-2">
+                        <span className={`text-lg font-black ${entry.suiProfit >= 0 ? 'text-cyan-400' : 'text-red-400'}`}>
+                          {entry.suiProfit >= 0 ? '+' : ''}{entry.suiProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                        <span className="text-[10px] uppercase font-bold text-cyan-500/70 bg-cyan-500/10 px-1.5 py-0.5 rounded">SUI</span>
+                      </div>
+                    )}
+                    {entry.sbetsProfit !== 0 && (
+                      <div className="flex items-center justify-end gap-2">
+                        <span className={`text-lg font-black ${entry.sbetsProfit >= 0 ? 'text-yellow-400' : 'text-red-400'}`}>
+                          {entry.sbetsProfit >= 0 ? '+' : ''}{entry.sbetsProfit >= 1000000 
+                            ? `${(entry.sbetsProfit / 1000000).toFixed(2)}M`
+                            : entry.sbetsProfit.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        </span>
+                        <span className="text-[10px] uppercase font-bold text-yellow-500/70 bg-yellow-500/10 px-1.5 py-0.5 rounded">SBETS</span>
+                      </div>
+                    )}
+                    <div className="text-[10px] text-gray-500 mt-1">
+                      ≈ ${entry.totalProfitUsd >= 0 ? '+' : ''}{entry.totalProfitUsd.toFixed(2)} USD
                     </div>
                   </div>
                 </div>
