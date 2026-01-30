@@ -471,6 +471,33 @@ class SettlementWorkerService {
       }
     }
     
+    // Over/Under predictions
+    const totalGoals = match.homeScore + match.awayScore;
+    if (pred.includes('over')) {
+      const threshold = parseFloat(pred.replace(/[^0-9.]/g, '')) || 2.5;
+      return totalGoals > threshold;
+    }
+    if (pred.includes('under')) {
+      const threshold = parseFloat(pred.replace(/[^0-9.]/g, '')) || 2.5;
+      return totalGoals < threshold;
+    }
+    
+    // Both Teams To Score (BTTS)
+    if (pred === 'yes' || pred.includes('btts yes') || pred.includes('both teams to score: yes')) {
+      return match.homeScore > 0 && match.awayScore > 0;
+    }
+    if (pred === 'no' || pred.includes('btts no') || pred.includes('both teams to score: no')) {
+      return match.homeScore === 0 || match.awayScore === 0;
+    }
+    
+    // Correct Score predictions (e.g., "1-0", "2-1", "0-0")
+    const correctScoreMatch = pred.match(/^(\d+)\s*[-:]\s*(\d+)$/);
+    if (correctScoreMatch) {
+      const predictedHome = parseInt(correctScoreMatch[1], 10);
+      const predictedAway = parseInt(correctScoreMatch[2], 10);
+      return match.homeScore === predictedHome && match.awayScore === predictedAway;
+    }
+    
     return false;
   }
 
