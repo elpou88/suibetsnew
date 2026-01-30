@@ -145,25 +145,18 @@ export default function PromotionsPage() {
       const suitableCoin = nonZeroCoins.find(c => BigInt(c.balance) >= amountInSmallestUnits);
       console.log('[Staking] Suitable coin found:', suitableCoin ? suitableCoin.coinObjectId : 'NONE - will merge');
       
-      // Step 2: Build transaction using 0x2::pay::split_and_transfer
+      // Step 2: Build transaction using splitCoins and transferObjects
       const tx = new Transaction();
       
       // SBETS has 6 decimals - convert to smallest units
-      const stakeAmountMist = Math.floor(amount * 1_000_000);
-      console.log('[Staking] Stake amount in smallest units:', stakeAmountMist);
+      const stakeAmountMist = BigInt(amount) * BigInt(1_000_000);
+      console.log('[Staking] Stake amount in smallest units:', stakeAmountMist.toString());
       
       if (suitableCoin) {
-        // Use sui::pay::split_and_transfer which is designed for this use case
-        console.log('[Staking] Using pay::split_and_transfer on coin:', suitableCoin.coinObjectId);
-        tx.moveCall({
-          target: '0x2::pay::split_and_transfer',
-          typeArguments: [SBETS_TYPE],
-          arguments: [
-            tx.object(suitableCoin.coinObjectId),
-            tx.pure.u64(stakeAmountMist),
-            tx.pure.address(PLATFORM_TREASURY),
-          ],
-        });
+        // Split from single coin and transfer to treasury
+        console.log('[Staking] Splitting from coin:', suitableCoin.coinObjectId);
+        const [splitCoin] = tx.splitCoins(tx.object(suitableCoin.coinObjectId), [tx.pure.u64(stakeAmountMist)]);
+        tx.transferObjects([splitCoin], tx.pure.address(PLATFORM_TREASURY));
       } else {
         // Need to merge coins first - only use non-zero coins
         const coinIds = nonZeroCoins.map(c => c.coinObjectId);
@@ -174,15 +167,8 @@ export default function PromotionsPage() {
           tx.mergeCoins(primaryCoin, otherCoins);
         }
         // Then split and transfer
-        tx.moveCall({
-          target: '0x2::pay::split_and_transfer',
-          typeArguments: [SBETS_TYPE],
-          arguments: [
-            primaryCoin,
-            tx.pure.u64(stakeAmountMist),
-            tx.pure.address(PLATFORM_TREASURY),
-          ],
-        });
+        const [splitCoin] = tx.splitCoins(primaryCoin, [tx.pure.u64(stakeAmountMist)]);
+        tx.transferObjects([splitCoin], tx.pure.address(PLATFORM_TREASURY));
       }
       
       console.log('[Staking] Transaction built, requesting signature...');
