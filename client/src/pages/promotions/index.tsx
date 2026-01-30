@@ -139,18 +139,18 @@ export default function PromotionsPage() {
       const suitableCoin = nonZeroCoins.find(c => BigInt(c.balance) >= amountInSmallestUnits);
       console.log('[Staking] Suitable coin found:', suitableCoin ? suitableCoin.coinObjectId : 'NONE - will merge');
       
-      // Step 2: Build transaction using coin ID directly
+      // Step 2: Build transaction - match working bet code pattern exactly
       const tx = new Transaction();
       
-      // Use the amount as a u64 - Sui expects this format
-      const stakeAmountU64 = tx.pure.u64(BigInt(amount) * BigInt(1_000_000_000));
+      // Use plain number like working bet code does
+      const stakeAmountMist = Math.floor(amount * 1_000_000_000);
+      console.log('[Staking] Stake amount in mist:', stakeAmountMist);
       
       if (suitableCoin) {
         // Single coin has enough - just split and transfer
         console.log('[Staking] Splitting from single coin:', suitableCoin.coinObjectId);
-        const coinInput = tx.object(suitableCoin.coinObjectId);
-        const [stakeCoin] = tx.splitCoins(coinInput, [stakeAmountU64]);
-        tx.transferObjects([stakeCoin], tx.pure.address(PLATFORM_TREASURY));
+        const [stakeCoin] = tx.splitCoins(tx.object(suitableCoin.coinObjectId), [stakeAmountMist]);
+        tx.transferObjects([stakeCoin], PLATFORM_TREASURY);
       } else {
         // Need to merge coins first - only use non-zero coins
         const coinIds = nonZeroCoins.map(c => c.coinObjectId);
@@ -160,8 +160,8 @@ export default function PromotionsPage() {
           const otherCoins = coinIds.slice(1).map(id => tx.object(id));
           tx.mergeCoins(primaryCoin, otherCoins);
         }
-        const [stakeCoin] = tx.splitCoins(primaryCoin, [stakeAmountU64]);
-        tx.transferObjects([stakeCoin], tx.pure.address(PLATFORM_TREASURY));
+        const [stakeCoin] = tx.splitCoins(primaryCoin, [stakeAmountMist]);
+        tx.transferObjects([stakeCoin], PLATFORM_TREASURY);
       }
       
       console.log('[Staking] Transaction built, requesting signature...');
