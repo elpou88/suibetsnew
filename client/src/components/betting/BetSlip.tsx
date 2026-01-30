@@ -249,7 +249,7 @@ export function BetSlip() {
         currency: betCurrency,
         acceptOddsChange: true,
         useBonus: useBonus && bonusBalance > 0,
-        useFreeBet: useFreeBet && freeBetBalance > 0
+        useFreeBet: false
       });
       
       if (success) {
@@ -582,41 +582,6 @@ export function BetSlip() {
               </div>
             </div>
             
-            {/* FREE SBETS Balance - Welcome/Referral Bonuses */}
-            {freeBetBalance > 0 && (
-              <div className="bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border border-cyan-500/40 rounded-lg p-3 mt-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Gift className="w-5 h-5 text-cyan-400 animate-pulse" />
-                    <div className="flex flex-col">
-                      <span className="text-cyan-300 font-bold text-sm">FREE SBETS Balance</span>
-                      <span className="text-cyan-400 text-lg font-black">{freeBetBalance.toLocaleString()} SBETS</span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setUseFreeBet(!useFreeBet);
-                      if (!useFreeBet) {
-                        setBetCurrency('SBETS');
-                      }
-                    }}
-                    className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all ${
-                      useFreeBet 
-                        ? 'bg-cyan-500 text-black' 
-                        : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 hover:bg-cyan-500/30'
-                    }`}
-                    data-testid="toggle-use-free-sbets"
-                  >
-                    {useFreeBet ? 'USING FREE SBETS' : 'USE FREE SBETS'}
-                  </button>
-                </div>
-                {useFreeBet && (
-                  <div className="text-center text-xs text-cyan-300 mt-2 bg-cyan-500/10 py-1.5 rounded border border-cyan-500/20">
-                    Betting with your FREE {Math.min(freeBetBalance, totalStake).toLocaleString()} SBETS bonus!
-                  </div>
-                )}
-              </div>
-            )}
             
             {/* Use Promotion Bonus Toggle - Show when user has promotion bonus */}
             {bonusBalance > 0 && (
