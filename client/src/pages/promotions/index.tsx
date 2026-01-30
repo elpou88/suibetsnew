@@ -158,12 +158,15 @@ export default function PromotionsPage() {
       
       console.log('[Staking] Transaction built, requesting signature...');
       
+      // Set sender explicitly
+      tx.setSender(walletAddress);
+      
       // Step 3: Sign and execute
       toast({ title: "Sign transaction", description: "Approve the SBETS transfer in your wallet" });
       
       const result = await signAndExecute({
         transaction: tx,
-      });
+      } as any);
       
       if (!result.digest) {
         throw new Error("Transaction failed - no digest returned");
