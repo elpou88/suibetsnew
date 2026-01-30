@@ -144,12 +144,12 @@ export default function PromotionsPage() {
                 </div>
                 <div className="flex-1">
                   <CardTitle className="text-white text-xl">Welcome Bonus</CardTitle>
-                  <p className="text-green-400 font-bold text-lg">1 SUI Free Bet</p>
+                  <p className="text-green-400 font-bold text-lg">1,000 SBETS</p>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-gray-300">
-                  New to SuiBets? Claim your 1 SUI free bet to get started! This bonus can only be claimed once per wallet.
+                  New to SuiBets? Claim your 1,000 SBETS welcome bonus to get started! This bonus can only be claimed once per wallet.
                 </p>
                 
                 {walletAddress ? (
@@ -157,7 +157,7 @@ export default function PromotionsPage() {
                     {freeBetStatus?.welcomeBonusClaimed ? (
                       <div className="flex items-center gap-2 text-green-400 bg-green-500/10 p-3 rounded-lg border border-green-500/30">
                         <Check className="h-5 w-5" />
-                        <span className="font-medium">Welcome bonus already claimed</span>
+                        <span className="font-medium">Welcome bonus already claimed (one-time per wallet)</span>
                       </div>
                     ) : (
                       <Button
@@ -166,14 +166,14 @@ export default function PromotionsPage() {
                         className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white font-bold py-3"
                         data-testid="btn-claim-welcome"
                       >
-                        {isClaiming ? 'Claiming...' : 'CLAIM 1 SUI FREE BET'}
+                        {isClaiming ? 'Claiming...' : 'CLAIM 1,000 SBETS'}
                       </Button>
                     )}
                     
                     {(freeBetStatus?.freeBetBalance || 0) > 0 && (
                       <div className="bg-green-500/10 p-3 rounded-lg border border-green-500/30">
                         <p className="text-green-400 font-medium">
-                          Free Bet Balance: <span className="text-white font-bold">{freeBetStatus?.freeBetBalance} SUI</span>
+                          Free Bet Balance: <span className="text-white font-bold">{freeBetStatus?.freeBetBalance?.toLocaleString()} SBETS</span>
                         </p>
                       </div>
                     )}

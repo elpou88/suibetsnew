@@ -3950,7 +3950,8 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         return res.json({ 
           freeBetBalance: 0, 
           welcomeBonusClaimed: false,
-          welcomeBonusAmount: 1, // 1 SUI welcome bonus
+          welcomeBonusAmount: 1000, // 1000 SBETS welcome bonus
+          welcomeBonusCurrency: 'SBETS',
           loyaltyPoints: 0
         });
       }
@@ -3958,7 +3959,8 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       res.json({
         freeBetBalance: user.freeBetBalance || 0,
         welcomeBonusClaimed: user.welcomeBonusClaimed || false,
-        welcomeBonusAmount: 1, // 1 SUI welcome bonus
+        welcomeBonusAmount: 1000, // 1000 SBETS welcome bonus
+        welcomeBonusCurrency: 'SBETS',
         loyaltyPoints: user.loyaltyPoints || 0
       });
     } catch (error) {
@@ -3967,7 +3969,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
   
-  // Claim welcome bonus (1 SUI free bet - one time only)
+  // Claim welcome bonus (1000 SBETS - one time only per wallet)
   app.post('/api/free-bet/claim-welcome', async (req: Request, res: Response) => {
     try {
       const { walletAddress } = req.body;
@@ -3987,24 +3989,24 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       }
       
       if (user.welcomeBonusClaimed) {
-        return res.status(400).json({ error: 'Welcome bonus already claimed' });
+        return res.status(400).json({ error: 'Welcome bonus already claimed. Each wallet can only claim once.' });
       }
       
-      // Award 1 SUI free bet
-      const WELCOME_BONUS_SUI = 1;
+      // Award 1000 SBETS welcome bonus (one-time per wallet)
+      const WELCOME_BONUS_SBETS = 1000;
       await db.update(users)
         .set({ 
-          freeBetBalance: (user.freeBetBalance || 0) + WELCOME_BONUS_SUI,
+          freeBetBalance: (user.freeBetBalance || 0) + WELCOME_BONUS_SBETS,
           welcomeBonusClaimed: true
         })
         .where(eq(users.walletAddress, walletAddress));
       
-      console.log(`[FREE BET] Welcome bonus claimed: ${walletAddress.slice(0, 10)}... received ${WELCOME_BONUS_SUI} SUI free bet`);
+      console.log(`[FREE BET] Welcome bonus claimed: ${walletAddress.slice(0, 10)}... received ${WELCOME_BONUS_SBETS} SBETS (one-time)`);
       
       res.json({ 
         success: true, 
-        freeBetBalance: (user.freeBetBalance || 0) + WELCOME_BONUS_SUI,
-        message: `Congratulations! You received ${WELCOME_BONUS_SUI} SUI free bet!`
+        freeBetBalance: (user.freeBetBalance || 0) + WELCOME_BONUS_SBETS,
+        message: `Congratulations! You received ${WELCOME_BONUS_SBETS} SBETS welcome bonus!`
       });
     } catch (error) {
       console.error('Claim welcome bonus error:', error);
