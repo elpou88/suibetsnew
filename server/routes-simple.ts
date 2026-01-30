@@ -4222,13 +4222,34 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         return res.status(400).json({ error: `Minimum stake is ${MIN_STAKE_SBETS.toLocaleString()} SBETS` });
       }
       
-      // Check user has enough SBETS balance
+      // Check user has enough SBETS balance (check on-chain wallet balance)
       const user = await storage.getUserByWalletAddress(walletAddress);
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
       }
       
-      const currentSbets = user.sbetsBalance || 0;
+      // Get on-chain SBETS balance (user's actual wallet balance)
+      let onChainSbets = 0;
+      try {
+        const { SuiClient, getFullnodeUrl } = await import('@mysten/sui/client');
+        const suiClient = new SuiClient({ url: getFullnodeUrl('mainnet') });
+        const SBETS_TYPE = '0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285::sbets::SBETS';
+        
+        const sbetsCoins = await suiClient.getCoins({
+          owner: walletAddress,
+          coinType: SBETS_TYPE,
+          limit: 50
+        });
+        
+        for (const coin of sbetsCoins.data) {
+          onChainSbets += Number(coin.balance);
+        }
+      } catch (balanceError) {
+        console.warn('[STAKING] Failed to fetch on-chain balance, using DB:', balanceError);
+        onChainSbets = user.sbetsBalance || 0;
+      }
+      
+      const currentSbets = onChainSbets;
       if (currentSbets < amount) {
         return res.status(400).json({ error: `Insufficient SBETS. You have ${currentSbets.toLocaleString()}, need ${amount.toLocaleString()}` });
       }
