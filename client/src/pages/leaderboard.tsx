@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useLocation } from 'wouter';
-import { Trophy, Medal, TrendingUp, Calendar, Coins, ArrowLeft } from 'lucide-react';
+import { Trophy, Medal, TrendingUp, Calendar, Coins, ArrowLeft, Star } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -13,6 +13,8 @@ interface LeaderboardEntry {
   totalBets: number;
   winRate: number;
   currency: string;
+  loyaltyPoints?: number;
+  loyaltyTier?: string;
 }
 
 export default function LeaderboardPage() {
@@ -125,13 +127,18 @@ export default function LeaderboardPage() {
                     </div>
                     <div>
                       <p className="text-white font-bold text-lg group-hover:text-cyan-400 transition-colors">{formatWallet(entry.wallet)}</p>
-                      <div className="flex items-center gap-3 mt-1">
+                      <div className="flex items-center gap-3 mt-1 flex-wrap">
                         <span className="text-gray-400 text-xs flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded-full">
                           <TrendingUp className="h-3 w-3" /> {entry.totalBets} Bets
                         </span>
                         <span className="text-gray-400 text-xs flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded-full">
                           <Trophy className="h-3 w-3" /> {entry.winRate.toFixed(1)}% WR
                         </span>
+                        {entry.loyaltyPoints !== undefined && entry.loyaltyPoints > 0 && (
+                          <span className="text-yellow-400 text-xs flex items-center gap-1 bg-yellow-500/10 px-2 py-0.5 rounded-full border border-yellow-500/20">
+                            <Star className="h-3 w-3" /> {entry.loyaltyPoints.toLocaleString()} pts
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

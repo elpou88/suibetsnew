@@ -286,7 +286,7 @@ export interface Promotion {
   startDate: string;
   endDate: string;
   isActive: boolean;
-  type: 'deposit' | 'signup' | 'referral' | 'risk_free' | 'odds_boost';
+  type: 'deposit' | 'signup' | 'referral' | 'risk_free' | 'free_bet' | 'loyalty' | 'staking';
   code?: string;
   terms?: string;
   link?: string;

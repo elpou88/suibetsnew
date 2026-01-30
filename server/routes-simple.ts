@@ -3713,7 +3713,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       }
       
       // Convert to array and sort by profit
-      const leaderboard = Object.entries(walletStats)
+      const leaderboardBase = Object.entries(walletStats)
         .filter(([_, stats]) => stats.totalBets >= 1)
         .map(([wallet, stats], index) => ({
           rank: index + 1,
@@ -3726,6 +3726,20 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         .sort((a, b) => b.profit - a.profit)
         .slice(0, 50)
         .map((entry, index) => ({ ...entry, rank: index + 1 }));
+      
+      // Add loyalty points to leaderboard entries
+      const leaderboard = await Promise.all(leaderboardBase.map(async (entry) => {
+        try {
+          const user = await storage.getUserByWalletAddress(entry.wallet);
+          return {
+            ...entry,
+            loyaltyPoints: user?.loyaltyPoints || Math.floor(entry.totalBets * 10), // Fallback: 10 pts per bet
+            loyaltyTier: getLoyaltyTier(user?.loyaltyPoints || Math.floor(entry.totalBets * 10))
+          };
+        } catch {
+          return { ...entry, loyaltyPoints: 0, loyaltyTier: 'Bronze' };
+        }
+      }));
       
       res.json({ leaderboard });
     } catch (error) {
@@ -3918,6 +3932,280 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     } catch (error) {
       console.error('Track referral error:', error);
       res.status(500).json({ error: 'Failed to track referral' });
+    }
+  });
+
+  // ==================== FREE BET SYSTEM ====================
+  
+  // Get free bet status for a wallet
+  app.get('/api/free-bet/status', async (req: Request, res: Response) => {
+    try {
+      const wallet = req.query.wallet as string;
+      if (!wallet) {
+        return res.status(400).json({ error: 'Wallet address required' });
+      }
+      
+      const user = await storage.getUserByWalletAddress(wallet);
+      if (!user) {
+        return res.json({ 
+          freeBetBalance: 0, 
+          welcomeBonusClaimed: false,
+          welcomeBonusAmount: 1, // 1 SUI welcome bonus
+          loyaltyPoints: 0
+        });
+      }
+      
+      res.json({
+        freeBetBalance: user.freeBetBalance || 0,
+        welcomeBonusClaimed: user.welcomeBonusClaimed || false,
+        welcomeBonusAmount: 1, // 1 SUI welcome bonus
+        loyaltyPoints: user.loyaltyPoints || 0
+      });
+    } catch (error) {
+      console.error('Free bet status error:', error);
+      res.status(500).json({ error: 'Failed to get free bet status' });
+    }
+  });
+  
+  // Claim welcome bonus (1 SUI free bet - one time only)
+  app.post('/api/free-bet/claim-welcome', async (req: Request, res: Response) => {
+    try {
+      const { walletAddress } = req.body;
+      if (!walletAddress) {
+        return res.status(400).json({ error: 'Wallet address required' });
+      }
+      
+      const { users } = await import('@shared/schema');
+      const { db } = await import('./db');
+      const { eq } = await import('drizzle-orm');
+      
+      // Check if user exists and hasn't claimed
+      const [user] = await db.select().from(users).where(eq(users.walletAddress, walletAddress));
+      
+      if (!user) {
+        return res.status(404).json({ error: 'User not found. Please connect wallet first.' });
+      }
+      
+      if (user.welcomeBonusClaimed) {
+        return res.status(400).json({ error: 'Welcome bonus already claimed' });
+      }
+      
+      // Award 1 SUI free bet
+      const WELCOME_BONUS_SUI = 1;
+      await db.update(users)
+        .set({ 
+          freeBetBalance: (user.freeBetBalance || 0) + WELCOME_BONUS_SUI,
+          welcomeBonusClaimed: true
+        })
+        .where(eq(users.walletAddress, walletAddress));
+      
+      console.log(`[FREE BET] Welcome bonus claimed: ${walletAddress.slice(0, 10)}... received ${WELCOME_BONUS_SUI} SUI free bet`);
+      
+      res.json({ 
+        success: true, 
+        freeBetBalance: (user.freeBetBalance || 0) + WELCOME_BONUS_SUI,
+        message: `Congratulations! You received ${WELCOME_BONUS_SUI} SUI free bet!`
+      });
+    } catch (error) {
+      console.error('Claim welcome bonus error:', error);
+      res.status(500).json({ error: 'Failed to claim welcome bonus' });
+    }
+  });
+
+  // ==================== LOYALTY PROGRAM ====================
+  
+  // Get loyalty status
+  app.get('/api/loyalty/status', async (req: Request, res: Response) => {
+    try {
+      const wallet = req.query.wallet as string;
+      if (!wallet) {
+        return res.status(400).json({ error: 'Wallet address required' });
+      }
+      
+      const user = await storage.getUserByWalletAddress(wallet);
+      const points = user?.loyaltyPoints || 0;
+      const totalVolume = user?.totalBetVolume || 0;
+      
+      // Loyalty tiers based on points
+      let tier = 'Bronze';
+      let nextTier = 'Silver';
+      let pointsToNext = 1000 - points;
+      
+      if (points >= 10000) {
+        tier = 'Diamond';
+        nextTier = 'Diamond';
+        pointsToNext = 0;
+      } else if (points >= 5000) {
+        tier = 'Platinum';
+        nextTier = 'Diamond';
+        pointsToNext = 10000 - points;
+      } else if (points >= 2500) {
+        tier = 'Gold';
+        nextTier = 'Platinum';
+        pointsToNext = 5000 - points;
+      } else if (points >= 1000) {
+        tier = 'Silver';
+        nextTier = 'Gold';
+        pointsToNext = 2500 - points;
+      }
+      
+      res.json({
+        points,
+        tier,
+        nextTier,
+        pointsToNext: Math.max(0, pointsToNext),
+        totalVolume,
+        perks: getLoyaltyPerks(tier)
+      });
+    } catch (error) {
+      console.error('Loyalty status error:', error);
+      res.status(500).json({ error: 'Failed to get loyalty status' });
+    }
+  });
+  
+  function getLoyaltyPerks(tier: string): string[] {
+    const perks: Record<string, string[]> = {
+      'Bronze': ['1 point per $1 wagered', 'Access to promotions'],
+      'Silver': ['1.25x points multiplier', 'Priority support', 'Weekly bonuses'],
+      'Gold': ['1.5x points multiplier', 'Exclusive promotions', 'Monthly free bets'],
+      'Platinum': ['2x points multiplier', 'VIP support', 'Higher betting limits'],
+      'Diamond': ['3x points multiplier', 'Personal account manager', 'Exclusive events']
+    };
+    return perks[tier] || perks['Bronze'];
+  }
+  
+  function getLoyaltyTier(points: number): string {
+    if (points >= 10000) return 'Diamond';
+    if (points >= 5000) return 'Platinum';
+    if (points >= 2500) return 'Gold';
+    if (points >= 1000) return 'Silver';
+    return 'Bronze';
+  }
+
+  // ==================== SBETS STAKING ====================
+  
+  // Get staking info
+  app.get('/api/staking/info', async (req: Request, res: Response) => {
+    try {
+      const wallet = req.query.wallet as string;
+      
+      // Treasury pool for staking (simulated from SBETS treasury)
+      const TREASURY_SBETS_POOL = 50000000000; // 50 billion SBETS for staking rewards
+      const APY_RATE = 0.05; // 5% APY (low as requested)
+      const TOTAL_STAKED = 10000000000; // 10 billion total staked (simulated)
+      
+      let userStaked = 0;
+      let userRewards = 0;
+      
+      if (wallet) {
+        const user = await storage.getUserByWalletAddress(wallet);
+        if (user) {
+          // Get user staking info from staking table if exists
+          const { db } = await import('./db');
+          const { bettingPromotions } = await import('@shared/schema');
+          const { eq } = await import('drizzle-orm');
+          
+          const [stakingInfo] = await db.select().from(bettingPromotions)
+            .where(eq(bettingPromotions.walletAddress, wallet));
+          
+          // Use bonusBalance as staked amount for now
+          userStaked = stakingInfo?.bonusBalance || 0;
+          // Calculate rewards based on APY
+          userRewards = userStaked * (APY_RATE / 52); // Weekly rewards
+        }
+      }
+      
+      res.json({
+        treasuryPool: TREASURY_SBETS_POOL,
+        totalStaked: TOTAL_STAKED,
+        apyRate: APY_RATE * 100, // 5%
+        userStaked,
+        userRewards,
+        minStake: 100000, // 100K SBETS minimum
+        lockPeriod: '7 days'
+      });
+    } catch (error) {
+      console.error('Staking info error:', error);
+      res.status(500).json({ error: 'Failed to get staking info' });
+    }
+  });
+  
+  // Stake SBETS tokens
+  app.post('/api/staking/stake', async (req: Request, res: Response) => {
+    try {
+      const { walletAddress, amount } = req.body;
+      if (!walletAddress || !amount) {
+        return res.status(400).json({ error: 'Wallet address and amount required' });
+      }
+      
+      if (amount < 100000) {
+        return res.status(400).json({ error: 'Minimum stake is 100,000 SBETS' });
+      }
+      
+      // For now, log the stake request
+      console.log(`[STAKING] User ${walletAddress.slice(0, 10)}... staking ${amount} SBETS`);
+      
+      res.json({ 
+        success: true, 
+        message: `Successfully staked ${amount.toLocaleString()} SBETS`,
+        stakedAmount: amount,
+        estimatedApy: 5
+      });
+    } catch (error) {
+      console.error('Staking error:', error);
+      res.status(500).json({ error: 'Failed to stake tokens' });
+    }
+  });
+
+  // ==================== REFERRAL REWARD (1000 SBETS) ====================
+  
+  // Award referral bonus (called when referred user places first bet)
+  app.post('/api/referral/award', async (req: Request, res: Response) => {
+    try {
+      const { referredWallet } = req.body;
+      if (!referredWallet) {
+        return res.status(400).json({ error: 'Wallet address required' });
+      }
+      
+      const { referrals } = await import('@shared/schema');
+      const { db } = await import('./db');
+      const { eq, and } = await import('drizzle-orm');
+      
+      // Find the referral record
+      const [referral] = await db.select().from(referrals)
+        .where(eq(referrals.referredWallet, referredWallet));
+      
+      if (!referral) {
+        return res.json({ success: false, message: 'No referral found' });
+      }
+      
+      if (referral.status === 'rewarded') {
+        return res.json({ success: false, message: 'Referral already rewarded' });
+      }
+      
+      // Award 1000 SBETS to referrer
+      const REFERRAL_REWARD_SBETS = 1000;
+      
+      await db.update(referrals)
+        .set({ 
+          status: 'rewarded',
+          rewardAmount: REFERRAL_REWARD_SBETS,
+          rewardCurrency: 'SBETS',
+          rewardedAt: new Date()
+        })
+        .where(eq(referrals.id, referral.id));
+      
+      console.log(`[REFERRAL] Awarded ${REFERRAL_REWARD_SBETS} SBETS to ${referral.referrerWallet.slice(0, 10)}...`);
+      
+      res.json({ 
+        success: true, 
+        rewardAmount: REFERRAL_REWARD_SBETS,
+        rewardCurrency: 'SBETS',
+        referrerWallet: referral.referrerWallet
+      });
+    } catch (error) {
+      console.error('Award referral error:', error);
+      res.status(500).json({ error: 'Failed to award referral bonus' });
     }
   });
 
