@@ -1627,7 +1627,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       // Cast to strings since transform always converts to string
       const userId = String(data.userId);
       const eventId = String(data.eventId);
-      const { eventName, homeTeam, awayTeam, marketId, outcomeId, odds, betAmount, currency, prediction, feeCurrency, paymentMethod, txHash, onChainBetId, status, isLive, matchMinute, walletAddress, useBonus } = data;
+      const { eventName, homeTeam, awayTeam, marketId, outcomeId, odds, betAmount, currency, prediction, feeCurrency, paymentMethod, txHash, onChainBetId, status, isLive, matchMinute, walletAddress, useBonus, useFreeBet } = data;
       
       // Anti-cheat: Block first-half markets after minute 45 and all markets after minute 80
       const isFirstHalfMarket = !!data.marketId && (
@@ -1688,7 +1688,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         console.warn('[PROMO] Failed to track bet for promotion:', promoError);
       }
       
-      // Handle FREE BET bonus usage
+      // Handle FREE BET bonus usage (promotion bonus)
       let bonusUsedAmount = 0;
       if (useBonus) {
         try {
@@ -1704,6 +1704,32 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           }
         } catch (bonusError) {
           console.warn('[BONUS] Failed to use bonus balance:', bonusError);
+        }
+      }
+      
+      // Handle FREE SBETS usage (welcome bonus / referral rewards)
+      let freeSbetsUsed = 0;
+      if (useFreeBet && betCurrency === 'SBETS') {
+        try {
+          const { users } = await import('@shared/schema');
+          const { db } = await import('./db');
+          const { eq } = await import('drizzle-orm');
+          
+          const [user] = await db.select().from(users).where(eq(users.walletAddress, walletAddress || userId));
+          if (user && (user.freeBetBalance || 0) >= betAmount) {
+            // Deduct from freeBetBalance instead of regular balance
+            const newFreeBetBalance = (user.freeBetBalance || 0) - betAmount;
+            await db.update(users)
+              .set({ freeBetBalance: newFreeBetBalance })
+              .where(eq(users.walletAddress, walletAddress || userId));
+            
+            freeSbetsUsed = betAmount;
+            console.log(`🎁 FREE SBETS: Used ${betAmount.toLocaleString()} SBETS from welcome/referral bonus for ${(walletAddress || userId).slice(0, 10)}...`);
+          } else {
+            console.warn(`[FREE SBETS] Insufficient free balance: have ${user?.freeBetBalance || 0}, need ${betAmount}`);
+          }
+        } catch (freeBetError) {
+          console.warn('[FREE SBETS] Failed to use free bet balance:', freeBetError);
         }
       }
       

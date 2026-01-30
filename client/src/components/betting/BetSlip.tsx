@@ -49,7 +49,25 @@ export function BetSlip() {
     refetchInterval: 15000,
   });
   
+  // Fetch free bet balance (welcome bonus + referral rewards)
+  const { data: freeBetData, refetch: refetchFreeBet } = useQuery<{
+    freeBetBalance: number;
+    welcomeBonusClaimed: boolean;
+    canClaimWelcome: boolean;
+  }>({
+    queryKey: ['/api/free-bet/status', currentAccount?.address],
+    queryFn: async () => {
+      const res = await fetch(`/api/free-bet/status?wallet=${currentAccount?.address}`);
+      if (!res.ok) throw new Error('Failed to fetch free bet status');
+      return res.json();
+    },
+    enabled: !!currentAccount?.address,
+    refetchInterval: 10000,
+  });
+  
+  const freeBetBalance = freeBetData?.freeBetBalance || 0;
   const bonusBalance = promotionData?.bonusBalance || 0;
+  const [useFreeBet, setUseFreeBet] = useState(false);
   
   useEffect(() => {
     setBetType(selectedBets.length > 1 ? 'parlay' : 'single');
@@ -230,14 +248,17 @@ export function BetSlip() {
         betType,
         currency: betCurrency,
         acceptOddsChange: true,
-        useBonus: useBonus && bonusBalance > 0
+        useBonus: useBonus && bonusBalance > 0,
+        useFreeBet: useFreeBet && freeBetBalance > 0
       });
       
       if (success) {
         // Bet confirmation is shown via the event listener
         // Bets will be cleared when user dismisses the confirmation
-        // Reset bonus toggle after successful bet
+        // Reset bonus toggles after successful bet
         setUseBonus(false);
+        setUseFreeBet(false);
+        refetchFreeBet();
       } else {
         toast({
           title: "Bet Failed",
@@ -561,13 +582,49 @@ export function BetSlip() {
               </div>
             </div>
             
-            {/* Use Bonus Toggle - Show when user has bonus balance */}
+            {/* FREE SBETS Balance - Welcome/Referral Bonuses */}
+            {freeBetBalance > 0 && (
+              <div className="bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border border-cyan-500/40 rounded-lg p-3 mt-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Gift className="w-5 h-5 text-cyan-400 animate-pulse" />
+                    <div className="flex flex-col">
+                      <span className="text-cyan-300 font-bold text-sm">FREE SBETS Balance</span>
+                      <span className="text-cyan-400 text-lg font-black">{freeBetBalance.toLocaleString()} SBETS</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setUseFreeBet(!useFreeBet);
+                      if (!useFreeBet) {
+                        setBetCurrency('SBETS');
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all ${
+                      useFreeBet 
+                        ? 'bg-cyan-500 text-black' 
+                        : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 hover:bg-cyan-500/30'
+                    }`}
+                    data-testid="toggle-use-free-sbets"
+                  >
+                    {useFreeBet ? 'USING FREE SBETS' : 'USE FREE SBETS'}
+                  </button>
+                </div>
+                {useFreeBet && (
+                  <div className="text-center text-xs text-cyan-300 mt-2 bg-cyan-500/10 py-1.5 rounded border border-cyan-500/20">
+                    Betting with your FREE {Math.min(freeBetBalance, totalStake).toLocaleString()} SBETS bonus!
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Use Promotion Bonus Toggle - Show when user has promotion bonus */}
             {bonusBalance > 0 && (
               <div className="flex items-center justify-between bg-green-500/10 border border-green-500/30 rounded-lg p-3 mt-2">
                 <div className="flex items-center gap-2">
                   <Gift className="w-4 h-4 text-green-400" />
                   <div className="flex flex-col">
-                    <span className="text-green-400 font-bold text-sm">Use FREE Bet</span>
+                    <span className="text-green-400 font-bold text-sm">Use Promo Bonus</span>
                     <span className="text-green-400/70 text-xs">${bonusBalance.toFixed(2)} available</span>
                   </div>
                 </div>
@@ -587,7 +644,7 @@ export function BetSlip() {
             
             {useBonus && bonusBalance > 0 && (
               <div className="text-center text-xs text-green-400 mt-2 bg-green-500/10 py-1 rounded">
-                Your ${Math.min(bonusBalance, totalStake * 1.5).toFixed(2)} FREE bet will be applied!
+                Your ${Math.min(bonusBalance, totalStake * 1.5).toFixed(2)} promo bonus will be applied!
               </div>
             )}
             

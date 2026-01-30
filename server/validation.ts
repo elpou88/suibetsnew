@@ -38,7 +38,8 @@ export const PlaceBetSchema = z.object({
   status: z.enum(['pending', 'confirmed', 'settled', 'cancelled']).optional().default('pending'),
   isLive: z.boolean().optional(), // Whether this is a live match
   matchMinute: z.number().optional(), // Current match minute for live matches (betting blocked >= 80)
-  useBonus: z.boolean().optional().default(false) // Whether to use free bet bonus balance
+  useBonus: z.boolean().optional().default(false), // Whether to use promo bonus balance
+  useFreeBet: z.boolean().optional().default(false) // Whether to use welcome/referral SBETS bonus
 });
 
 // Parlay schema
