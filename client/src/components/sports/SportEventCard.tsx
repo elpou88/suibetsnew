@@ -49,22 +49,34 @@ const SportEventCard: React.FC<SportEventCardProps> = ({ event, sportId }) => {
     return markets.map(market => {
       const marketName = market.name?.toLowerCase() || '';
       
-      // Filter Over/Under markets
-      if (marketName.includes('over/under') || marketName.includes('o/u')) {
+      // Check if this is an Over/Under or Goals market
+      const isOverUnderMarket = marketName.includes('over') || marketName.includes('under') || 
+                                 marketName.includes('o/u') || marketName.includes('goals');
+      
+      if (isOverUnderMarket) {
+        // Try to extract threshold from market name (e.g., "Over/Under 2.5 Goals" -> 2.5)
+        const marketThresholdMatch = marketName.match(/(\d+\.?\d*)/);
+        const marketThreshold = marketThresholdMatch ? parseFloat(marketThresholdMatch[1]) : null;
+        
+        // If we can determine threshold from market name and it's already exceeded,
+        // the whole market is decided - remove it entirely
+        if (marketThreshold !== null && totalGoals > marketThreshold) {
+          return null; // Both Over (won) and Under (lost) are decided
+        }
+        
+        // Filter individual outcomes within the market
         const filteredOutcomes = market.outcomes.filter(outcome => {
           const outcomeName = outcome.name?.toLowerCase() || '';
           
-          // Parse the threshold (e.g., "Over 2.5" -> 2.5)
+          // Parse the threshold from outcome (e.g., "Over 2.5" -> 2.5)
           const match = outcomeName.match(/(over|under)\s*(\d+\.?\d*)/i);
-          if (!match) return true;
+          if (!match) return true; // Keep non-matching outcomes
           
-          const type = match[1].toLowerCase();
           const threshold = parseFloat(match[2]);
           
-          // If total goals > threshold, Over is already won, Under is already lost
+          // If total goals already exceeds threshold, both Over and Under are decided
           if (totalGoals > threshold) {
-            if (type === 'over') return false; // Already guaranteed win - hide
-            if (type === 'under') return false; // Already guaranteed loss - hide
+            return false; // Over already won, Under already lost - hide both
           }
           
           return true;
