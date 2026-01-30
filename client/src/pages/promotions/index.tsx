@@ -139,7 +139,7 @@ export default function PromotionsPage() {
       const suitableCoin = nonZeroCoins.find(c => BigInt(c.balance) >= amountInSmallestUnits);
       console.log('[Staking] Suitable coin found:', suitableCoin ? suitableCoin.coinObjectId : 'NONE - will merge');
       
-      // Step 2: Build transaction - match working bet code pattern exactly
+      // Step 2: Build transaction using 0x2::pay::split_and_transfer
       const tx = new Transaction();
       
       // Use plain number like working bet code does
@@ -147,21 +147,36 @@ export default function PromotionsPage() {
       console.log('[Staking] Stake amount in mist:', stakeAmountMist);
       
       if (suitableCoin) {
-        // Single coin has enough - just split and transfer
-        console.log('[Staking] Splitting from single coin:', suitableCoin.coinObjectId);
-        const [stakeCoin] = tx.splitCoins(tx.object(suitableCoin.coinObjectId), [stakeAmountMist]);
-        tx.transferObjects([stakeCoin], PLATFORM_TREASURY);
+        // Use sui::pay::split_and_transfer which is designed for this use case
+        console.log('[Staking] Using pay::split_and_transfer on coin:', suitableCoin.coinObjectId);
+        tx.moveCall({
+          target: '0x2::pay::split_and_transfer',
+          typeArguments: [SBETS_TYPE],
+          arguments: [
+            tx.object(suitableCoin.coinObjectId),
+            tx.pure.u64(stakeAmountMist),
+            tx.pure.address(PLATFORM_TREASURY),
+          ],
+        });
       } else {
         // Need to merge coins first - only use non-zero coins
         const coinIds = nonZeroCoins.map(c => c.coinObjectId);
-        console.log('[Staking] Merging coins:', coinIds);
+        console.log('[Staking] Merging coins first:', coinIds);
         const primaryCoin = tx.object(coinIds[0]);
         if (coinIds.length > 1) {
           const otherCoins = coinIds.slice(1).map(id => tx.object(id));
           tx.mergeCoins(primaryCoin, otherCoins);
         }
-        const [stakeCoin] = tx.splitCoins(primaryCoin, [stakeAmountMist]);
-        tx.transferObjects([stakeCoin], PLATFORM_TREASURY);
+        // Then split and transfer
+        tx.moveCall({
+          target: '0x2::pay::split_and_transfer',
+          typeArguments: [SBETS_TYPE],
+          arguments: [
+            primaryCoin,
+            tx.pure.u64(stakeAmountMist),
+            tx.pure.address(PLATFORM_TREASURY),
+          ],
+        });
       }
       
       console.log('[Staking] Transaction built, requesting signature...');
