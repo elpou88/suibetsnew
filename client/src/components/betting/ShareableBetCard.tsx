@@ -231,20 +231,27 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
               </div>
 
               <div className="border-l-2 border-cyan-500/50 pl-4 space-y-3 mb-4">
-                {displayLegs.map((leg, idx) => (
-                  <div key={idx} className="relative">
-                    <div className="absolute -left-[18px] top-1.5 w-2.5 h-2.5 rounded-full bg-cyan-400 border-2 border-[#112225]" />
-                    <div className="text-cyan-300 font-semibold text-sm">{leg.selection || leg.prediction}</div>
-                    <div className="text-gray-500 text-xs">
-                      {leg.eventName && leg.eventName !== 'Unknown Event' && leg.eventName !== 'Match' 
-                        ? leg.eventName 
-                        : ''}
+                {displayLegs.map((leg, idx) => {
+                  const selection = leg.selection || leg.prediction || '';
+                  const eventName = leg.eventName && leg.eventName !== 'Unknown Event' && leg.eventName !== 'Match' && !leg.eventName.match(/^\d+$/)
+                    ? leg.eventName 
+                    : '';
+                  
+                  // For over/under and other markets, show team names with selection
+                  const displayText = eventName && !selection.includes(' vs ') && !selection.includes(':')
+                    ? `${eventName}: ${selection}`
+                    : selection;
+                  
+                  return (
+                    <div key={idx} className="relative">
+                      <div className="absolute -left-[18px] top-1.5 w-2.5 h-2.5 rounded-full bg-cyan-400 border-2 border-[#112225]" />
+                      <div className="text-cyan-300 font-semibold text-sm">{displayText}</div>
+                      {displayLegs.length > 1 && leg.odds > 1 && (
+                        <div className="text-gray-600 text-xs mt-0.5">@ {leg.odds.toFixed(2)}</div>
+                      )}
                     </div>
-                    {displayLegs.length > 1 && leg.odds > 1 && (
-                      <div className="text-gray-600 text-xs mt-0.5">@ {leg.odds.toFixed(2)}</div>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="bg-black/30 rounded-lg p-3 space-y-2">

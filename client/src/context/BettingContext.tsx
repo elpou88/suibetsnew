@@ -479,6 +479,9 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
               status: 'confirmed',
               legs: selectedBets.map(bet => ({
                 eventId: bet.eventId,
+                eventName: bet.eventName,
+                homeTeam: bet.homeTeam,
+                awayTeam: bet.awayTeam,
                 marketId: bet.marketId,
                 outcomeId: bet.outcomeId,
                 odds: bet.odds,

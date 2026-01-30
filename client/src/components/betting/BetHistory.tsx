@@ -151,11 +151,21 @@ export function BetHistory() {
       const jsonStr = bet.eventName?.startsWith('[') ? bet.eventName : bet.prediction;
       if (jsonStr && jsonStr.startsWith('[')) {
         const parsed = JSON.parse(jsonStr);
-        return parsed.map((leg: any) => ({
-          eventName: leg.eventName || leg.eventId || 'Match',
-          selection: leg.selection || leg.prediction || 'Pick',
-          odds: leg.odds || 1
-        }));
+        return parsed.map((leg: any) => {
+          // Try to build eventName from homeTeam vs awayTeam, or use stored eventName
+          let eventName = leg.eventName || '';
+          if (leg.homeTeam && leg.awayTeam) {
+            eventName = `${leg.homeTeam} vs ${leg.awayTeam}`;
+          } else if (leg.eventId && !eventName) {
+            eventName = leg.eventId;
+          }
+          
+          return {
+            eventName: eventName || 'Match',
+            selection: leg.selection || leg.prediction || 'Pick',
+            odds: leg.odds || 1
+          };
+        });
       }
       
       // Handle pipe-separated format (e.g., "FC Porto vs Rangers: Over 1.5 | Lyon vs PAOK: Over 1.5")
