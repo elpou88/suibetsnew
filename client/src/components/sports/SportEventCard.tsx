@@ -16,6 +16,70 @@ const SportEventCard: React.FC<SportEventCardProps> = ({ event, sportId }) => {
   const { addBet } = useBetting();
   const [showAllMarkets, setShowAllMarkets] = useState(false);
   
+  // Helper to get current total goals from event score
+  const getCurrentTotalGoals = (): number => {
+    if (!event.score) return 0;
+    
+    let homeScore = 0;
+    let awayScore = 0;
+    const score = event.score as any;
+    
+    if (typeof score === 'string') {
+      const parts = score.split('-').map((s: string) => parseInt(s.trim()));
+      homeScore = parts[0] || 0;
+      awayScore = parts[1] || 0;
+    } else if (typeof score === 'object' && score !== null) {
+      homeScore = typeof score.home === 'number' ? score.home : parseInt(String(score.home)) || 0;
+      awayScore = typeof score.away === 'number' ? score.away : parseInt(String(score.away)) || 0;
+    }
+    
+    return homeScore + awayScore;
+  };
+  
+  // Filter out Over/Under markets that are already decided for live events
+  const filterDecidedMarkets = (markets: Market[]): Market[] => {
+    const isLive = event.isLive || event.status?.toLowerCase().includes('live') || 
+                   event.status?.includes('H') || event.status?.includes("'");
+    
+    if (!isLive) return markets;
+    
+    const totalGoals = getCurrentTotalGoals();
+    if (totalGoals === 0) return markets;
+    
+    return markets.map(market => {
+      const marketName = market.name?.toLowerCase() || '';
+      
+      // Filter Over/Under markets
+      if (marketName.includes('over/under') || marketName.includes('o/u')) {
+        const filteredOutcomes = market.outcomes.filter(outcome => {
+          const outcomeName = outcome.name?.toLowerCase() || '';
+          
+          // Parse the threshold (e.g., "Over 2.5" -> 2.5)
+          const match = outcomeName.match(/(over|under)\s*(\d+\.?\d*)/i);
+          if (!match) return true;
+          
+          const type = match[1].toLowerCase();
+          const threshold = parseFloat(match[2]);
+          
+          // If total goals > threshold, Over is already won, Under is already lost
+          if (totalGoals > threshold) {
+            if (type === 'over') return false; // Already guaranteed win - hide
+            if (type === 'under') return false; // Already guaranteed loss - hide
+          }
+          
+          return true;
+        });
+        
+        // If all outcomes are filtered out, remove the entire market
+        if (filteredOutcomes.length === 0) return null;
+        
+        return { ...market, outcomes: filteredOutcomes };
+      }
+      
+      return market;
+    }).filter((m): m is Market => m !== null && m.outcomes.length > 0);
+  };
+  
   // Get markets for this event based on sport type
   let allMarkets = event.markets || [];
   
@@ -30,6 +94,9 @@ const SportEventCard: React.FC<SportEventCardProps> = ({ event, sportId }) => {
     // Enhance the existing markets and add missing secondary markets
     allMarkets = sportMarketsAdapter.enhanceMarketsForSport(allMarkets, sportId, event.homeTeam, event.awayTeam);
   }
+  
+  // Filter out decided markets for live events
+  allMarkets = filterDecidedMarkets(allMarkets);
   
   const primaryMarket = allMarkets[0];
   const secondaryMarkets = allMarkets.slice(1);
