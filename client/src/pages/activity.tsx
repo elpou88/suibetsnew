@@ -58,20 +58,80 @@ export default function ActivityPage() {
   const activities: ActivityItem[] = Array.isArray(rawActivities) ? rawActivities : [];
   const bets = Array.isArray(rawBets) ? rawBets : [];
 
+  // Helper to detect parlay bets
+  const isParlay = (bet: any): boolean => {
+    const pred = bet.prediction || bet.selection || '';
+    if (typeof pred === 'string' && pred.includes(' | ')) return true;
+    if (typeof pred === 'string' && pred.startsWith('[')) {
+      try { return Array.isArray(JSON.parse(pred)); } catch { return false; }
+    }
+    return bet.externalEventId?.startsWith('parlay_') || bet.eventName === 'Parlay Bet';
+  };
+
+  // Helper to get readable description from bet
+  const getBetDescription = (bet: any): string => {
+    const prediction = bet.prediction || bet.selection || '';
+    const eventName = bet.eventName || '';
+    
+    // Check for parlay with pipe-separated format
+    if (typeof prediction === 'string' && prediction.includes(' | ')) {
+      const legs = prediction.split(' | ');
+      if (legs.length > 1) {
+        return `${legs.length}-Leg Parlay: ${legs[0].split(':')[0] || legs[0]}...`;
+      }
+    }
+    
+    // Check for JSON array parlay
+    if (typeof prediction === 'string' && prediction.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(prediction);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const first = parsed[0];
+          return `${parsed.length}-Leg Parlay: ${first.eventName || first.eventId || 'Multi'}...`;
+        }
+      } catch { }
+    }
+    
+    // Single bet - use eventName if valid, otherwise extract from prediction
+    if (eventName && eventName !== 'Unknown Event' && eventName !== 'Parlay Bet') {
+      return `${eventName} - ${prediction}`;
+    }
+    
+    // Try to extract match name from prediction format "Team vs Team: Selection"
+    if (prediction.includes(':')) {
+      const [match, pick] = prediction.split(':');
+      if (match && pick) {
+        return `${match.trim()} - ${pick.trim()}`;
+      }
+    }
+    
+    return prediction || 'Bet Placed';
+  };
+
   // Only include bets that have valid timestamps - no fabricated data
   const betActivities: ActivityItem[] = bets
     .filter((bet: any) => bet.placedAt || bet.createdAt)
-    .map((bet: any) => ({
-      id: `bet-${bet.id}`,
-      type: bet.status === 'won' ? 'bet_won' : bet.status === 'lost' ? 'bet_lost' : 'bet_placed',
-      title: bet.status === 'won' ? 'Bet Won!' : bet.status === 'lost' ? 'Bet Lost' : 'Bet Placed',
-      description: `${bet.eventName || 'Unknown Event'} - ${bet.selection || 'Unknown Selection'}`,
-      amount: bet.status === 'won' ? bet.potentialWin : bet.stake,
-      currency: bet.currency || 'SUI',
-      timestamp: bet.placedAt || bet.createdAt,
-      status: 'completed',
-      txHash: bet.txHash
-    }));
+    .map((bet: any) => {
+      const isParlayBet = isParlay(bet);
+      const statusType = bet.status === 'won' || bet.status === 'paid_out' ? 'bet_won' 
+        : bet.status === 'lost' ? 'bet_lost' 
+        : 'bet_placed';
+      const statusTitle = bet.status === 'won' || bet.status === 'paid_out' ? 'Bet Won!' 
+        : bet.status === 'lost' ? 'Bet Lost' 
+        : isParlayBet ? 'Parlay Placed' : 'Bet Placed';
+      
+      return {
+        id: `bet-${bet.id}`,
+        type: statusType,
+        title: statusTitle,
+        description: getBetDescription(bet),
+        amount: (bet.status === 'won' || bet.status === 'paid_out') ? (bet.potentialWin || bet.potentialPayout) : (bet.stake || bet.betAmount),
+        currency: bet.currency || 'SUI',
+        timestamp: bet.placedAt || bet.createdAt,
+        status: 'completed' as const,
+        txHash: bet.txHash
+      };
+    });
 
   const allActivities = [...activities, ...betActivities].sort(
     (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
@@ -199,23 +259,23 @@ export default function ActivityPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-[#111111] border border-cyan-900/30 rounded-xl p-4 text-center">
             <TrendingUp className="h-6 w-6 text-cyan-400 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-white">{allActivities.filter(a => a.type === 'bet_placed').length}</p>
-            <p className="text-gray-400 text-xs">Bets Placed</p>
+            <p className="text-2xl font-bold text-white">{bets.length}</p>
+            <p className="text-gray-400 text-xs">Total Bets</p>
           </div>
           <div className="bg-[#111111] border border-cyan-900/30 rounded-xl p-4 text-center">
             <CheckCircle className="h-6 w-6 text-green-400 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-green-400">{allActivities.filter(a => a.type === 'bet_won').length}</p>
+            <p className="text-2xl font-bold text-green-400">{bets.filter((b: any) => b.status === 'won' || b.status === 'paid_out').length}</p>
             <p className="text-gray-400 text-xs">Bets Won</p>
           </div>
           <div className="bg-[#111111] border border-cyan-900/30 rounded-xl p-4 text-center">
-            <ArrowDownLeft className="h-6 w-6 text-green-400 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-white">{allActivities.filter(a => a.type === 'deposit').length}</p>
-            <p className="text-gray-400 text-xs">Deposits</p>
+            <XCircle className="h-6 w-6 text-red-400 mx-auto mb-2" />
+            <p className="text-2xl font-bold text-red-400">{bets.filter((b: any) => b.status === 'lost').length}</p>
+            <p className="text-gray-400 text-xs">Bets Lost</p>
           </div>
           <div className="bg-[#111111] border border-cyan-900/30 rounded-xl p-4 text-center">
-            <ArrowUpRight className="h-6 w-6 text-orange-400 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-white">{allActivities.filter(a => a.type === 'withdrawal').length}</p>
-            <p className="text-gray-400 text-xs">Withdrawals</p>
+            <Clock className="h-6 w-6 text-yellow-400 mx-auto mb-2" />
+            <p className="text-2xl font-bold text-yellow-400">{bets.filter((b: any) => b.status === 'pending' || b.status === 'confirmed').length}</p>
+            <p className="text-gray-400 text-xs">Pending</p>
           </div>
         </div>
 
