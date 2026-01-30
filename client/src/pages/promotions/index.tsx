@@ -388,6 +388,11 @@ export default function PromotionsPage() {
                       </div>
                     )}
                   </div>
+                ) : walletAddress ? (
+                  <div className="flex items-center gap-2 text-cyan-400 bg-cyan-500/10 p-3 rounded-lg border border-cyan-500/30">
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-cyan-500 border-t-transparent" />
+                    <span>Loading welcome bonus status...</span>
+                  </div>
                 ) : (
                   <div className="flex items-center gap-2 text-yellow-400 bg-yellow-500/10 p-3 rounded-lg border border-yellow-500/30">
                     <Wallet className="h-5 w-5" />
@@ -445,6 +450,11 @@ export default function PromotionsPage() {
                         <p className="text-xs text-gray-400">SBETS Earned</p>
                       </div>
                     </div>
+                  </div>
+                ) : walletAddress ? (
+                  <div className="flex items-center gap-2 text-cyan-400 bg-cyan-500/10 p-3 rounded-lg border border-cyan-500/30">
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-cyan-500 border-t-transparent" />
+                    <span>Loading your referral link...</span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 text-yellow-400 bg-yellow-500/10 p-3 rounded-lg border border-yellow-500/30">
@@ -512,6 +522,20 @@ export default function PromotionsPage() {
                           </li>
                         ))}
                       </ul>
+                    </div>
+                  </div>
+                ) : walletAddress ? (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-5 gap-2 text-center">
+                      {['Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond'].map((tier) => (
+                        <div key={tier} className="bg-black/30 p-2 rounded-lg">
+                          <p className={`font-bold text-sm ${getTierColor(tier)}`}>{tier}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2 text-cyan-400 bg-cyan-500/10 p-3 rounded-lg border border-cyan-500/30">
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-cyan-500 border-t-transparent" />
+                      <span>Loading your loyalty status...</span>
                     </div>
                   </div>
                 ) : (
