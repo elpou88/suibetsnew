@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Trophy, Medal, TrendingUp, Calendar, Coins } from 'lucide-react';
+import { Link, useLocation } from 'wouter';
+import { Trophy, Medal, TrendingUp, Calendar, Coins, ArrowLeft } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -15,11 +16,20 @@ interface LeaderboardEntry {
 }
 
 export default function LeaderboardPage() {
+  const [, setLocation] = useLocation();
   const [period, setPeriod] = useState<'weekly' | 'monthly' | 'allTime'>('weekly');
 
   const { data, isLoading } = useQuery<{ leaderboard: LeaderboardEntry[] }>({
     queryKey: ['/api/leaderboard', period],
   });
+
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      setLocation('/');
+    }
+  };
 
   const formatWallet = (wallet: string) => {
     if (!wallet) return 'Anonymous';
@@ -41,13 +51,16 @@ export default function LeaderboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] p-4 md:p-8 relative overflow-hidden" data-testid="leaderboard-page">
-      {/* Background Glows */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-cyan-900/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-900/10 rounded-full blur-[120px] pointer-events-none" />
-
+    <div className="min-h-screen bg-black p-4 md:p-8 relative overflow-hidden" data-testid="leaderboard-page">
       <div className="max-w-4xl mx-auto relative z-10">
         <div className="flex items-center gap-4 mb-8">
+          <button 
+            onClick={handleBack}
+            className="p-2 text-gray-400 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors"
+            data-testid="btn-back"
+          >
+            <ArrowLeft size={24} />
+          </button>
           <div className="p-3 bg-gradient-to-br from-yellow-400/20 to-yellow-600/20 rounded-xl border border-yellow-500/30 shadow-[0_0_20px_rgba(234,179,8,0.2)]">
             <Trophy className="h-8 w-8 text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.5)]" />
           </div>
