@@ -1,6 +1,7 @@
 import React from 'react';
 import Navbar from './Navbar';
 import { Toaster } from '@/components/ui/toaster';
+import suibetsBackground from '@/assets/images/suibets-background.png';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -12,7 +13,17 @@ interface MainLayoutProps {
  */
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   return (
-    <div className="min-h-screen bg-[#112225] text-white">
+    <div 
+      className="min-h-screen text-white"
+      style={{
+        backgroundImage: `url(${suibetsBackground})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
+    <div className="min-h-screen bg-[#112225]/85 backdrop-blur-sm">
       <Navbar />
       
       <main className="container mx-auto p-6 pt-8">
@@ -50,7 +61,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       </footer>
       
       <Toaster />
-    </div>
+    </div></div>
   );
 };
 

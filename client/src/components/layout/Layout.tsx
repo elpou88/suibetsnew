@@ -9,6 +9,7 @@ import {
   TrendingDown, Trophy, MenuIcon, MessageCircle, Gift, Star
 } from 'lucide-react';
 import { ConnectWalletModal } from '@/components/modals/ConnectWalletModal';
+import suibetsBackground from '@/assets/images/suibets-background.png';
 const suibetsLogo = "/images/suibets-logo.jpg";
 
 export interface LayoutProps {
@@ -103,7 +104,17 @@ const Layout: React.FC<LayoutProps> = ({
   };
   
   return (
-    <div className="min-h-screen bg-[#112225] text-white pb-16 lg:pb-0">
+    <div 
+      className="min-h-screen text-white pb-16 lg:pb-0"
+      style={{
+        backgroundImage: `url(${suibetsBackground})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
+      <div className="min-h-screen bg-[#112225]/85 backdrop-blur-sm">
       {/* Top Header - like bet365 */}
       <header className="bg-[#0b1618] border-b border-[#1e3a3f]">
         {/* Upper section with logo and login */}
@@ -242,7 +253,7 @@ const Layout: React.FC<LayoutProps> = ({
         isOpen={isWalletModalOpen}
         onClose={() => setIsWalletModalOpen(false)}
       />
-    </div>
+    </div></div>
   );
 };
 
