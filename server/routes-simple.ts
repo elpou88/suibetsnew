@@ -4276,18 +4276,39 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         .where(eq(wurlusStaking.id, stakeId));
       
       const totalReturn = (stake.amountStaked || 0) + totalRewards;
+      const payoutAmount = Math.floor(totalReturn);
       
-      // ADD principal + rewards back to user's SBETS balance
-      await storage.updateUserBalance(walletAddress, 0, Math.floor(totalReturn));
+      // Send SBETS directly to user's wallet on-chain
+      let txHash = '';
+      let onChainSuccess = false;
       
-      console.log(`[STAKING] User ${walletAddress.slice(0, 10)}... unstaked ${stake.amountStaked?.toLocaleString()} SBETS + ${totalRewards.toFixed(0)} rewards - ADDED to balance`);
+      if (blockchainBetService.isAdminKeyConfigured()) {
+        try {
+          const payoutResult = await blockchainBetService.executePayoutSbetsOnChain(walletAddress, payoutAmount);
+          if (payoutResult.success && payoutResult.txHash) {
+            txHash = payoutResult.txHash;
+            onChainSuccess = true;
+            console.log(`[STAKING] ✅ On-chain SBETS payout: ${payoutAmount.toLocaleString()} SBETS to ${walletAddress.slice(0, 10)}... | TX: ${txHash}`);
+          }
+        } catch (payoutError: any) {
+          console.warn('[STAKING] On-chain payout failed, falling back to DB balance:', payoutError.message);
+        }
+      }
+      
+      // Fallback: Add to DB balance if on-chain fails
+      if (!onChainSuccess) {
+        await storage.updateUserBalance(walletAddress, 0, payoutAmount);
+        console.log(`[STAKING] User ${walletAddress.slice(0, 10)}... unstaked ${stake.amountStaked?.toLocaleString()} SBETS + ${totalRewards.toFixed(0)} rewards - ADDED to DB balance (on-chain fallback)`);
+      }
       
       res.json({ 
         success: true, 
         message: `Successfully unstaked ${stake.amountStaked?.toLocaleString()} SBETS`,
         principal: stake.amountStaked,
         rewards: Math.floor(totalRewards),
-        total: Math.floor(totalReturn)
+        total: payoutAmount,
+        txHash: txHash || undefined,
+        onChain: onChainSuccess
       });
     } catch (error) {
       console.error('Unstaking error:', error);
@@ -4332,17 +4353,36 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           .where(eq(wurlusStaking.id, stake.id));
       }
       
-      // ADD claimed rewards to user's SBETS balance
-      if (totalClaimed > 0) {
-        await storage.updateUserBalance(walletAddress, 0, Math.floor(totalClaimed));
+      // Send claimed rewards directly to user's wallet on-chain
+      const claimAmount = Math.floor(totalClaimed);
+      let txHash = '';
+      let onChainSuccess = false;
+      
+      if (claimAmount > 0 && blockchainBetService.isAdminKeyConfigured()) {
+        try {
+          const payoutResult = await blockchainBetService.executePayoutSbetsOnChain(walletAddress, claimAmount);
+          if (payoutResult.success && payoutResult.txHash) {
+            txHash = payoutResult.txHash;
+            onChainSuccess = true;
+            console.log(`[STAKING] ✅ On-chain rewards payout: ${claimAmount.toLocaleString()} SBETS to ${walletAddress.slice(0, 10)}... | TX: ${txHash}`);
+          }
+        } catch (payoutError: any) {
+          console.warn('[STAKING] On-chain rewards payout failed, falling back to DB balance:', payoutError.message);
+        }
       }
       
-      console.log(`[STAKING] User ${walletAddress.slice(0, 10)}... claimed ${totalClaimed.toFixed(0)} SBETS rewards - ADDED to balance`);
+      // Fallback: Add to DB balance if on-chain fails
+      if (!onChainSuccess && claimAmount > 0) {
+        await storage.updateUserBalance(walletAddress, 0, claimAmount);
+        console.log(`[STAKING] User ${walletAddress.slice(0, 10)}... claimed ${claimAmount.toLocaleString()} SBETS rewards - ADDED to DB balance (on-chain fallback)`);
+      }
       
       res.json({ 
         success: true, 
-        message: `Successfully claimed ${Math.floor(totalClaimed).toLocaleString()} SBETS rewards`,
-        claimedAmount: Math.floor(totalClaimed)
+        message: `Successfully claimed ${claimAmount.toLocaleString()} SBETS rewards`,
+        claimedAmount: claimAmount,
+        txHash: txHash || undefined,
+        onChain: onChainSuccess
       });
     } catch (error) {
       console.error('Claim rewards error:', error);
