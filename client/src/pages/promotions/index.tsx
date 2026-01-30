@@ -91,8 +91,8 @@ export default function PromotionsPage() {
     }
     setIsStaking(true);
     try {
-      // SBETS has 9 decimals like SUI - convert to smallest units
-      const amountInSmallestUnits = BigInt(amount) * BigInt(1_000_000_000);
+      // SBETS has 6 decimals (NOT 9 like SUI!) - convert to smallest units
+      const amountInSmallestUnits = BigInt(amount) * BigInt(1_000_000);
       
       console.log('[Staking] Amount requested:', amount, 'SBETS');
       console.log('[Staking] Amount in smallest units:', amountInSmallestUnits.toString());
@@ -106,7 +106,7 @@ export default function PromotionsPage() {
       
       console.log('[Staking] Found coins:', sbetsCoins.data.length);
       sbetsCoins.data.forEach((c, i) => {
-        console.log(`[Staking] Coin ${i}: ${c.coinObjectId} = ${c.balance} smallest units (${Number(c.balance) / 1_000_000_000} display)`);
+        console.log(`[Staking] Coin ${i}: ${c.coinObjectId} = ${c.balance} smallest units (${Number(c.balance) / 1_000_000} display)`);
       });
       
       if (!sbetsCoins.data.length) {
@@ -121,8 +121,8 @@ export default function PromotionsPage() {
         totalBalance += BigInt(coin.balance);
       }
       
-      // Convert to display units for comparison (SBETS has 9 decimals like SUI)
-      const totalBalanceDisplay = Number(totalBalance) / 1_000_000_000;
+      // Convert to display units for comparison (SBETS has 6 decimals)
+      const totalBalanceDisplay = Number(totalBalance) / 1_000_000;
       console.log('[Staking] Total balance:', totalBalance.toString(), 'smallest units =', totalBalanceDisplay, 'display');
       
       if (totalBalance < amountInSmallestUnits) {
@@ -142,9 +142,9 @@ export default function PromotionsPage() {
       // Step 2: Build transaction using 0x2::pay::split_and_transfer
       const tx = new Transaction();
       
-      // Use plain number like working bet code does
-      const stakeAmountMist = Math.floor(amount * 1_000_000_000);
-      console.log('[Staking] Stake amount in mist:', stakeAmountMist);
+      // SBETS has 6 decimals - convert to smallest units
+      const stakeAmountMist = Math.floor(amount * 1_000_000);
+      console.log('[Staking] Stake amount in smallest units:', stakeAmountMist);
       
       if (suitableCoin) {
         // Use sui::pay::split_and_transfer which is designed for this use case
