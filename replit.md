@@ -63,6 +63,19 @@ Preferred communication style: Simple, everyday language.
 - **Promotion**: Bet $15 (in SUI or SBETS) → Get $5 FREE bonus.
 - **Tracking**: On-chain bets tracked and converted to USD value (SUI = $3.50 USD, SBETS = $0.000001 USD).
 
+### Promotions System
+- **Welcome Bonus**: 1,000 SBETS for new users (one-time per wallet, stored in `welcomeBonusClaimed` field)
+- **Referral System**: 1,000 SBETS reward per qualified referral (when referred user places first bet)
+- **Loyalty Program**: 
+  - Points earned per $1 wagered
+  - Tiers: Bronze (<1000 pts), Silver (1000+), Gold (2500+), Platinum (5000+), Diamond (10000+)
+  - Points displayed on leaderboard with tier badges
+- **SBETS Staking**: 
+  - 5% APY from treasury pool (50 billion SBETS pool)
+  - Minimum stake: 100,000 SBETS
+  - 7-day lock period
+  - Stake/unstake/claim-rewards functionality via `wurlusStaking` table
+
 ### Payment Integration
 - **Stripe**: Optional fiat payment processing.
 

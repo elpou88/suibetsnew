@@ -4084,47 +4084,60 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     return 'Bronze';
   }
 
-  // ==================== SBETS STAKING ====================
+  // ==================== SBETS STAKING (5% APY from Treasury) ====================
+  
+  const APY_RATE = 0.05; // 5% APY
+  const MIN_STAKE_SBETS = 100000; // 100K SBETS minimum
+  const LOCK_PERIOD_DAYS = 7;
   
   // Get staking info
   app.get('/api/staking/info', async (req: Request, res: Response) => {
     try {
       const wallet = req.query.wallet as string;
+      const { db } = await import('./db');
+      const { wurlusStaking } = await import('@shared/schema');
+      const { eq, and, sum } = await import('drizzle-orm');
       
-      // Treasury pool for staking (simulated from SBETS treasury)
-      const TREASURY_SBETS_POOL = 50000000000; // 50 billion SBETS for staking rewards
-      const APY_RATE = 0.05; // 5% APY (low as requested)
-      const TOTAL_STAKED = 10000000000; // 10 billion total staked (simulated)
+      // Get total staked from all active stakes
+      const allStakes = await db.select().from(wurlusStaking).where(eq(wurlusStaking.isActive, true));
+      const totalStaked = allStakes.reduce((acc, s) => acc + (s.amountStaked || 0), 0);
       
       let userStaked = 0;
       let userRewards = 0;
+      let userStakes: any[] = [];
       
       if (wallet) {
-        const user = await storage.getUserByWalletAddress(wallet);
-        if (user) {
-          // Get user staking info from staking table if exists
-          const { db } = await import('./db');
-          const { bettingPromotions } = await import('@shared/schema');
-          const { eq } = await import('drizzle-orm');
-          
-          const [stakingInfo] = await db.select().from(bettingPromotions)
-            .where(eq(bettingPromotions.walletAddress, wallet));
-          
-          // Use bonusBalance as staked amount for now
-          userStaked = stakingInfo?.bonusBalance || 0;
-          // Calculate rewards based on APY
-          userRewards = userStaked * (APY_RATE / 52); // Weekly rewards
-        }
+        // Get user's active stakes
+        const stakes = await db.select().from(wurlusStaking)
+          .where(and(eq(wurlusStaking.walletAddress, wallet), eq(wurlusStaking.isActive, true)));
+        
+        userStakes = stakes.map(s => {
+          const stakedDays = (Date.now() - new Date(s.stakingDate || Date.now()).getTime()) / (1000 * 60 * 60 * 24);
+          const dailyRate = APY_RATE / 365;
+          const rewards = (s.amountStaked || 0) * dailyRate * stakedDays;
+          return {
+            id: s.id,
+            amount: s.amountStaked,
+            stakedAt: s.stakingDate,
+            lockedUntil: s.lockedUntil,
+            accumulatedRewards: rewards + (s.accumulatedRewards || 0),
+            canUnstake: !s.lockedUntil || new Date(s.lockedUntil) <= new Date()
+          };
+        });
+        
+        userStaked = stakes.reduce((acc, s) => acc + (s.amountStaked || 0), 0);
+        userRewards = userStakes.reduce((acc, s) => acc + s.accumulatedRewards, 0);
       }
       
       res.json({
-        treasuryPool: TREASURY_SBETS_POOL,
-        totalStaked: TOTAL_STAKED,
+        treasuryPool: 50000000000, // 50 billion SBETS treasury pool
+        totalStaked,
         apyRate: APY_RATE * 100, // 5%
         userStaked,
         userRewards,
-        minStake: 100000, // 100K SBETS minimum
-        lockPeriod: '7 days'
+        userStakes,
+        minStake: MIN_STAKE_SBETS,
+        lockPeriod: `${LOCK_PERIOD_DAYS} days`
       });
     } catch (error) {
       console.error('Staking info error:', error);
@@ -4140,22 +4153,152 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         return res.status(400).json({ error: 'Wallet address and amount required' });
       }
       
-      if (amount < 100000) {
-        return res.status(400).json({ error: 'Minimum stake is 100,000 SBETS' });
+      if (amount < MIN_STAKE_SBETS) {
+        return res.status(400).json({ error: `Minimum stake is ${MIN_STAKE_SBETS.toLocaleString()} SBETS` });
       }
       
-      // For now, log the stake request
-      console.log(`[STAKING] User ${walletAddress.slice(0, 10)}... staking ${amount} SBETS`);
+      const { db } = await import('./db');
+      const { wurlusStaking } = await import('@shared/schema');
+      
+      // Create lock period (7 days from now)
+      const lockedUntil = new Date(Date.now() + LOCK_PERIOD_DAYS * 24 * 60 * 60 * 1000);
+      
+      // Insert stake record
+      const [stake] = await db.insert(wurlusStaking).values({
+        walletAddress,
+        amountStaked: amount,
+        stakingDate: new Date(),
+        isActive: true,
+        lockedUntil,
+        rewardRate: APY_RATE,
+        accumulatedRewards: 0
+      }).returning();
+      
+      console.log(`[STAKING] User ${walletAddress.slice(0, 10)}... staked ${amount.toLocaleString()} SBETS (ID: ${stake.id})`);
       
       res.json({ 
         success: true, 
         message: `Successfully staked ${amount.toLocaleString()} SBETS`,
+        stakeId: stake.id,
         stakedAmount: amount,
-        estimatedApy: 5
+        lockedUntil,
+        estimatedApy: APY_RATE * 100
       });
     } catch (error) {
       console.error('Staking error:', error);
       res.status(500).json({ error: 'Failed to stake tokens' });
+    }
+  });
+  
+  // Unstake SBETS tokens
+  app.post('/api/staking/unstake', async (req: Request, res: Response) => {
+    try {
+      const { walletAddress, stakeId } = req.body;
+      if (!walletAddress || !stakeId) {
+        return res.status(400).json({ error: 'Wallet address and stake ID required' });
+      }
+      
+      const { db } = await import('./db');
+      const { wurlusStaking } = await import('@shared/schema');
+      const { eq, and } = await import('drizzle-orm');
+      
+      // Get the stake
+      const [stake] = await db.select().from(wurlusStaking)
+        .where(and(eq(wurlusStaking.id, stakeId), eq(wurlusStaking.walletAddress, walletAddress)));
+      
+      if (!stake) {
+        return res.status(404).json({ error: 'Stake not found' });
+      }
+      
+      if (!stake.isActive) {
+        return res.status(400).json({ error: 'Stake already unstaked' });
+      }
+      
+      // Check lock period
+      if (stake.lockedUntil && new Date(stake.lockedUntil) > new Date()) {
+        const remainingDays = Math.ceil((new Date(stake.lockedUntil).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+        return res.status(400).json({ error: `Stake is locked for ${remainingDays} more days` });
+      }
+      
+      // Calculate final rewards
+      const stakedDays = (Date.now() - new Date(stake.stakingDate || Date.now()).getTime()) / (1000 * 60 * 60 * 24);
+      const dailyRate = APY_RATE / 365;
+      const rewards = (stake.amountStaked || 0) * dailyRate * stakedDays;
+      const totalRewards = rewards + (stake.accumulatedRewards || 0);
+      
+      // Mark as inactive
+      await db.update(wurlusStaking)
+        .set({ 
+          isActive: false, 
+          unstakingDate: new Date(),
+          accumulatedRewards: totalRewards
+        })
+        .where(eq(wurlusStaking.id, stakeId));
+      
+      const totalReturn = (stake.amountStaked || 0) + totalRewards;
+      
+      console.log(`[STAKING] User ${walletAddress.slice(0, 10)}... unstaked ${stake.amountStaked?.toLocaleString()} SBETS + ${totalRewards.toFixed(0)} rewards`);
+      
+      res.json({ 
+        success: true, 
+        message: `Successfully unstaked ${stake.amountStaked?.toLocaleString()} SBETS`,
+        principal: stake.amountStaked,
+        rewards: Math.floor(totalRewards),
+        total: Math.floor(totalReturn)
+      });
+    } catch (error) {
+      console.error('Unstaking error:', error);
+      res.status(500).json({ error: 'Failed to unstake tokens' });
+    }
+  });
+  
+  // Claim staking rewards without unstaking
+  app.post('/api/staking/claim-rewards', async (req: Request, res: Response) => {
+    try {
+      const { walletAddress } = req.body;
+      if (!walletAddress) {
+        return res.status(400).json({ error: 'Wallet address required' });
+      }
+      
+      const { db } = await import('./db');
+      const { wurlusStaking } = await import('@shared/schema');
+      const { eq, and } = await import('drizzle-orm');
+      
+      // Get all active stakes
+      const stakes = await db.select().from(wurlusStaking)
+        .where(and(eq(wurlusStaking.walletAddress, walletAddress), eq(wurlusStaking.isActive, true)));
+      
+      if (stakes.length === 0) {
+        return res.status(400).json({ error: 'No active stakes found' });
+      }
+      
+      let totalClaimed = 0;
+      
+      for (const stake of stakes) {
+        const stakedDays = (Date.now() - new Date(stake.stakingDate || Date.now()).getTime()) / (1000 * 60 * 60 * 24);
+        const dailyRate = APY_RATE / 365;
+        const rewards = (stake.amountStaked || 0) * dailyRate * stakedDays;
+        totalClaimed += rewards + (stake.accumulatedRewards || 0);
+        
+        // Reset accumulated rewards and staking date for next period
+        await db.update(wurlusStaking)
+          .set({ 
+            accumulatedRewards: 0,
+            stakingDate: new Date()
+          })
+          .where(eq(wurlusStaking.id, stake.id));
+      }
+      
+      console.log(`[STAKING] User ${walletAddress.slice(0, 10)}... claimed ${totalClaimed.toFixed(0)} SBETS rewards`);
+      
+      res.json({ 
+        success: true, 
+        message: `Successfully claimed ${Math.floor(totalClaimed).toLocaleString()} SBETS rewards`,
+        claimedAmount: Math.floor(totalClaimed)
+      });
+    } catch (error) {
+      console.error('Claim rewards error:', error);
+      res.status(500).json({ error: 'Failed to claim rewards' });
     }
   });
 

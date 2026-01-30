@@ -5,7 +5,8 @@ import { useCurrentAccount } from "@mysten/dapp-kit";
 import Layout from "@/components/layout/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Gift, Users, Star, Coins, ArrowLeft, Check, Copy, Wallet } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Gift, Users, Star, Coins, ArrowLeft, Check, Copy, Wallet, Lock, Unlock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -14,6 +15,24 @@ interface FreeBetStatus {
   welcomeBonusClaimed: boolean;
   welcomeBonusAmount: number;
   loyaltyPoints: number;
+}
+
+interface StakingInfo {
+  treasuryPool: number;
+  totalStaked: number;
+  apyRate: number;
+  userStaked: number;
+  userRewards: number;
+  userStakes: Array<{
+    id: number;
+    amount: number;
+    stakedAt: string;
+    lockedUntil: string;
+    accumulatedRewards: number;
+    canUnstake: boolean;
+  }>;
+  minStake: number;
+  lockPeriod: string;
 }
 
 interface LoyaltyStatus {
@@ -39,8 +58,91 @@ export default function PromotionsPage() {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
+  const [stakeAmount, setStakeAmount] = useState("");
+  const [isStaking, setIsStaking] = useState(false);
 
   const walletAddress = currentAccount?.address;
+  
+  const { data: stakingInfo, refetch: refetchStaking } = useQuery<StakingInfo>({
+    queryKey: ['/api/staking/info', walletAddress],
+    queryFn: async () => {
+      const res = await fetch(`/api/staking/info?wallet=${walletAddress || ''}`);
+      if (!res.ok) throw new Error('Failed to fetch');
+      return res.json();
+    },
+  });
+  
+  const handleStake = async () => {
+    if (!walletAddress) {
+      toast({ title: "Connect wallet first", variant: "destructive" });
+      return;
+    }
+    const amount = parseInt(stakeAmount);
+    if (!amount || amount < 100000) {
+      toast({ title: "Minimum stake is 100,000 SBETS", variant: "destructive" });
+      return;
+    }
+    setIsStaking(true);
+    try {
+      const res = await apiRequest('/api/staking/stake', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletAddress, amount })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast({ title: "Staked Successfully!", description: data.message });
+        setStakeAmount("");
+        refetchStaking();
+      } else {
+        toast({ title: "Staking failed", description: data.error, variant: "destructive" });
+      }
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setIsStaking(false);
+    }
+  };
+  
+  const handleUnstake = async (stakeId: number) => {
+    if (!walletAddress) return;
+    try {
+      const res = await apiRequest('/api/staking/unstake', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletAddress, stakeId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast({ title: "Unstaked!", description: `Received ${data.total?.toLocaleString()} SBETS (incl. rewards)` });
+        refetchStaking();
+      } else {
+        toast({ title: "Unstake failed", description: data.error, variant: "destructive" });
+      }
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+  
+  const handleClaimRewards = async () => {
+    if (!walletAddress) return;
+    try {
+      const res = await apiRequest('/api/staking/claim-rewards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletAddress })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast({ title: "Rewards Claimed!", description: data.message });
+        refetchStaking();
+      } else {
+        toast({ title: "Claim failed", description: data.error, variant: "destructive" });
+      }
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
 
   const { data: freeBetStatus, refetch: refetchFreeBet } = useQuery<FreeBetStatus>({
     queryKey: ['/api/free-bet/status', walletAddress],
@@ -329,32 +431,97 @@ export default function PromotionsPage() {
                 </div>
                 <div className="flex-1">
                   <CardTitle className="text-white text-xl">SBETS Staking</CardTitle>
-                  <p className="text-purple-400 font-bold text-lg">5% APY from Treasury Pool</p>
+                  <p className="text-purple-400 font-bold text-lg">{stakingInfo?.apyRate || 5}% APY from Treasury Pool</p>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-gray-300">
-                  Stake your SBETS tokens to earn passive rewards from the platform treasury. Low-risk staking with guaranteed returns from our treasury pool.
+                  Stake your SBETS tokens to earn passive rewards from the platform treasury. {stakingInfo?.lockPeriod || '7 days'} lock period.
                 </p>
                 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-2">
                   <div className="bg-black/30 p-3 rounded-lg text-center border border-purple-500/20">
-                    <p className="text-2xl font-bold text-purple-400">5%</p>
-                    <p className="text-xs text-gray-400">APY Rate</p>
+                    <p className="text-xl font-bold text-purple-400">{stakingInfo?.apyRate || 5}%</p>
+                    <p className="text-xs text-gray-400">APY</p>
                   </div>
                   <div className="bg-black/30 p-3 rounded-lg text-center border border-purple-500/20">
-                    <p className="text-2xl font-bold text-white">100K</p>
-                    <p className="text-xs text-gray-400">Min Stake (SBETS)</p>
+                    <p className="text-xl font-bold text-white">{((stakingInfo?.totalStaked || 0) / 1e9).toFixed(1)}B</p>
+                    <p className="text-xs text-gray-400">Total Staked</p>
+                  </div>
+                  <div className="bg-black/30 p-3 rounded-lg text-center border border-purple-500/20">
+                    <p className="text-xl font-bold text-green-400">{((stakingInfo?.userStaked || 0) / 1e6).toFixed(1)}M</p>
+                    <p className="text-xs text-gray-400">Your Stake</p>
                   </div>
                 </div>
                 
-                <Button
-                  onClick={() => setLocation('/revenue')}
-                  className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 text-white font-bold"
-                  data-testid="btn-stake-sbets"
-                >
-                  GO TO STAKING
-                </Button>
+                {walletAddress ? (
+                  <div className="space-y-3">
+                    {(stakingInfo?.userRewards || 0) > 0 && (
+                      <div className="bg-green-500/10 p-3 rounded-lg border border-green-500/30 flex justify-between items-center">
+                        <div>
+                          <p className="text-green-400 text-sm">Pending Rewards</p>
+                          <p className="text-white font-bold">{Math.floor(stakingInfo?.userRewards || 0).toLocaleString()} SBETS</p>
+                        </div>
+                        <Button size="sm" onClick={handleClaimRewards} className="bg-green-600 hover:bg-green-500" data-testid="btn-claim-rewards">
+                          Claim
+                        </Button>
+                      </div>
+                    )}
+                    
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        placeholder="Amount (min 100,000)"
+                        value={stakeAmount}
+                        onChange={(e) => setStakeAmount(e.target.value)}
+                        className="bg-black/30 border-purple-500/30 text-white"
+                        data-testid="input-stake-amount"
+                      />
+                      <Button 
+                        onClick={handleStake}
+                        disabled={isStaking}
+                        className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500"
+                        data-testid="btn-stake"
+                      >
+                        <Lock className="h-4 w-4 mr-1" />
+                        {isStaking ? 'Staking...' : 'Stake'}
+                      </Button>
+                    </div>
+                    
+                    {stakingInfo?.userStakes && stakingInfo.userStakes.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-sm text-gray-400">Your Active Stakes:</p>
+                        {stakingInfo.userStakes.map((stake) => (
+                          <div key={stake.id} className="bg-black/30 p-3 rounded-lg border border-purple-500/20 flex justify-between items-center">
+                            <div>
+                              <p className="text-white font-medium">{stake.amount.toLocaleString()} SBETS</p>
+                              <p className="text-xs text-gray-400">
+                                +{Math.floor(stake.accumulatedRewards).toLocaleString()} rewards
+                                {!stake.canUnstake && ` (locked until ${new Date(stake.lockedUntil).toLocaleDateString()})`}
+                              </p>
+                            </div>
+                            <Button 
+                              size="sm" 
+                              variant={stake.canUnstake ? "default" : "secondary"}
+                              onClick={() => handleUnstake(stake.id)}
+                              disabled={!stake.canUnstake}
+                              className={stake.canUnstake ? "bg-red-600 hover:bg-red-500" : ""}
+                              data-testid={`btn-unstake-${stake.id}`}
+                            >
+                              <Unlock className="h-3 w-3 mr-1" />
+                              {stake.canUnstake ? 'Unstake' : 'Locked'}
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-yellow-400 bg-yellow-500/10 p-3 rounded-lg border border-yellow-500/30">
+                    <Wallet className="h-5 w-5" />
+                    <span>Connect your wallet to stake</span>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
