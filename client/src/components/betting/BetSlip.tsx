@@ -582,24 +582,29 @@ export function BetSlip() {
               </div>
             </div>
             
-            {/* FREE SBETS Balance Display - Welcome/Referral Bonuses (display only) */}
+            {/* FREE SBETS - Apply to bet with one click */}
             {freeBetBalance > 0 && (
               <div className="bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border border-cyan-500/40 rounded-lg p-3 mt-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Gift className="w-5 h-5 text-cyan-400 animate-pulse" />
                     <div className="flex flex-col">
-                      <span className="text-cyan-300 font-bold text-sm">FREE SBETS Available</span>
+                      <span className="text-cyan-300 font-bold text-sm">FREE SBETS</span>
                       <span className="text-cyan-400 text-lg font-black">{freeBetBalance.toLocaleString()} SBETS</span>
                     </div>
                   </div>
-                  <div className="text-xs text-cyan-300/70 text-right">
-                    <div>From welcome &</div>
-                    <div>referral bonuses</div>
-                  </div>
-                </div>
-                <div className="text-center text-xs text-cyan-300/60 mt-2 bg-cyan-500/10 py-1.5 rounded border border-cyan-500/20">
-                  Use your wallet SBETS balance to bet - bonuses are already included!
+                  <button
+                    onClick={() => {
+                      setBetCurrency('SBETS');
+                      if (selectedBets.length > 0) {
+                        updateStake(selectedBets[0].id, freeBetBalance);
+                      }
+                    }}
+                    className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-lg text-sm transition-all"
+                    data-testid="btn-use-free-sbets"
+                  >
+                    USE FREE SBETS
+                  </button>
                 </div>
               </div>
             )}
