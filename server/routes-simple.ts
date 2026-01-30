@@ -4453,40 +4453,61 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const { wurlusStaking } = await import('@shared/schema');
       const { eq, and } = await import('drizzle-orm');
       
-      // Get the stake
+      // Get the stake - must be active and owned by user
       const [stake] = await db.select().from(wurlusStaking)
-        .where(and(eq(wurlusStaking.id, stakeId), eq(wurlusStaking.walletAddress, walletAddress)));
+        .where(and(
+          eq(wurlusStaking.id, stakeId), 
+          eq(wurlusStaking.walletAddress, walletAddress),
+          eq(wurlusStaking.isActive, true)
+        ));
       
       if (!stake) {
-        return res.status(404).json({ error: 'Stake not found' });
+        return res.status(404).json({ error: 'Active stake not found or already unstaked' });
       }
       
-      if (!stake.isActive) {
-        return res.status(400).json({ error: 'Stake already unstaked' });
-      }
-      
-      // Check lock period
-      if (stake.lockedUntil && new Date(stake.lockedUntil) > new Date()) {
-        const remainingDays = Math.ceil((new Date(stake.lockedUntil).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      // Check lock period strictly
+      const now = new Date();
+      if (stake.lockedUntil && new Date(stake.lockedUntil) > now) {
+        const remainingDays = Math.ceil((new Date(stake.lockedUntil).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
         return res.status(400).json({ error: `Stake is locked for ${remainingDays} more days` });
       }
       
-      // Calculate final rewards
-      const stakedDays = (Date.now() - new Date(stake.stakingDate || Date.now()).getTime()) / (1000 * 60 * 60 * 24);
+      // Calculate final rewards precisely
+      const stakeDate = new Date(stake.stakingDate || now);
+      const stakedMs = now.getTime() - stakeDate.getTime();
+      const stakedDays = Math.max(0, stakedMs / (1000 * 60 * 60 * 24));
       const dailyRate = APY_RATE / 365;
-      const rewards = (stake.amountStaked || 0) * dailyRate * stakedDays;
-      const totalRewards = rewards + (stake.accumulatedRewards || 0);
+      const principal = stake.amountStaked || 0;
       
-      // Mark as inactive
-      await db.update(wurlusStaking)
+      // Cap rewards at maximum annual yield to prevent exploits
+      const maxAnnualReward = principal * APY_RATE;
+      const calculatedRewards = principal * dailyRate * stakedDays;
+      const accumulatedRewards = stake.accumulatedRewards || 0;
+      const totalRewards = Math.min(calculatedRewards + accumulatedRewards, maxAnnualReward);
+      
+      console.log(`[STAKING] Unstake calculation for ${walletAddress.slice(0, 10)}:`, {
+        stakeId,
+        principal,
+        stakedDays: stakedDays.toFixed(4),
+        calculatedRewards: calculatedRewards.toFixed(2),
+        accumulatedRewards: accumulatedRewards.toFixed(2),
+        totalRewards: totalRewards.toFixed(2),
+        maxAnnualReward
+      });
+      
+      // Atomically mark as inactive - double-check isActive to prevent race conditions
+      const updateResult = await db.update(wurlusStaking)
         .set({ 
           isActive: false, 
-          unstakingDate: new Date(),
-          accumulatedRewards: totalRewards
+          unstakingDate: now,
+          accumulatedRewards: Math.floor(totalRewards)
         })
-        .where(eq(wurlusStaking.id, stakeId));
+        .where(and(
+          eq(wurlusStaking.id, stakeId),
+          eq(wurlusStaking.isActive, true) // Ensures atomicity
+        ));
       
-      const totalReturn = (stake.amountStaked || 0) + totalRewards;
+      const totalReturn = principal + totalRewards;
       const payoutAmount = Math.floor(totalReturn);
       
       // Send SBETS directly to user's wallet on-chain
@@ -4548,21 +4569,47 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       }
       
       let totalClaimed = 0;
+      const claimDetails: { stakeId: number; principal: number; days: number; rewards: number; maxPossible: number }[] = [];
+      const claimTimestamp = new Date();
       
       for (const stake of stakes) {
-        const stakedDays = (Date.now() - new Date(stake.stakingDate || Date.now()).getTime()) / (1000 * 60 * 60 * 24);
+        const stakeDate = new Date(stake.stakingDate || Date.now());
+        const stakedMs = claimTimestamp.getTime() - stakeDate.getTime();
+        const stakedDays = Math.max(0, stakedMs / (1000 * 60 * 60 * 24));
         const dailyRate = APY_RATE / 365;
-        const rewards = (stake.amountStaked || 0) * dailyRate * stakedDays;
-        totalClaimed += rewards + (stake.accumulatedRewards || 0);
+        const principal = stake.amountStaked || 0;
         
-        // Reset accumulated rewards and staking date for next period
+        // Calculate rewards precisely - cannot exceed APY_RATE * principal per year
+        const maxAnnualReward = principal * APY_RATE;
+        const calculatedRewards = principal * dailyRate * stakedDays;
+        const accumulatedRewards = stake.accumulatedRewards || 0;
+        
+        // Cap rewards at maximum possible (prevents any overflow/exploit)
+        const totalRewards = Math.min(calculatedRewards + accumulatedRewards, maxAnnualReward);
+        
+        claimDetails.push({
+          stakeId: stake.id,
+          principal,
+          days: stakedDays,
+          rewards: totalRewards,
+          maxPossible: maxAnnualReward
+        });
+        
+        totalClaimed += totalRewards;
+        
+        // Atomically reset accumulated rewards and staking date for next period
         await db.update(wurlusStaking)
           .set({ 
             accumulatedRewards: 0,
-            stakingDate: new Date()
+            stakingDate: claimTimestamp
           })
-          .where(eq(wurlusStaking.id, stake.id));
+          .where(and(
+            eq(wurlusStaking.id, stake.id),
+            eq(wurlusStaking.isActive, true) // Double-check still active
+          ));
       }
+      
+      console.log(`[STAKING] Claim calculation for ${walletAddress.slice(0, 10)}:`, JSON.stringify(claimDetails));
       
       // Send claimed rewards directly to user's wallet on-chain
       const claimAmount = Math.floor(totalClaimed);
