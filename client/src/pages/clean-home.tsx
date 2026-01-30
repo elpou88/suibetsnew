@@ -868,14 +868,52 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
   const secondaryMarkets = useMemo(() => {
     if (!event || event.sportId !== 1) return []; // Only soccer has secondary markets
     try {
+      // Get current total goals for filtering decided Over/Under markets
+      const homeGoals = parseInt(String(event.homeScore ?? (event.score?.split('-')[0]?.trim() || '0'))) || 0;
+      const awayGoals = parseInt(String(event.awayScore ?? (event.score?.split('-')[1]?.trim() || '0'))) || 0;
+      const totalGoals = homeGoals + awayGoals;
+      const isLive = event.isLive || false;
+      
       return sportMarketsAdapter.getDefaultMarkets(1, event.homeTeam, event.awayTeam)
         .slice(1)
-        .filter(m => !isMarketClosed(m.id));
+        .filter(m => !isMarketClosed(m.id))
+        .map(market => {
+          const marketName = market.name?.toLowerCase() || '';
+          
+          // Filter Over/Under markets for live events
+          if (isLive && totalGoals > 0 && (marketName.includes('over') || marketName.includes('under') || marketName.includes('goals'))) {
+            // Extract threshold from market name (e.g., "Over/Under 2.5 Goals" -> 2.5)
+            const thresholdMatch = marketName.match(/(\d+\.?\d*)/);
+            const threshold = thresholdMatch ? parseFloat(thresholdMatch[1]) : null;
+            
+            // If threshold is exceeded, remove this market entirely
+            if (threshold !== null && totalGoals > threshold) {
+              return null; // Market is decided - remove it
+            }
+            
+            // Also filter individual outcomes
+            const filteredOutcomes = market.outcomes.filter(outcome => {
+              const outcomeName = outcome.name?.toLowerCase() || '';
+              const outcomeMatch = outcomeName.match(/(over|under)\s*(\d+\.?\d*)/i);
+              if (!outcomeMatch) return true;
+              
+              const outcomeThreshold = parseFloat(outcomeMatch[2]);
+              // If goals > threshold, both Over (won) and Under (lost) are decided
+              return !(totalGoals > outcomeThreshold);
+            });
+            
+            if (filteredOutcomes.length === 0) return null;
+            return { ...market, outcomes: filteredOutcomes };
+          }
+          
+          return market;
+        })
+        .filter((m): m is NonNullable<typeof m> => m !== null);
     } catch (e) {
       console.error("Error generating secondary markets:", e);
       return [];
     }
-  }, [event?.id, event?.homeTeam, event?.awayTeam, event?.sportId, minuteNum, event?.isLive, isMarketClosed]);
+  }, [event?.id, event?.homeTeam, event?.awayTeam, event?.sportId, event?.homeScore, event?.awayScore, event?.score, event?.isLive, minuteNum, isMarketClosed]);
   
   const hasRealOdds = !!(event?.homeOdds !== null && event?.homeOdds !== undefined && event?.homeOdds > 0);
   const odds = {
