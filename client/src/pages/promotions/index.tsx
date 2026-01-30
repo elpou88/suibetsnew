@@ -97,8 +97,8 @@ export default function PromotionsPage() {
     }
     setIsStaking(true);
     try {
-      // SBETS has 6 decimals (NOT 9 like SUI!) - convert to smallest units
-      const amountInSmallestUnits = BigInt(amount) * BigInt(1_000_000);
+      // SBETS has 9 decimals (same as SUI) - convert to smallest units
+      const amountInSmallestUnits = BigInt(Math.floor(amount * 1_000_000_000));
       
       console.log('[Staking] Amount requested:', amount, 'SBETS');
       console.log('[Staking] Amount in smallest units:', amountInSmallestUnits.toString());
@@ -148,8 +148,8 @@ export default function PromotionsPage() {
       // Step 2: Build transaction using splitCoins and transferObjects
       const tx = new Transaction();
       
-      // SBETS has 6 decimals - convert to smallest units
-      const stakeAmountMist = BigInt(amount) * BigInt(1_000_000);
+      // SBETS has 9 decimals (same as SUI) - convert to smallest units
+      const stakeAmountMist = BigInt(Math.floor(amount * 1_000_000_000));
       console.log('[Staking] Stake amount in smallest units:', stakeAmountMist.toString());
       
       if (suitableCoin) {
