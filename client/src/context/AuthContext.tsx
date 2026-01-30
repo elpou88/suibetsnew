@@ -76,6 +76,30 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           if (userData && userData.walletAddress) {
             setUser(userData);
           }
+          
+          // Check for referral code in localStorage and track referral
+          const storedRefCode = localStorage.getItem('suibets_referral_code');
+          if (storedRefCode && currentAccount.address) {
+            console.log('[AuthContext] Tracking referral from code:', storedRefCode);
+            fetch('/api/referral/track', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                referralCode: storedRefCode,
+                referredWallet: currentAccount.address
+              })
+            })
+              .then(r => r.json())
+              .then(result => {
+                if (result.success) {
+                  console.log('[AuthContext] Referral tracked successfully');
+                  localStorage.removeItem('suibets_referral_code'); // Clear after use
+                } else {
+                  console.log('[AuthContext] Referral already tracked or invalid');
+                }
+              })
+              .catch(e => console.warn('[AuthContext] Referral tracking error:', e));
+          }
         })
         .catch(err => {
           console.error('[AuthContext] Server sync error (keeping minimal user):', err);

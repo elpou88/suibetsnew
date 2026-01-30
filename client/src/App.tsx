@@ -66,6 +66,18 @@ import { SessionTimer } from "@/components/ResponsibleGaming";
 function App() {
   console.log("Starting React application");
   
+  // Capture referral code from URL on app load
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const refCode = urlParams.get('ref');
+    
+    if (refCode) {
+      // Store referral code in localStorage for later use when user connects wallet
+      localStorage.setItem('suibets_referral_code', refCode.toUpperCase());
+      console.log(`[REFERRAL] Captured referral code from URL: ${refCode.toUpperCase()}`);
+    }
+  }, []);
+  
   // Log wallet detection on app start (with delay for extension injection)
   useEffect(() => {
     const checkWallets = () => {

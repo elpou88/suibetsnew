@@ -2046,6 +2046,45 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         }
       }
 
+      // REFERRAL REWARD: Check if this is user's first bet and they were referred
+      const betWallet = walletAddress || userId;
+      if (betWallet && betWallet.startsWith('0x')) {
+        try {
+          const { referrals, bets: betsTable } = await import('@shared/schema');
+          const { db: refDb } = await import('./db');
+          const { eq: refEq, and: refAnd } = await import('drizzle-orm');
+          
+          // Check if user was referred and referral is still pending
+          const [referral] = await refDb.select().from(referrals)
+            .where(refAnd(
+              refEq(referrals.referredWallet, betWallet),
+              refEq(referrals.status, 'pending')
+            ));
+          
+          if (referral) {
+            // This is their first bet - award the referral bonus to the referrer
+            const REFERRAL_REWARD_SBETS = 1000;
+            
+            // Add SBETS to referrer's balance
+            await storage.updateUserBalance(referral.referrerWallet, 0, REFERRAL_REWARD_SBETS);
+            
+            // Update referral status to rewarded
+            await refDb.update(referrals)
+              .set({ 
+                status: 'rewarded',
+                rewardAmount: REFERRAL_REWARD_SBETS,
+                rewardCurrency: 'SBETS',
+                rewardedAt: new Date()
+              })
+              .where(refEq(referrals.id, referral.id));
+            
+            console.log(`🎁 REFERRAL REWARD: ${REFERRAL_REWARD_SBETS} SBETS awarded to referrer ${referral.referrerWallet.slice(0, 10)}... (user ${betWallet.slice(0, 10)}... placed first bet)`);
+          }
+        } catch (referralError) {
+          console.warn('[REFERRAL] Award error (non-critical):', referralError);
+        }
+      }
+
       res.json({
         success: true,
         bet: storedBet || bet,
@@ -4419,6 +4458,9 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       // Award 1000 SBETS to referrer
       const REFERRAL_REWARD_SBETS = 1000;
       
+      // Actually add SBETS to referrer's balance
+      await storage.updateUserBalance(referral.referrerWallet, 0, REFERRAL_REWARD_SBETS);
+      
       await db.update(referrals)
         .set({ 
           status: 'rewarded',
@@ -4428,7 +4470,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         })
         .where(eq(referrals.id, referral.id));
       
-      console.log(`[REFERRAL] Awarded ${REFERRAL_REWARD_SBETS} SBETS to ${referral.referrerWallet.slice(0, 10)}...`);
+      console.log(`[REFERRAL] ✅ Awarded ${REFERRAL_REWARD_SBETS} SBETS to referrer ${referral.referrerWallet.slice(0, 10)}... - ADDED to balance`);
       
       res.json({ 
         success: true, 
