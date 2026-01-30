@@ -244,41 +244,26 @@ export default function RevenuePage() {
             <CardContent className="p-6">
               <h3 className="text-lg text-center text-green-200 mb-4 flex items-center justify-center gap-2">
                 <span className="w-8 h-[2px] bg-green-400"></span>
-                Revenue Tracking
+                Platform Revenue
                 <span className="w-8 h-[2px] bg-green-400"></span>
               </h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-green-900/20 rounded-lg p-4 border border-green-500/30">
-                  <div className="flex items-center gap-2 text-green-300 text-sm mb-2">
-                    <TrendingUp className="w-4 h-4 text-green-400" />
-                    Total Accumulated (DB)
-                  </div>
-                  <div className="text-xl font-bold text-white">
-                    {(revenueStats?.allTimeRevenueSui || 0).toFixed(4)} SUI
-                  </div>
-                  <div className="text-lg font-bold text-cyan-300">
-                    {((revenueStats?.allTimeRevenueSbets || 0) / 1000).toFixed(1)}K SBETS
-                  </div>
-                  <div className="text-xs text-green-400 mt-1">
-                    Only decreases when claimed by holders
-                  </div>
+              <div className="bg-green-900/20 rounded-lg p-6 border border-green-500/30 text-center">
+                <div className="flex items-center justify-center gap-2 text-green-300 text-sm mb-3">
+                  <TrendingUp className="w-5 h-5 text-green-400" />
+                  Total Accumulated Revenue
                 </div>
-                
-                <div className="bg-yellow-900/20 rounded-lg p-4 border border-yellow-500/30">
-                  <div className="flex items-center gap-2 text-yellow-300 text-sm mb-2">
-                    <DollarSign className="w-4 h-4 text-yellow-400" />
-                    Pending On-Chain Fees
-                  </div>
-                  <div className="text-xl font-bold text-white">
-                    {(revenueStats?.onChainData?.accruedFees || 0).toFixed(6)} SUI
-                  </div>
-                  <div className="text-lg font-bold text-cyan-300">
-                    {((revenueStats?.onChainData?.treasuryBalanceSbets || 0) * 0.0001).toFixed(2)} SBETS
-                  </div>
-                  <div className="text-xs text-yellow-400 mt-1">
-                    Auto-withdrawn every 10 min to admin wallet
-                  </div>
+                <div className="text-3xl font-bold text-white mb-1">
+                  {(revenueStats?.allTimeRevenueSui || 0).toFixed(4)} SUI
+                </div>
+                <div className="text-2xl font-bold text-cyan-300 mb-2">
+                  {((revenueStats?.allTimeRevenueSbets || 0) / 1000).toFixed(1)}K SBETS
+                </div>
+                <div className="text-green-300 text-sm">
+                  {formatUSD((revenueStats?.allTimeRevenueSui || 0) * 1.50 + (revenueStats?.allTimeRevenueSbets || 0) * 0.000001)}
+                </div>
+                <div className="text-xs text-green-400 mt-3 bg-green-900/30 p-2 rounded">
+                  Always goes UP with each bet - only decreases when holders claim rewards
                 </div>
               </div>
             </CardContent>
