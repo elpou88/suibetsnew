@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useCurrentAccount } from "@mysten/dapp-kit";
+import { useCurrentAccount, useSignAndExecuteTransaction, useSuiClient } from "@mysten/dapp-kit";
+import { Transaction } from "@mysten/sui/transactions";
 import Layout from "@/components/layout/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,9 @@ interface ReferralStats {
   totalEarned: number;
 }
 
+const SBETS_TYPE = '0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285::sbets::SBETS';
+const PLATFORM_TREASURY = '0x20850db591c4d575b5238baf975e54580d800e69b8b5b421de796a311d3bea50';
+
 export default function PromotionsPage() {
   const [, setLocation] = useLocation();
   const currentAccount = useCurrentAccount();
@@ -60,6 +64,9 @@ export default function PromotionsPage() {
   const [isClaiming, setIsClaiming] = useState(false);
   const [stakeAmount, setStakeAmount] = useState("");
   const [isStaking, setIsStaking] = useState(false);
+  
+  const suiClient = useSuiClient();
+  const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
 
   const walletAddress = currentAccount?.address;
   
@@ -84,17 +91,76 @@ export default function PromotionsPage() {
     }
     setIsStaking(true);
     try {
-      const res = await apiRequest("POST", "/api/staking/stake", { walletAddress, amount });
+      // Step 1: Get user's SBETS coins
+      const sbetsCoins = await suiClient.getCoins({
+        owner: walletAddress,
+        coinType: SBETS_TYPE,
+        limit: 50
+      });
+      
+      if (!sbetsCoins.data.length) {
+        toast({ title: "No SBETS in wallet", description: "You need SBETS tokens to stake", variant: "destructive" });
+        setIsStaking(false);
+        return;
+      }
+      
+      // Check total balance
+      let totalBalance = BigInt(0);
+      for (const coin of sbetsCoins.data) {
+        totalBalance += BigInt(coin.balance);
+      }
+      
+      if (totalBalance < BigInt(amount)) {
+        toast({ title: "Insufficient SBETS", description: `You have ${Number(totalBalance).toLocaleString()} SBETS`, variant: "destructive" });
+        setIsStaking(false);
+        return;
+      }
+      
+      // Step 2: Build transaction to transfer SBETS to platform treasury
+      const tx = new Transaction();
+      tx.setGasBudget(50_000_000);
+      
+      // Merge coins if needed, then split and transfer exact amount
+      if (sbetsCoins.data.length > 1) {
+        const primaryCoin = tx.object(sbetsCoins.data[0].coinObjectId);
+        const coinsToMerge = sbetsCoins.data.slice(1).map(c => tx.object(c.coinObjectId));
+        tx.mergeCoins(primaryCoin, coinsToMerge);
+        const [stakeCoin] = tx.splitCoins(primaryCoin, [tx.pure.u64(amount)]);
+        tx.transferObjects([stakeCoin], tx.pure.address(PLATFORM_TREASURY));
+      } else {
+        const primaryCoin = tx.object(sbetsCoins.data[0].coinObjectId);
+        const [stakeCoin] = tx.splitCoins(primaryCoin, [tx.pure.u64(amount)]);
+        tx.transferObjects([stakeCoin], tx.pure.address(PLATFORM_TREASURY));
+      }
+      
+      // Step 3: Sign and execute
+      toast({ title: "Sign transaction", description: "Approve the SBETS transfer in your wallet" });
+      
+      const result = await signAndExecute({
+        transaction: tx,
+      });
+      
+      if (!result.digest) {
+        throw new Error("Transaction failed - no digest returned");
+      }
+      
+      // Step 4: Confirm stake with backend
+      const res = await apiRequest("POST", "/api/staking/stake", { 
+        walletAddress, 
+        amount,
+        txHash: result.digest
+      });
       const data = await res.json();
       if (data.success) {
-        toast({ title: "Staked Successfully!", description: data.message });
+        toast({ title: "Staked Successfully!", description: `${amount.toLocaleString()} SBETS locked for 7 days` });
         setStakeAmount("");
         refetchStaking();
       } else {
-        toast({ title: "Staking failed", description: data.error, variant: "destructive" });
+        toast({ title: "Staking record failed", description: data.error, variant: "destructive" });
       }
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      console.error("Staking error:", error);
+      toast({ title: "Staking failed", description: error.message || "Transaction rejected", variant: "destructive" });
     } finally {
       setIsStaking(false);
     }

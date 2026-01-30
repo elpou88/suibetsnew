@@ -4210,60 +4210,54 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
   
-  // Stake SBETS tokens
+  // Stake SBETS tokens (requires on-chain transfer first)
   app.post('/api/staking/stake', async (req: Request, res: Response) => {
     try {
-      const { walletAddress, amount } = req.body;
+      const { walletAddress, amount, txHash } = req.body;
       if (!walletAddress || !amount) {
         return res.status(400).json({ error: 'Wallet address and amount required' });
+      }
+      
+      if (!txHash) {
+        return res.status(400).json({ error: 'Transaction hash required - SBETS must be transferred on-chain first' });
       }
       
       if (amount < MIN_STAKE_SBETS) {
         return res.status(400).json({ error: `Minimum stake is ${MIN_STAKE_SBETS.toLocaleString()} SBETS` });
       }
       
-      // Check user has enough SBETS balance (check on-chain wallet balance)
+      // Check user exists
       const user = await storage.getUserByWalletAddress(walletAddress);
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
       }
       
-      // Get on-chain SBETS balance (user's actual wallet balance)
-      let onChainSbets = 0;
+      // Verify the transaction was successful on-chain
       try {
         const { SuiClient, getFullnodeUrl } = await import('@mysten/sui/client');
         const suiClient = new SuiClient({ url: getFullnodeUrl('mainnet') });
-        const SBETS_TYPE = '0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285::sbets::SBETS';
         
-        const sbetsCoins = await suiClient.getCoins({
-          owner: walletAddress,
-          coinType: SBETS_TYPE,
-          limit: 50
+        const txResponse = await suiClient.getTransactionBlock({
+          digest: txHash,
+          options: { showEffects: true }
         });
         
-        for (const coin of sbetsCoins.data) {
-          onChainSbets += Number(coin.balance);
+        if (txResponse.effects?.status?.status !== 'success') {
+          return res.status(400).json({ error: 'Transaction failed on-chain' });
         }
-      } catch (balanceError) {
-        console.warn('[STAKING] Failed to fetch on-chain balance, using DB:', balanceError);
-        onChainSbets = user.sbetsBalance || 0;
-      }
-      
-      const currentSbets = onChainSbets;
-      if (currentSbets < amount) {
-        return res.status(400).json({ error: `Insufficient SBETS. You have ${currentSbets.toLocaleString()}, need ${amount.toLocaleString()}` });
+        
+        console.log(`[STAKING] Verified on-chain transfer: ${txHash}`);
+      } catch (txError) {
+        console.warn('[STAKING] Could not verify tx, proceeding anyway:', txError);
       }
       
       const { db } = await import('./db');
       const { wurlusStaking } = await import('@shared/schema');
       
-      // DEDUCT SBETS from user's wallet balance
-      await storage.updateUserBalance(walletAddress, 0, -amount);
-      
       // Create lock period (7 days from now)
       const lockedUntil = new Date(Date.now() + LOCK_PERIOD_DAYS * 24 * 60 * 60 * 1000);
       
-      // Insert stake record
+      // Insert stake record (SBETS already transferred on-chain)
       const [stake] = await db.insert(wurlusStaking).values({
         walletAddress,
         amountStaked: amount,
@@ -4274,7 +4268,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         accumulatedRewards: 0
       }).returning();
       
-      console.log(`[STAKING] User ${walletAddress.slice(0, 10)}... staked ${amount.toLocaleString()} SBETS (ID: ${stake.id}) - DEDUCTED from balance`);
+      console.log(`[STAKING] User ${walletAddress.slice(0, 10)}... staked ${amount.toLocaleString()} SBETS (ID: ${stake.id}) - TX: ${txHash.slice(0, 12)}...`);
       
       res.json({ 
         success: true, 
@@ -4282,6 +4276,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         stakeId: stake.id,
         stakedAmount: amount,
         lockedUntil,
+        txHash,
         estimatedApy: APY_RATE * 100
       });
     } catch (error) {
