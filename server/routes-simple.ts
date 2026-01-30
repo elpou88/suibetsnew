@@ -3508,7 +3508,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         return betDate >= startOfWeek;
       });
       
-      // Calculate SUI and SBETS revenue separately
+      // Calculate SUI and SBETS revenue separately - pay out in same currency
       const weeklyRevenueSui = weeklyBets.reduce((sum: number, bet: any) => {
         if (bet.currency !== 'SUI') return sum;
         if (bet.status === 'lost') {
@@ -3544,7 +3544,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       if (claimSui < MIN_CLAIM_SUI && claimSbets < MIN_CLAIM_SBETS) {
         const sharePercent = (userShareRatio * 100).toFixed(6);
         return res.status(400).json({ 
-          message: `Your claimable amount is too small (${claimSbets.toFixed(4)} SBETS). You hold ${sharePercent}% of total SBETS supply. Accumulate more SBETS tokens to increase your share.`,
+          message: `Your claimable amount is too small (${claimSui.toFixed(6)} SUI + ${claimSbets.toFixed(4)} SBETS). You hold ${sharePercent}% of total SBETS supply. Accumulate more SBETS tokens to increase your share.`,
           claimableSui: claimSui,
           claimableSbets: claimSbets,
           sharePercentage: sharePercent,
@@ -3558,7 +3558,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       let suiTxHash = null;
       let sbetsTxHash = null;
       
-      if (claimSui > 0) {
+      if (claimSui >= MIN_CLAIM_SUI) {
         const suiPayoutResult = await blockchainBetService.sendSuiToUser(walletAddress, claimSui);
         if (!suiPayoutResult.success) {
           console.error(`[Revenue] SUI claim failed: ${suiPayoutResult.error}`);
@@ -3568,11 +3568,10 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         console.log(`[Revenue] SUI payout successful: ${claimSui} SUI | TX: ${suiTxHash}`);
       }
       
-      if (claimSbets > 0) {
+      if (claimSbets >= MIN_CLAIM_SBETS) {
         const sbetsPayoutResult = await blockchainBetService.sendSbetsToUser(walletAddress, claimSbets);
         if (!sbetsPayoutResult.success) {
           console.error(`[Revenue] SBETS claim failed: ${sbetsPayoutResult.error}`);
-          // Still record partial success if SUI was sent
           if (suiTxHash) {
             console.log(`[Revenue] Partial success: SUI sent but SBETS failed`);
           }
