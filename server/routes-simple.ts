@@ -4091,35 +4091,80 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       
       const { users } = await import('@shared/schema');
       const { db } = await import('./db');
-      const { eq } = await import('drizzle-orm');
+      const { eq, sql } = await import('drizzle-orm');
       
-      // Check if user exists and hasn't claimed
-      const [user] = await db.select().from(users).where(eq(users.walletAddress, walletAddress));
-      
-      if (!user) {
-        return res.status(404).json({ error: 'User not found. Please connect wallet first.' });
-      }
-      
-      if (user.welcomeBonusClaimed) {
-        return res.status(400).json({ error: 'Welcome bonus already claimed. Each wallet can only claim once.' });
-      }
-      
-      // Award 1000 SBETS welcome bonus (one-time per wallet)
       const WELCOME_BONUS_SBETS = 1000;
-      await db.update(users)
-        .set({ 
+      
+      // Try to check and claim with full schema first
+      try {
+        const [user] = await db.select().from(users).where(eq(users.walletAddress, walletAddress));
+        
+        if (!user) {
+          return res.status(404).json({ error: 'User not found. Please connect wallet first.' });
+        }
+        
+        if (user.welcomeBonusClaimed) {
+          return res.status(400).json({ error: 'Welcome bonus already claimed. Each wallet can only claim once.' });
+        }
+        
+        await db.update(users)
+          .set({ 
+            freeBetBalance: (user.freeBetBalance || 0) + WELCOME_BONUS_SBETS,
+            welcomeBonusClaimed: true
+          })
+          .where(eq(users.walletAddress, walletAddress));
+        
+        console.log(`[FREE BET] Welcome bonus claimed: ${walletAddress.slice(0, 10)}... received ${WELCOME_BONUS_SBETS} SBETS (one-time)`);
+        
+        res.json({ 
+          success: true, 
           freeBetBalance: (user.freeBetBalance || 0) + WELCOME_BONUS_SBETS,
-          welcomeBonusClaimed: true
-        })
-        .where(eq(users.walletAddress, walletAddress));
-      
-      console.log(`[FREE BET] Welcome bonus claimed: ${walletAddress.slice(0, 10)}... received ${WELCOME_BONUS_SBETS} SBETS (one-time)`);
-      
-      res.json({ 
-        success: true, 
-        freeBetBalance: (user.freeBetBalance || 0) + WELCOME_BONUS_SBETS,
-        message: `Congratulations! You received ${WELCOME_BONUS_SBETS} SBETS welcome bonus!`
-      });
+          message: `Congratulations! You received ${WELCOME_BONUS_SBETS} SBETS welcome bonus!`
+        });
+      } catch (dbError: any) {
+        // Handle case where columns might not exist (schema mismatch on Railway)
+        console.warn('[FREE BET] DB schema issue, trying raw SQL fallback:', dbError.message);
+        
+        // Fallback: Try raw SQL to check if user exists and add columns if needed
+        try {
+          // First, try to add the columns if they don't exist
+          await db.execute(sql`
+            ALTER TABLE users 
+            ADD COLUMN IF NOT EXISTS free_bet_balance REAL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS welcome_bonus_claimed BOOLEAN DEFAULT FALSE,
+            ADD COLUMN IF NOT EXISTS loyalty_points REAL DEFAULT 0
+          `);
+          
+          // Now try the claim again
+          const [user] = await db.select().from(users).where(eq(users.walletAddress, walletAddress));
+          
+          if (!user) {
+            return res.status(404).json({ error: 'User not found. Please connect wallet first.' });
+          }
+          
+          if (user.welcomeBonusClaimed) {
+            return res.status(400).json({ error: 'Welcome bonus already claimed.' });
+          }
+          
+          await db.update(users)
+            .set({ 
+              freeBetBalance: (user.freeBetBalance || 0) + WELCOME_BONUS_SBETS,
+              welcomeBonusClaimed: true
+            })
+            .where(eq(users.walletAddress, walletAddress));
+          
+          console.log(`[FREE BET] Welcome bonus claimed (after schema fix): ${walletAddress.slice(0, 10)}...`);
+          
+          res.json({ 
+            success: true, 
+            freeBetBalance: WELCOME_BONUS_SBETS,
+            message: `Congratulations! You received ${WELCOME_BONUS_SBETS} SBETS welcome bonus!`
+          });
+        } catch (sqlError: any) {
+          console.error('[FREE BET] Raw SQL fallback failed:', sqlError.message);
+          return res.status(500).json({ error: 'Database schema issue. Please contact support.' });
+        }
+      }
     } catch (error) {
       console.error('Claim welcome bonus error:', error);
       res.status(500).json({ error: 'Failed to claim welcome bonus' });
