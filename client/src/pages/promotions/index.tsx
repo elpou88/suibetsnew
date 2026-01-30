@@ -496,7 +496,7 @@ export default function PromotionsPage() {
                 </div>
                 <div className="flex-1">
                   <CardTitle className="text-white text-xl">SBETS Staking</CardTitle>
-                  <p className="text-purple-400 font-bold text-lg">{stakingInfo?.apyRate || 5}% APY from Treasury Pool</p>
+                  <p className="text-purple-400 font-bold text-lg">{stakingInfo?.apyRate || 5}% APY</p>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
