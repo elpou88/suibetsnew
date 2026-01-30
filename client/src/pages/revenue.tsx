@@ -238,6 +238,53 @@ export default function RevenuePage() {
           </Card>
 
           <Card className="border-0 overflow-hidden" style={{ 
+            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.3) 0%, rgba(15, 23, 42, 0.8) 100%)',
+            boxShadow: '0 0 20px rgba(16, 185, 129, 0.15), inset 0 1px 0 rgba(255,255,255,0.1)'
+          }}>
+            <CardContent className="p-6">
+              <h3 className="text-lg text-center text-green-200 mb-4 flex items-center justify-center gap-2">
+                <span className="w-8 h-[2px] bg-green-400"></span>
+                Revenue Tracking
+                <span className="w-8 h-[2px] bg-green-400"></span>
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-green-900/20 rounded-lg p-4 border border-green-500/30">
+                  <div className="flex items-center gap-2 text-green-300 text-sm mb-2">
+                    <TrendingUp className="w-4 h-4 text-green-400" />
+                    Total Accumulated (DB)
+                  </div>
+                  <div className="text-xl font-bold text-white">
+                    {(revenueStats?.allTimeRevenueSui || 0).toFixed(4)} SUI
+                  </div>
+                  <div className="text-lg font-bold text-cyan-300">
+                    {((revenueStats?.allTimeRevenueSbets || 0) / 1000).toFixed(1)}K SBETS
+                  </div>
+                  <div className="text-xs text-green-400 mt-1">
+                    Only decreases when claimed by holders
+                  </div>
+                </div>
+                
+                <div className="bg-yellow-900/20 rounded-lg p-4 border border-yellow-500/30">
+                  <div className="flex items-center gap-2 text-yellow-300 text-sm mb-2">
+                    <DollarSign className="w-4 h-4 text-yellow-400" />
+                    Pending On-Chain Fees
+                  </div>
+                  <div className="text-xl font-bold text-white">
+                    {(revenueStats?.onChainData?.accruedFees || 0).toFixed(6)} SUI
+                  </div>
+                  <div className="text-lg font-bold text-cyan-300">
+                    {((revenueStats?.onChainData?.treasuryBalanceSbets || 0) * 0.0001).toFixed(2)} SBETS
+                  </div>
+                  <div className="text-xs text-yellow-400 mt-1">
+                    Auto-withdrawn every 10 min to admin wallet
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 overflow-hidden" style={{ 
             background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.4) 0%, rgba(15, 23, 42, 0.7) 100%)',
             boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1)'
           }}>
