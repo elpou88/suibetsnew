@@ -54,7 +54,7 @@ interface ReferralStats {
 }
 
 const SBETS_TYPE = '0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285::sbets::SBETS';
-const PLATFORM_TREASURY = '0x20850db591c4d575b5238baf975e54580d800e69b8b5b421de796a311d3bea50';
+const STAKING_TREASURY_WALLET = '0x5fc1073c9533c6737fa3a0882055d1778602681df70bdabde96b0127b588f082';
 
 export default function PromotionsPage() {
   const [, setLocation] = useLocation();
@@ -156,7 +156,7 @@ export default function PromotionsPage() {
         // Split from single coin and transfer to treasury (same pattern as betting)
         console.log('[Staking] Splitting from coin:', suitableCoin.coinObjectId);
         const [splitCoin] = tx.splitCoins(tx.object(suitableCoin.coinObjectId), [stakeAmountMist]);
-        tx.transferObjects([splitCoin], tx.pure.address(PLATFORM_TREASURY));
+        tx.transferObjects([splitCoin], tx.pure.address(STAKING_TREASURY_WALLET));
       } else {
         // Need to merge coins first - only use non-zero coins
         const coinIds = nonZeroCoins.map(c => c.coinObjectId);
@@ -168,7 +168,7 @@ export default function PromotionsPage() {
         }
         // Then split and transfer (same pattern as betting)
         const [splitCoin] = tx.splitCoins(primaryCoin, [stakeAmountMist]);
-        tx.transferObjects([splitCoin], tx.pure.address(PLATFORM_TREASURY));
+        tx.transferObjects([splitCoin], tx.pure.address(STAKING_TREASURY_WALLET));
       }
       
       console.log('[Staking] Transaction built, requesting signature...');
