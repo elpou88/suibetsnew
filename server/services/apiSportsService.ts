@@ -194,6 +194,10 @@ export class ApiSportsService {
     source: 'live' | 'upcoming' | 'none';
     startTime?: string; // ISO timestamp of event start time
     shouldBeLive: boolean; // True if startTime has passed (match should have started)
+    homeScore?: number; // Current home team score (for anti-cheat)
+    awayScore?: number; // Current away team score (for anti-cheat)
+    homeTeam?: string; // Home team name
+    awayTeam?: string; // Away team name
   } {
     try {
       // First, check live events cache
@@ -209,7 +213,12 @@ export class ApiSportsService {
                 // Get minute from event data - DO NOT default to 0
                 const minuteValue = this.extractMinute(event);
                 const startTime = this.extractStartTime(event);
-                console.log(`[lookupEventSync] Found event ${eventId} in ${key}, minute=${minuteValue}`);
+                // Extract score and team info for anti-cheat validation
+                const homeScore = event.homeScore ?? event.goals?.home ?? event.scores?.home?.total ?? 0;
+                const awayScore = event.awayScore ?? event.goals?.away ?? event.scores?.away?.total ?? 0;
+                const homeTeam = event.homeTeam ?? event.teams?.home?.name ?? '';
+                const awayTeam = event.awayTeam ?? event.teams?.away?.name ?? '';
+                console.log(`[lookupEventSync] Found event ${eventId} in ${key}, minute=${minuteValue}, score=${homeScore}-${awayScore}`);
                 return {
                   found: true,
                   isLive: true,
@@ -217,7 +226,11 @@ export class ApiSportsService {
                   cacheAgeMs: Date.now() - cached.timestamp,
                   source: 'live',
                   startTime,
-                  shouldBeLive: true // Already live
+                  shouldBeLive: true, // Already live
+                  homeScore,
+                  awayScore,
+                  homeTeam,
+                  awayTeam
                 };
               }
             }
@@ -238,6 +251,9 @@ export class ApiSportsService {
                 // Check if the match should have started based on startTime
                 const startTime = this.extractStartTime(event);
                 const shouldBeLive = startTime ? new Date(startTime).getTime() <= Date.now() : false;
+                // Extract team names for upcoming events (scores will be 0)
+                const homeTeam = event.homeTeam ?? event.teams?.home?.name ?? '';
+                const awayTeam = event.awayTeam ?? event.teams?.away?.name ?? '';
                 console.log(`[lookupEventSync] Found event ${eventId} in ${key}, shouldBeLive=${shouldBeLive}`);
                 return {
                   found: true,
@@ -246,7 +262,11 @@ export class ApiSportsService {
                   cacheAgeMs: Date.now() - cached.timestamp,
                   source: 'upcoming',
                   startTime,
-                  shouldBeLive
+                  shouldBeLive,
+                  homeScore: 0,
+                  awayScore: 0,
+                  homeTeam,
+                  awayTeam
                 };
               }
             }
@@ -256,10 +276,10 @@ export class ApiSportsService {
       
       // Event not found in any cache
       console.log(`[lookupEventSync] Event ${eventId} NOT FOUND in any cache`);
-      return { found: false, isLive: false, cacheAgeMs: Infinity, source: 'none', shouldBeLive: false };
+      return { found: false, isLive: false, cacheAgeMs: Infinity, source: 'none', shouldBeLive: false, homeScore: undefined, awayScore: undefined, homeTeam: undefined, awayTeam: undefined };
     } catch (error) {
       console.error('[ApiSportsService] Error in lookupEventSync:', error);
-      return { found: false, isLive: false, cacheAgeMs: Infinity, source: 'none', shouldBeLive: false };
+      return { found: false, isLive: false, cacheAgeMs: Infinity, source: 'none', shouldBeLive: false, homeScore: undefined, awayScore: undefined, homeTeam: undefined, awayTeam: undefined };
     }
   }
   

@@ -1936,6 +1936,38 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           });
         }
         
+        // ANTI-CHEAT: Score-based odds validation for live matches
+        // Block bets where winning team has 2+ goal lead but odds are suspiciously high
+        const homeScore = eventLookup.homeScore ?? 0;
+        const awayScore = eventLookup.awayScore ?? 0;
+        const scoreDiff = Math.abs(homeScore - awayScore);
+        
+        if (scoreDiff >= 2 && eventLookup.minute >= 60) {
+          // Determine which team is winning
+          const homeWinning = homeScore > awayScore;
+          const awayWinning = awayScore > homeScore;
+          
+          // Check if betting on the winning team with suspiciously high odds
+          const predLower = prediction.toLowerCase();
+          const homeTeamLower = (eventLookup.homeTeam || '').toLowerCase();
+          const awayTeamLower = (eventLookup.awayTeam || '').toLowerCase();
+          
+          const bettingOnHome = predLower.includes(homeTeamLower) || outcomeId === 'home';
+          const bettingOnAway = predLower.includes(awayTeamLower) || outcomeId === 'away';
+          
+          // Block if betting on winning team with odds above 1.5 (should be much lower when 2+ ahead at 60+ min)
+          const suspiciousOddsThreshold = 1.5;
+          
+          if ((homeWinning && bettingOnHome && odds > suspiciousOddsThreshold) ||
+              (awayWinning && bettingOnAway && odds > suspiciousOddsThreshold)) {
+            console.log(`❌ Bet rejected (anti-cheat): Suspicious odds ${odds} for winning team at ${eventLookup.minute}min with score ${homeScore}-${awayScore}`);
+            return res.status(400).json({
+              message: "Betting suspended - odds do not reflect current match state",
+              code: "SUSPICIOUS_ODDS_DETECTED"
+            });
+          }
+        }
+        
         // Live match under 80 minutes with fresh cache and verified minute - allow bet to proceed
         console.log(`✅ Live bet allowed: eventId ${eventId}, minute: ${eventLookup.minute}, cache age: ${Math.round(eventLookup.cacheAgeMs/1000)}s`);
         } else if (eventLookup.source === 'upcoming') {
