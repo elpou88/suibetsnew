@@ -256,13 +256,76 @@ class SettlementWorkerService {
   }
   
   private isParlayBet(bet: UnsettledBet): boolean {
-    // Parlay bets have prediction field as JSON array and empty externalEventId
+    // Parlay bets can be identified by:
+    // 1. JSON array format: prediction starts with '[' and contains eventId
+    // 2. Pipe-separated format: externalEventId starts with 'parlay_' and prediction contains '|'
     try {
       const pred = bet.prediction || '';
-      return pred.startsWith('[') && pred.includes('"eventId"');
+      const extId = bet.externalEventId || '';
+      
+      // JSON format parlay
+      if (pred.startsWith('[') && pred.includes('"eventId"')) {
+        return true;
+      }
+      
+      // Pipe-separated format parlay (e.g., "Team A: Over 2.5 | Team B: Under 2.5")
+      if (extId.startsWith('parlay_') && pred.includes('|')) {
+        return true;
+      }
+      
+      return false;
     } catch {
       return false;
     }
+  }
+  
+  private parsePipeSeparatedParlay(bet: UnsettledBet): Array<{ eventId: string; prediction: string; marketId?: string; outcomeId?: string }> {
+    // Parse parlays like "Al-Faisaly FC vs Al Zulfi: Over 2.5 | Pdrm vs Kuala Lumpur FA: Over 2.5"
+    // external_event_id format: "parlay_1769778304571_1437339_1404202" contains the event IDs
+    const legs: Array<{ eventId: string; prediction: string; marketId?: string; outcomeId?: string }> = [];
+    
+    try {
+      const extId = bet.externalEventId || '';
+      const pred = bet.prediction || '';
+      
+      // Extract event IDs from external_event_id (format: parlay_timestamp_eventId1_eventId2...)
+      const parts = extId.split('_');
+      const eventIds = parts.slice(2); // Skip "parlay" and timestamp
+      
+      // Parse predictions from pipe-separated format
+      const predParts = pred.split('|').map(p => p.trim());
+      
+      for (let i = 0; i < Math.min(eventIds.length, predParts.length); i++) {
+        const eventId = eventIds[i];
+        const fullPred = predParts[i]; // e.g., "Al-Faisaly FC vs Al Zulfi: Over 2.5"
+        
+        // Extract just the prediction part after the colon
+        const colonIdx = fullPred.lastIndexOf(':');
+        const prediction = colonIdx !== -1 ? fullPred.slice(colonIdx + 1).trim() : fullPred;
+        
+        // Determine market type from prediction
+        let marketId = 'match-winner';
+        let outcomeId = '';
+        
+        if (prediction.includes('Over')) {
+          marketId = '5'; // Over/Under market
+          outcomeId = 'ou_over';
+        } else if (prediction.includes('Under')) {
+          marketId = '5';
+          outcomeId = 'ou_under';
+        } else if (prediction === 'Draw') {
+          outcomeId = 'draw';
+        } else if (prediction.includes('or Draw')) {
+          marketId = 'double-chance';
+        }
+        
+        legs.push({ eventId, prediction, marketId, outcomeId });
+      }
+    } catch (error) {
+      console.error(`❌ Error parsing pipe-separated parlay:`, error);
+    }
+    
+    return legs;
   }
   
   private async settleParlayBets(parlayBets: UnsettledBet[], finishedMatches: FinishedMatch[]) {
@@ -276,15 +339,30 @@ class SettlementWorkerService {
     
     for (const bet of parlayBets) {
       try {
-        // Parse parlay legs from prediction
-        const legs = JSON.parse(bet.prediction) as Array<{
+        // Parse parlay legs - support both JSON and pipe-separated formats
+        let legs: Array<{
           eventId: string;
           marketId?: string;
           outcomeId?: string;
-          odds: number;
+          odds?: number;
           prediction: string;
           selection?: string;
         }>;
+        
+        const pred = bet.prediction || '';
+        const extId = bet.externalEventId || '';
+        
+        if (pred.startsWith('[') && pred.includes('"eventId"')) {
+          // JSON format parlay
+          legs = JSON.parse(pred);
+        } else if (extId.startsWith('parlay_') && pred.includes('|')) {
+          // Pipe-separated format parlay
+          legs = this.parsePipeSeparatedParlay(bet);
+          console.log(`🔄 Parsed pipe-separated parlay: ${legs.length} legs from ${extId}`);
+        } else {
+          console.log(`⚠️ Parlay bet ${bet.id} has unknown format`);
+          continue;
+        }
         
         if (!Array.isArray(legs) || legs.length === 0) {
           console.log(`⚠️ Parlay bet ${bet.id} has invalid legs structure`);
