@@ -3907,7 +3907,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       // Generate a unique referral code from wallet
       const code = wallet.slice(2, 10).toUpperCase();
       referralCodeMap[code] = wallet; // Store mapping
-      res.json({ code, link: `https://suibets.app/?ref=${code}` });
+      res.json({ code, link: `https://www.suibets.com/?ref=${code}` });
     } catch (error) {
       res.status(500).json({ error: 'Failed to generate referral code' });
     }
