@@ -84,11 +84,7 @@ export default function PromotionsPage() {
     }
     setIsStaking(true);
     try {
-      const res = await apiRequest('/api/staking/stake', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ walletAddress, amount })
-      });
+      const res = await apiRequest("POST", "/api/staking/stake", { walletAddress, amount });
       const data = await res.json();
       if (data.success) {
         toast({ title: "Staked Successfully!", description: data.message });
@@ -107,11 +103,7 @@ export default function PromotionsPage() {
   const handleUnstake = async (stakeId: number) => {
     if (!walletAddress) return;
     try {
-      const res = await apiRequest('/api/staking/unstake', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ walletAddress, stakeId })
-      });
+      const res = await apiRequest("POST", "/api/staking/unstake", { walletAddress, stakeId });
       const data = await res.json();
       if (data.success) {
         toast({ title: "Unstaked!", description: `Received ${data.total?.toLocaleString()} SBETS (incl. rewards)` });
@@ -127,11 +119,7 @@ export default function PromotionsPage() {
   const handleClaimRewards = async () => {
     if (!walletAddress) return;
     try {
-      const res = await apiRequest('/api/staking/claim-rewards', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ walletAddress })
-      });
+      const res = await apiRequest("POST", "/api/staking/claim-rewards", { walletAddress });
       const data = await res.json();
       if (data.success) {
         toast({ title: "Rewards Claimed!", description: data.message });

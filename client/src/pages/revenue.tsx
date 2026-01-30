@@ -67,52 +67,6 @@ export default function RevenuePage() {
   const { user, walletAddress } = useAuth();
   const { toast } = useToast();
   const [isClaiming, setIsClaiming] = useState(false);
-  const [isWithdrawing, setIsWithdrawing] = useState(false);
-  const [showAdminWithdraw, setShowAdminWithdraw] = useState(false);
-  const [withdrawAmount, setWithdrawAmount] = useState("");
-  const [withdrawCurrency, setWithdrawCurrency] = useState<'SUI' | 'SBETS'>('SUI');
-  
-  const { data: adminRevenue, refetch: refetchAdminRevenue } = useQuery<{
-    revenueSplit: {
-      platformProfit: { sui: number; sbets: number };
-    };
-  }>({
-    queryKey: ['/api/admin/revenue'],
-    refetchInterval: 30000,
-  });
-  
-  const handleAdminWithdraw = async () => {
-    const amount = parseFloat(withdrawAmount);
-    if (!amount || amount <= 0) {
-      toast({ title: "Enter valid amount", variant: "destructive" });
-      return;
-    }
-    setIsWithdrawing(true);
-    try {
-      const res = await apiRequest("POST", "/api/admin/withdraw-profit", {
-        amount,
-        currency: withdrawCurrency,
-        adminPassword: "admin" // You can modify this for security
-      });
-      const data = await res.json();
-      if (data.success) {
-        toast({ 
-          title: "Withdrawn Successfully!", 
-          description: `${amount} ${withdrawCurrency} sent to admin wallet` 
-        });
-        setWithdrawAmount("");
-        setShowAdminWithdraw(false);
-        refetchAdminRevenue();
-        queryClient.invalidateQueries({ queryKey: ['/api/revenue'] });
-      } else {
-        toast({ title: "Failed", description: data.message, variant: "destructive" });
-      }
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } finally {
-      setIsWithdrawing(false);
-    }
-  };
 
   const { data: revenueStats, isLoading: statsLoading } = useQuery<RevenueStats>({
     queryKey: ['/api/revenue/stats'],
@@ -313,68 +267,6 @@ export default function RevenuePage() {
                 </div>
               </div>
               
-              <div className="mt-4 bg-purple-900/20 rounded-lg p-4 border border-purple-500/30">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="text-purple-300 text-sm font-medium">
-                    Platform Profit (30% - Admin Share)
-                  </div>
-                  <div className="text-right">
-                    <div className="text-white font-bold">{(adminRevenue?.revenueSplit?.platformProfit?.sui || 0).toFixed(4)} SUI</div>
-                    <div className="text-cyan-300 text-sm">{((adminRevenue?.revenueSplit?.platformProfit?.sbets || 0) / 1000).toFixed(1)}K SBETS</div>
-                  </div>
-                </div>
-                
-                {!showAdminWithdraw ? (
-                  <Button
-                    onClick={() => setShowAdminWithdraw(true)}
-                    className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500"
-                    data-testid="btn-show-withdraw"
-                  >
-                    <Wallet className="w-4 h-4 mr-2" />
-                    Withdraw to Admin Wallet
-                  </Button>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="flex gap-2">
-                      <input
-                        type="number"
-                        placeholder="Amount"
-                        value={withdrawAmount}
-                        onChange={(e) => setWithdrawAmount(e.target.value)}
-                        className="flex-1 px-3 py-2 bg-black/30 border border-purple-500/30 rounded-lg text-white"
-                        data-testid="input-withdraw-amount"
-                      />
-                      <select
-                        value={withdrawCurrency}
-                        onChange={(e) => setWithdrawCurrency(e.target.value as 'SUI' | 'SBETS')}
-                        className="px-3 py-2 bg-black/30 border border-purple-500/30 rounded-lg text-white"
-                        data-testid="select-withdraw-currency"
-                      >
-                        <option value="SUI">SUI</option>
-                        <option value="SBETS">SBETS</option>
-                      </select>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={handleAdminWithdraw}
-                        disabled={isWithdrawing}
-                        className="flex-1 bg-green-600 hover:bg-green-500"
-                        data-testid="btn-confirm-withdraw"
-                      >
-                        {isWithdrawing ? 'Withdrawing...' : 'Confirm Withdraw'}
-                      </Button>
-                      <Button
-                        onClick={() => setShowAdminWithdraw(false)}
-                        variant="outline"
-                        className="border-purple-500/50"
-                        data-testid="btn-cancel-withdraw"
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
             </CardContent>
           </Card>
 
