@@ -20,7 +20,13 @@ export const users = pgTable("users", {
   wurlusProfileId: text("wurlus_profile_id"), // Blockchain profile ID
   wurlusRegistered: boolean("wurlus_registered").default(false),
   wurlusProfileCreatedAt: timestamp("wurlus_profile_created_at"),
-  lastLoginAt: timestamp("last_login_at")
+  lastLoginAt: timestamp("last_login_at"),
+  // Free bet system
+  freeBetBalance: real("free_bet_balance").default(0), // Free bet balance in SUI
+  welcomeBonusClaimed: boolean("welcome_bonus_claimed").default(false), // One-time welcome bonus
+  // Loyalty program
+  loyaltyPoints: integer("loyalty_points").default(0), // Points earned from betting
+  totalBetVolume: real("total_bet_volume").default(0) // Total USD wagered for loyalty tier
 });
 
 export const sports = pgTable("sports", {
