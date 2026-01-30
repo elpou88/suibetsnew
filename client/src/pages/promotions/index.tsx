@@ -542,42 +542,42 @@ export default function PromotionsPage() {
               </CardContent>
             </Card>
 
-            <Card className="relative overflow-hidden bg-gradient-to-br from-purple-900/40 via-indigo-900/30 to-blue-900/20 border-purple-500/40 shadow-2xl shadow-purple-500/10">
-              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-500/10 via-transparent to-transparent" />
-              <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/20 rounded-full blur-3xl" />
+            <Card className="relative overflow-hidden bg-gradient-to-br from-cyan-900/40 via-blue-900/30 to-slate-900/20 border-cyan-500/40 shadow-2xl shadow-cyan-500/10">
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-cyan-500/10 via-transparent to-transparent" />
+              <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/20 rounded-full blur-3xl" />
               <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-500/20 rounded-full blur-2xl" />
               
               <CardHeader className="relative flex flex-row items-center gap-4 pb-2">
                 <div className="relative">
-                  <div className="absolute inset-0 bg-purple-500/50 rounded-full blur-xl animate-pulse" />
-                  <div className="relative p-4 rounded-full bg-gradient-to-br from-purple-500/30 to-purple-600/20 border border-purple-400/30">
-                    <Coins className="h-8 w-8 text-purple-300" />
+                  <div className="absolute inset-0 bg-cyan-500/50 rounded-full blur-xl animate-pulse" />
+                  <div className="relative p-4 rounded-full bg-gradient-to-br from-cyan-500/30 to-cyan-600/20 border border-cyan-400/30">
+                    <Coins className="h-8 w-8 text-cyan-300" />
                   </div>
                 </div>
                 <div className="flex-1">
                   <CardTitle className="text-white text-2xl font-black tracking-tight">SBETS Staking</CardTitle>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="text-purple-300 text-sm">Earn</span>
-                    <span className="text-3xl font-black bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 bg-clip-text text-transparent animate-pulse">
+                    <span className="text-cyan-300 text-sm">Earn</span>
+                    <span className="text-3xl font-black bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent animate-pulse">
                       {stakingInfo?.apyRate || 5}% APY
                     </span>
                   </div>
                 </div>
                 <div className="text-right hidden sm:block">
-                  <div className="text-xs text-purple-300/70">Lock Period</div>
-                  <div className="text-lg font-bold text-purple-300">{stakingInfo?.lockPeriod || '7 days'}</div>
+                  <div className="text-xs text-cyan-300/70">Lock Period</div>
+                  <div className="text-lg font-bold text-cyan-300">{stakingInfo?.lockPeriod || '7 days'}</div>
                 </div>
               </CardHeader>
               
               <CardContent className="relative space-y-5 pt-4">
                 <div className="grid grid-cols-3 gap-3">
                   <div className="relative group">
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-transparent rounded-xl blur-sm group-hover:blur-md transition-all" />
-                    <div className="relative bg-black/40 backdrop-blur-sm p-4 rounded-xl text-center border border-purple-500/30 group-hover:border-purple-400/50 transition-all">
-                      <div className="text-3xl font-black bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                    <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 to-transparent rounded-xl blur-sm group-hover:blur-md transition-all" />
+                    <div className="relative bg-black/40 backdrop-blur-sm p-4 rounded-xl text-center border border-cyan-500/30 group-hover:border-cyan-400/50 transition-all">
+                      <div className="text-3xl font-black bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
                         {stakingInfo?.apyRate || 5}%
                       </div>
-                      <p className="text-xs text-purple-300/70 mt-1 font-medium">Annual Yield</p>
+                      <p className="text-xs text-cyan-300/70 mt-1 font-medium">Annual Yield</p>
                     </div>
                   </div>
                   <div className="relative group">
@@ -630,8 +630,8 @@ export default function PromotionsPage() {
                       </div>
                     )}
                     
-                    <div className="bg-black/30 backdrop-blur-sm p-4 rounded-xl border border-purple-500/30">
-                      <p className="text-sm text-purple-300 mb-3 font-medium">Stake SBETS (min 100,000)</p>
+                    <div className="bg-black/30 backdrop-blur-sm p-4 rounded-xl border border-cyan-500/30">
+                      <p className="text-sm text-cyan-300 mb-3 font-medium">Stake SBETS (min 100,000)</p>
                       <div className="flex flex-col gap-3">
                         <Input
                           type="text"
@@ -642,7 +642,7 @@ export default function PromotionsPage() {
                             const val = e.target.value.replace(/[^0-9]/g, '');
                             setStakeAmount(val);
                           }}
-                          className="bg-black/50 border-purple-500/40 text-white text-lg font-bold placeholder:text-gray-500 focus:border-purple-400 focus:ring-purple-400/30"
+                          className="bg-black/50 border-cyan-500/40 text-white text-lg font-bold placeholder:text-gray-500 focus:border-cyan-400 focus:ring-cyan-400/30"
                           data-testid="input-stake-amount"
                         />
                         <div className="flex gap-2">
@@ -653,7 +653,7 @@ export default function PromotionsPage() {
                               variant="outline"
                               size="sm"
                               onClick={() => setStakeAmount(amt.toString())}
-                              className="flex-1 border-purple-500/40 text-purple-300 hover:bg-purple-500/20 hover:text-white text-xs"
+                              className="flex-1 border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/20 hover:text-white text-xs"
                             >
                               {amt >= 1000000 ? `${amt / 1000000}M` : `${amt / 1000}K`}
                             </Button>
@@ -662,7 +662,7 @@ export default function PromotionsPage() {
                         <Button 
                           onClick={handleStake}
                           disabled={isStaking}
-                          className="bg-gradient-to-r from-purple-500 via-purple-600 to-indigo-600 hover:from-purple-400 hover:via-purple-500 hover:to-indigo-500 text-white font-bold px-8 shadow-lg shadow-purple-500/30 transition-all hover:scale-105"
+                          className="bg-gradient-to-r from-cyan-500 via-cyan-600 to-blue-600 hover:from-cyan-400 hover:via-cyan-500 hover:to-blue-500 text-white font-bold px-8 shadow-lg shadow-cyan-500/30 transition-all hover:scale-105"
                           data-testid="btn-stake"
                         >
                           <Lock className="h-4 w-4 mr-2" />
@@ -673,7 +673,7 @@ export default function PromotionsPage() {
                     
                     {stakingInfo?.userStakes && stakingInfo.userStakes.length > 0 && (
                       <div className="space-y-3">
-                        <p className="text-sm text-purple-300 font-semibold flex items-center gap-2">
+                        <p className="text-sm text-cyan-300 font-semibold flex items-center gap-2">
                           <Lock className="h-4 w-4" />
                           Your Active Stakes ({stakingInfo.userStakes.length})
                         </p>
@@ -685,7 +685,7 @@ export default function PromotionsPage() {
                           const progressPercent = Math.min(100, ((totalLockTime - timeRemaining) / totalLockTime) * 100);
                           
                           return (
-                            <div key={stake.id} className="relative overflow-hidden bg-gradient-to-r from-purple-900/40 to-indigo-900/30 p-4 rounded-xl border border-purple-500/30">
+                            <div key={stake.id} className="relative overflow-hidden bg-gradient-to-r from-cyan-900/40 to-blue-900/30 p-4 rounded-xl border border-cyan-500/30">
                               <div className="flex justify-between items-start mb-3">
                                 <div>
                                   <p className="text-xl font-black text-white">{stake.amount.toLocaleString()} SBETS</p>
@@ -712,12 +712,12 @@ export default function PromotionsPage() {
                               {!stake.canUnstake && (
                                 <div className="space-y-2">
                                   <div className="flex justify-between text-xs">
-                                    <span className="text-purple-300/70">Lock Progress</span>
-                                    <span className="text-purple-300">Unlocks {lockEndDate.toLocaleDateString()}</span>
+                                    <span className="text-cyan-300/70">Lock Progress</span>
+                                    <span className="text-cyan-300">Unlocks {lockEndDate.toLocaleDateString()}</span>
                                   </div>
                                   <div className="h-2 bg-black/50 rounded-full overflow-hidden">
                                     <div 
-                                      className="h-full bg-gradient-to-r from-purple-500 via-pink-500 to-purple-500 transition-all duration-1000"
+                                      className="h-full bg-gradient-to-r from-cyan-500 via-blue-500 to-cyan-500 transition-all duration-1000"
                                       style={{ width: `${progressPercent}%` }}
                                     />
                                   </div>
