@@ -67,7 +67,7 @@ export class ApiSportsService {
   // Background prefetcher state
   private prefetcherRunning: boolean = false;
   private lastPrefetchTime: number = 0;
-  private prefetchInterval: number = 15 * 60 * 1000; // Refresh odds every 15 minutes (AGGRESSIVE API SAVING)
+  private prefetchInterval: number = 30 * 60 * 1000; // Refresh odds every 30 minutes (MAXIMUM API SAVING)
   
   // Pre-warmed odds cache - separate from main cache for guaranteed access
   private oddsCache: Map<string, { homeOdds: number; drawOdds?: number; awayOdds: number; timestamp: number }> = new Map();
@@ -3375,10 +3375,10 @@ export class ApiSportsService {
       this.prefetchOdds();
     }, this.prefetchInterval);
     
-    // Also run a faster refresh for imminent matches (every 2 minutes)
+    // Also run a faster refresh for imminent matches (every 10 minutes - reduced from 2 to save API)
     setInterval(() => {
       this.prefetchImminentOdds();
-    }, 2 * 60 * 1000);
+    }, 10 * 60 * 1000);
   }
   
   /**
