@@ -272,6 +272,73 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
           return false;
         }
 
+        // FREE SBETS BET PATH - Skip on-chain, record directly to database
+        if (options?.useFreeBet && betOptions.currency === 'SBETS') {
+          console.log('[BettingContext] FREE SBETS bet - recording directly to DB');
+          
+          try {
+            const response = await apiRequest('POST', '/api/bets', {
+              userId: currentAccount.address,
+              walletAddress: currentAccount.address,
+              eventId: String(selectedBets[0].eventId),
+              eventName: selectedBets[0].eventName,
+              marketId: String(selectedBets[0].marketId || 'match_winner'),
+              outcomeId: String(selectedBets[0].outcomeId || selectedBets[0].selectionName || 'selection'),
+              odds: selectedBets[0].odds,
+              betAmount: stakeAmount,
+              prediction: selectedBets[0].selectionName,
+              potentialPayout: calculatePotentialWinnings(stakeAmount, selectedBets[0].odds),
+              currency: 'SBETS',
+              feeCurrency: 'SBETS',
+              paymentMethod: 'free_bet',
+              status: 'pending',
+              useFreeBet: true,
+              isLive: selectedBets[0].isLive,
+              matchMinute: selectedBets[0].matchMinute,
+              homeTeam: selectedBets[0].homeTeam,
+              awayTeam: selectedBets[0].awayTeam,
+            });
+
+            if (response.ok) {
+              const betData = await response.json();
+              
+              const confirmation = {
+                betId: betData.id || `freebet-${Date.now()}`,
+                txHash: 'free-bet',
+                eventId: String(selectedBets[0].eventId),
+                eventName: selectedBets[0].eventName,
+                stake: stakeAmount,
+                odds: selectedBets[0].odds,
+                potentialWin: calculatePotentialWinnings(stakeAmount, selectedBets[0].odds),
+                prediction: selectedBets[0].selectionName,
+                placedAt: new Date().toISOString(),
+                currency: 'SBETS',
+                status: 'pending',
+              };
+              
+              window.dispatchEvent(new CustomEvent('suibets:bet-confirmed', { detail: confirmation }));
+              console.log('[BettingContext] FREE SBETS bet confirmed:', betData);
+              return true;
+            } else {
+              const errorData = await response.json();
+              toast({
+                title: "Free Bet Failed",
+                description: errorData.message || "Failed to place free bet",
+                variant: "destructive",
+              });
+              return false;
+            }
+          } catch (freeBetError: any) {
+            console.error('[BettingContext] FREE SBETS bet error:', freeBetError);
+            toast({
+              title: "Free Bet Failed",
+              description: freeBetError.message || "Failed to place free bet",
+              variant: "destructive",
+            });
+            return false;
+          }
+        }
+
         // Get fresh SBETS coin object if needed for SBETS bets
         // IMPORTANT: Always fetch fresh coins - object versions change after each transaction
         let sbetsCoinObjectId: string | undefined;
