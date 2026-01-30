@@ -1,6 +1,8 @@
 import express, { Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
 import { ApiSportsService, saveUpcomingSnapshot, getUpcomingSnapshot, saveLiveSnapshot, getLiveSnapshot, withSingleFlight } from "./services/apiSportsService";
 const apiSportsService = new ApiSportsService();
 import { SettlementService } from "./services/settlementService";
@@ -1403,6 +1405,68 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
   });
 
   
+  // Get settled/completed match results with scores
+  app.get("/api/events/results", async (req: Request, res: Response) => {
+    try {
+      const period = req.query.period as string || 'week';
+      const sportId = req.query.sportId ? Number(req.query.sportId) : undefined;
+      
+      // Calculate date range
+      let startDate = new Date();
+      if (period === 'today') {
+        startDate.setHours(0, 0, 0, 0);
+      } else if (period === 'week') {
+        startDate.setDate(startDate.getDate() - 7);
+      } else if (period === 'month') {
+        startDate.setDate(startDate.getDate() - 30);
+      }
+      
+      // Query settled_events table which has actual scores
+      const queryResult = await db.execute(sql`
+        SELECT 
+          id,
+          external_event_id,
+          home_team,
+          away_team,
+          home_score,
+          away_score,
+          winner,
+          settled_at,
+          bets_settled
+        FROM settled_events
+        WHERE settled_at >= ${startDate.toISOString()}
+        ORDER BY settled_at DESC
+        LIMIT 200
+      `);
+      
+      // Handle different result formats from db.execute
+      const rows = Array.isArray(queryResult) ? queryResult : (queryResult.rows || []);
+      
+      const formattedResults = (rows as any[]).map(row => ({
+        id: row.id,
+        externalEventId: row.external_event_id,
+        homeTeam: row.home_team,
+        awayTeam: row.away_team,
+        homeScore: row.home_score,
+        awayScore: row.away_score,
+        winner: row.winner,
+        settledAt: row.settled_at,
+        betsSettled: row.bets_settled,
+        sportId: 1,
+        sport: 'Football',
+        status: 'FINAL',
+        startTime: row.settled_at,
+        league: 'Completed Match'
+      }));
+      
+      console.log(`[results] Returning ${formattedResults.length} settled events`);
+      res.json(formattedResults);
+    } catch (error) {
+      console.error("Error fetching results:", error);
+      res.status(500).json({ message: "Failed to fetch results" });
+    }
+  });
+
   // Redirect /api/events/live to /api/events?isLive=true
   app.get("/api/events/live", async (req: Request, res: Response) => {
     try {

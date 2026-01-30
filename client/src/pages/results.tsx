@@ -13,29 +13,15 @@ export default function ResultsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState<string>('week');
 
-  // Fetch completed events/results
+  // Fetch completed events/results from settled_events table
   const { data: results = [], isLoading, error } = useQuery({
     queryKey: ['/api/events/results', selectedSport, dateFilter],
     queryFn: async () => {
       try {
-        // Fetch events and filter for finished ones
-        const response = await apiRequest('GET', '/api/events?isFinished=true');
+        // Fetch from the dedicated results endpoint with actual scores
+        const response = await apiRequest('GET', `/api/events/results?period=${dateFilter}`);
         if (!response.ok) {
-          // Fallback to regular events endpoint if finished endpoint doesn't exist
-          const fallbackResponse = await apiRequest('GET', '/api/events');
-          if (!fallbackResponse.ok) throw new Error('Failed to fetch results');
-          
-          const data = await fallbackResponse.json();
-          // Filter for completed events (FULL_TIME, FINAL, STATUS_FINAL, etc.)
-          return Array.isArray(data) ? data.filter(event => {
-            const status = String(event.status || '').toUpperCase();
-            return status.includes('FULL_TIME') || 
-                   status.includes('FINAL') || 
-                   status.includes('FT') || 
-                   status.includes('FINISHED') ||
-                   event.state === 'post' ||
-                   event.state === 'completed';
-          }) : [];
+          throw new Error('Failed to fetch results');
         }
         
         const data = await response.json();
