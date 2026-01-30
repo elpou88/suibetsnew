@@ -153,9 +153,9 @@ export default function PromotionsPage() {
       console.log('[Staking] Stake amount in smallest units:', stakeAmountMist.toString());
       
       if (suitableCoin) {
-        // Split from single coin and transfer to treasury
+        // Split from single coin and transfer to treasury (same pattern as betting)
         console.log('[Staking] Splitting from coin:', suitableCoin.coinObjectId);
-        const [splitCoin] = tx.splitCoins(tx.object(suitableCoin.coinObjectId), [tx.pure.u64(stakeAmountMist)]);
+        const [splitCoin] = tx.splitCoins(tx.object(suitableCoin.coinObjectId), [stakeAmountMist]);
         tx.transferObjects([splitCoin], tx.pure.address(PLATFORM_TREASURY));
       } else {
         // Need to merge coins first - only use non-zero coins
@@ -166,8 +166,8 @@ export default function PromotionsPage() {
           const otherCoins = coinIds.slice(1).map(id => tx.object(id));
           tx.mergeCoins(primaryCoin, otherCoins);
         }
-        // Then split and transfer
-        const [splitCoin] = tx.splitCoins(primaryCoin, [tx.pure.u64(stakeAmountMist)]);
+        // Then split and transfer (same pattern as betting)
+        const [splitCoin] = tx.splitCoins(primaryCoin, [stakeAmountMist]);
         tx.transferObjects([splitCoin], tx.pure.address(PLATFORM_TREASURY));
       }
       
