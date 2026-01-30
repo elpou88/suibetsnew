@@ -91,14 +91,22 @@ export default function PromotionsPage() {
     }
     setIsStaking(true);
     try {
-      // SBETS has 6 decimals (not 9 like SUI) - convert to smallest units
-      const amountInSmallestUnits = BigInt(amount) * BigInt(1_000_000);
+      // SBETS has 9 decimals like SUI - convert to smallest units
+      const amountInSmallestUnits = BigInt(amount) * BigInt(1_000_000_000);
+      
+      console.log('[Staking] Amount requested:', amount, 'SBETS');
+      console.log('[Staking] Amount in smallest units:', amountInSmallestUnits.toString());
       
       // Step 1: Get user's SBETS coins
       const sbetsCoins = await suiClient.getCoins({
         owner: walletAddress,
         coinType: SBETS_TYPE,
         limit: 50
+      });
+      
+      console.log('[Staking] Found coins:', sbetsCoins.data.length);
+      sbetsCoins.data.forEach((c, i) => {
+        console.log(`[Staking] Coin ${i}: ${c.coinObjectId} = ${c.balance} smallest units (${Number(c.balance) / 1_000_000_000} display)`);
       });
       
       if (!sbetsCoins.data.length) {
@@ -113,8 +121,9 @@ export default function PromotionsPage() {
         totalBalance += BigInt(coin.balance);
       }
       
-      // Convert to display units for comparison (SBETS has 6 decimals)
-      const totalBalanceDisplay = Number(totalBalance) / 1_000_000;
+      // Convert to display units for comparison (SBETS has 9 decimals like SUI)
+      const totalBalanceDisplay = Number(totalBalance) / 1_000_000_000;
+      console.log('[Staking] Total balance:', totalBalance.toString(), 'smallest units =', totalBalanceDisplay, 'display');
       
       if (totalBalance < amountInSmallestUnits) {
         toast({ title: "Insufficient SBETS", description: `You have ${totalBalanceDisplay.toLocaleString()} SBETS`, variant: "destructive" });
@@ -124,17 +133,20 @@ export default function PromotionsPage() {
       
       // Find a single coin with enough balance
       const suitableCoin = sbetsCoins.data.find(c => BigInt(c.balance) >= amountInSmallestUnits);
+      console.log('[Staking] Suitable coin found:', suitableCoin ? suitableCoin.coinObjectId : 'NONE - will merge');
       
       // Step 2: Build transaction to transfer SBETS to platform treasury
       const tx = new Transaction();
       
       if (suitableCoin) {
         // Single coin has enough - just split and transfer
+        console.log('[Staking] Splitting from single coin:', suitableCoin.coinObjectId);
         const [stakeCoin] = tx.splitCoins(tx.object(suitableCoin.coinObjectId), [Number(amountInSmallestUnits)]);
         tx.transferObjects([stakeCoin], PLATFORM_TREASURY);
       } else {
         // Need to merge coins first
         const coinIds = sbetsCoins.data.map(c => c.coinObjectId);
+        console.log('[Staking] Merging coins:', coinIds);
         const primaryCoin = tx.object(coinIds[0]);
         if (coinIds.length > 1) {
           const otherCoins = coinIds.slice(1).map(id => tx.object(id));
@@ -143,6 +155,8 @@ export default function PromotionsPage() {
         const [stakeCoin] = tx.splitCoins(primaryCoin, [Number(amountInSmallestUnits)]);
         tx.transferObjects([stakeCoin], PLATFORM_TREASURY);
       }
+      
+      console.log('[Staking] Transaction built, requesting signature...');
       
       // Step 3: Sign and execute
       toast({ title: "Sign transaction", description: "Approve the SBETS transfer in your wallet" });
