@@ -864,7 +864,7 @@ export class BlockchainBetService {
         return { success: false, error: 'Amount must be positive' };
       }
 
-      const amountInSmallest = BigInt(Math.floor(amount * 1000000)); // SBETS has 6 decimals
+      const amountInSmallest = BigInt(Math.floor(amount * 1_000_000_000)); // SBETS has 9 decimals (like SUI)
       const tx = new Transaction();
 
       // Get admin's SBETS coins (funded from treasury)
@@ -880,7 +880,7 @@ export class BlockchainBetService {
       // Check total balance
       const totalBalance = coins.data.reduce((sum, c) => sum + BigInt(c.balance), BigInt(0));
       if (totalBalance < amountInSmallest) {
-        return { success: false, error: `Insufficient SBETS in admin wallet: ${Number(totalBalance) / 1000000} < ${amount}` };
+        return { success: false, error: `Insufficient SBETS in admin wallet: ${Number(totalBalance) / 1_000_000_000} < ${amount}` };
       }
 
       // Merge all SBETS coins if needed
