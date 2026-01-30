@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useCurrentAccount, useSignAndExecuteTransaction, useSuiClient } from "@mysten/dapp-kit";
+import { useCurrentAccount, useSignAndExecuteTransaction, useSuiClient, useCurrentWallet } from "@mysten/dapp-kit";
 import { Transaction } from "@mysten/sui/transactions";
 import Layout from "@/components/layout/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -67,8 +67,10 @@ export default function PromotionsPage() {
   
   const suiClient = useSuiClient();
   const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
+  const { currentWallet, connectionStatus } = useCurrentWallet();
 
   const walletAddress = currentAccount?.address;
+  const isWalletConnected = connectionStatus === 'connected' && !!currentWallet;
   
   const { data: stakingInfo, refetch: refetchStaking } = useQuery<StakingInfo>({
     queryKey: ['/api/staking/info', walletAddress],
@@ -82,6 +84,10 @@ export default function PromotionsPage() {
   const handleStake = async () => {
     if (!walletAddress) {
       toast({ title: "Connect wallet first", variant: "destructive" });
+      return;
+    }
+    if (!isWalletConnected) {
+      toast({ title: "Wallet not connected", description: "Please reconnect your wallet and try again", variant: "destructive" });
       return;
     }
     const amount = parseInt(stakeAmount);
