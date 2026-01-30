@@ -616,15 +616,33 @@ export default function PromotionsPage() {
                     
                     <div className="bg-black/30 backdrop-blur-sm p-4 rounded-xl border border-purple-500/30">
                       <p className="text-sm text-purple-300 mb-3 font-medium">Stake SBETS (min 100,000)</p>
-                      <div className="flex gap-3">
+                      <div className="flex flex-col gap-3">
                         <Input
-                          type="number"
-                          placeholder="Enter amount..."
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="Enter amount (e.g. 100000)..."
                           value={stakeAmount}
-                          onChange={(e) => setStakeAmount(e.target.value)}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/[^0-9]/g, '');
+                            setStakeAmount(val);
+                          }}
                           className="bg-black/50 border-purple-500/40 text-white text-lg font-bold placeholder:text-gray-500 focus:border-purple-400 focus:ring-purple-400/30"
                           data-testid="input-stake-amount"
                         />
+                        <div className="flex gap-2">
+                          {[100000, 500000, 1000000].map((amt) => (
+                            <Button
+                              key={amt}
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setStakeAmount(amt.toString())}
+                              className="flex-1 border-purple-500/40 text-purple-300 hover:bg-purple-500/20 hover:text-white text-xs"
+                            >
+                              {amt >= 1000000 ? `${amt / 1000000}M` : `${amt / 1000}K`}
+                            </Button>
+                          ))}
+                        </div>
                         <Button 
                           onClick={handleStake}
                           disabled={isStaking}
