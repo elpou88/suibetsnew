@@ -526,102 +526,184 @@ export default function PromotionsPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-purple-900/30 to-purple-800/10 border-purple-500/30">
-              <CardHeader className="flex flex-row items-center gap-4">
-                <div className="p-3 rounded-full bg-purple-500/20">
-                  <Coins className="h-6 w-6 text-purple-400" />
+            <Card className="relative overflow-hidden bg-gradient-to-br from-purple-900/40 via-indigo-900/30 to-blue-900/20 border-purple-500/40 shadow-2xl shadow-purple-500/10">
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-500/10 via-transparent to-transparent" />
+              <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/20 rounded-full blur-3xl" />
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-500/20 rounded-full blur-2xl" />
+              
+              <CardHeader className="relative flex flex-row items-center gap-4 pb-2">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-purple-500/50 rounded-full blur-xl animate-pulse" />
+                  <div className="relative p-4 rounded-full bg-gradient-to-br from-purple-500/30 to-purple-600/20 border border-purple-400/30">
+                    <Coins className="h-8 w-8 text-purple-300" />
+                  </div>
                 </div>
                 <div className="flex-1">
-                  <CardTitle className="text-white text-xl">SBETS Staking</CardTitle>
-                  <p className="text-purple-400 font-bold text-lg">{stakingInfo?.apyRate || 5}% APY</p>
+                  <CardTitle className="text-white text-2xl font-black tracking-tight">SBETS Staking</CardTitle>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-purple-300 text-sm">Earn</span>
+                    <span className="text-3xl font-black bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 bg-clip-text text-transparent animate-pulse">
+                      {stakingInfo?.apyRate || 5}% APY
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right hidden sm:block">
+                  <div className="text-xs text-purple-300/70">Lock Period</div>
+                  <div className="text-lg font-bold text-purple-300">{stakingInfo?.lockPeriod || '7 days'}</div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-gray-300">
-                  Stake your SBETS tokens to earn passive rewards from the platform treasury. {stakingInfo?.lockPeriod || '7 days'} lock period.
-                </p>
-                
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="bg-black/30 p-3 rounded-lg text-center border border-purple-500/20">
-                    <p className="text-xl font-bold text-purple-400">{stakingInfo?.apyRate || 5}%</p>
-                    <p className="text-xs text-gray-400">APY</p>
+              
+              <CardContent className="relative space-y-5 pt-4">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="relative group">
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-transparent rounded-xl blur-sm group-hover:blur-md transition-all" />
+                    <div className="relative bg-black/40 backdrop-blur-sm p-4 rounded-xl text-center border border-purple-500/30 group-hover:border-purple-400/50 transition-all">
+                      <div className="text-3xl font-black bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                        {stakingInfo?.apyRate || 5}%
+                      </div>
+                      <p className="text-xs text-purple-300/70 mt-1 font-medium">Annual Yield</p>
+                    </div>
                   </div>
-                  <div className="bg-black/30 p-3 rounded-lg text-center border border-purple-500/20">
-                    <p className="text-xl font-bold text-white">{((stakingInfo?.totalStaked || 0) / 1e9).toFixed(1)}B</p>
-                    <p className="text-xs text-gray-400">Total Staked</p>
+                  <div className="relative group">
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-transparent rounded-xl blur-sm group-hover:blur-md transition-all" />
+                    <div className="relative bg-black/40 backdrop-blur-sm p-4 rounded-xl text-center border border-blue-500/30 group-hover:border-blue-400/50 transition-all">
+                      <div className="text-3xl font-black text-blue-300">
+                        {((stakingInfo?.totalStaked || 0) / 1e9).toFixed(1)}B
+                      </div>
+                      <p className="text-xs text-blue-300/70 mt-1 font-medium">Total Staked</p>
+                    </div>
                   </div>
-                  <div className="bg-black/30 p-3 rounded-lg text-center border border-purple-500/20">
-                    <p className="text-xl font-bold text-green-400">{((stakingInfo?.userStaked || 0) / 1e6).toFixed(1)}M</p>
-                    <p className="text-xs text-gray-400">Your Stake</p>
+                  <div className="relative group">
+                    <div className="absolute inset-0 bg-gradient-to-br from-green-500/20 to-transparent rounded-xl blur-sm group-hover:blur-md transition-all" />
+                    <div className="relative bg-black/40 backdrop-blur-sm p-4 rounded-xl text-center border border-green-500/30 group-hover:border-green-400/50 transition-all">
+                      <div className="text-3xl font-black text-green-400">
+                        {(stakingInfo?.userStaked || 0) >= 1000000 
+                          ? `${((stakingInfo?.userStaked || 0) / 1e6).toFixed(1)}M`
+                          : (stakingInfo?.userStaked || 0).toLocaleString()
+                        }
+                      </div>
+                      <p className="text-xs text-green-300/70 mt-1 font-medium">Your Stake</p>
+                    </div>
                   </div>
                 </div>
                 
                 {walletAddress ? (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {(stakingInfo?.userRewards || 0) > 0 && (
-                      <div className="bg-green-500/10 p-3 rounded-lg border border-green-500/30 flex justify-between items-center">
-                        <div>
-                          <p className="text-green-400 text-sm">Pending Rewards</p>
-                          <p className="text-white font-bold">{Math.floor(stakingInfo?.userRewards || 0).toLocaleString()} SBETS</p>
+                      <div className="relative overflow-hidden bg-gradient-to-r from-green-500/20 via-emerald-500/15 to-green-500/20 p-4 rounded-xl border border-green-500/40">
+                        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-green-500/10 to-transparent" />
+                        <div className="relative flex justify-between items-center">
+                          <div>
+                            <p className="text-green-300 text-sm font-medium flex items-center gap-2">
+                              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                              Pending Rewards
+                            </p>
+                            <p className="text-2xl font-black text-green-400 mt-1">
+                              +{Math.floor(stakingInfo?.userRewards || 0).toLocaleString()} SBETS
+                            </p>
+                          </div>
+                          <Button 
+                            size="sm" 
+                            onClick={handleClaimRewards} 
+                            className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white font-bold px-6 shadow-lg shadow-green-500/30" 
+                            data-testid="btn-claim-rewards"
+                          >
+                            Claim Rewards
+                          </Button>
                         </div>
-                        <Button size="sm" onClick={handleClaimRewards} className="bg-green-600 hover:bg-green-500" data-testid="btn-claim-rewards">
-                          Claim
-                        </Button>
                       </div>
                     )}
                     
-                    <div className="flex gap-2">
-                      <Input
-                        type="number"
-                        placeholder="Amount (min 100,000)"
-                        value={stakeAmount}
-                        onChange={(e) => setStakeAmount(e.target.value)}
-                        className="bg-black/30 border-purple-500/30 text-white"
-                        data-testid="input-stake-amount"
-                      />
-                      <Button 
-                        onClick={handleStake}
-                        disabled={isStaking}
-                        className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500"
-                        data-testid="btn-stake"
-                      >
-                        <Lock className="h-4 w-4 mr-1" />
-                        {isStaking ? 'Staking...' : 'Stake'}
-                      </Button>
+                    <div className="bg-black/30 backdrop-blur-sm p-4 rounded-xl border border-purple-500/30">
+                      <p className="text-sm text-purple-300 mb-3 font-medium">Stake SBETS (min 100,000)</p>
+                      <div className="flex gap-3">
+                        <Input
+                          type="number"
+                          placeholder="Enter amount..."
+                          value={stakeAmount}
+                          onChange={(e) => setStakeAmount(e.target.value)}
+                          className="bg-black/50 border-purple-500/40 text-white text-lg font-bold placeholder:text-gray-500 focus:border-purple-400 focus:ring-purple-400/30"
+                          data-testid="input-stake-amount"
+                        />
+                        <Button 
+                          onClick={handleStake}
+                          disabled={isStaking}
+                          className="bg-gradient-to-r from-purple-500 via-purple-600 to-indigo-600 hover:from-purple-400 hover:via-purple-500 hover:to-indigo-500 text-white font-bold px-8 shadow-lg shadow-purple-500/30 transition-all hover:scale-105"
+                          data-testid="btn-stake"
+                        >
+                          <Lock className="h-4 w-4 mr-2" />
+                          {isStaking ? 'Staking...' : 'Stake Now'}
+                        </Button>
+                      </div>
                     </div>
                     
                     {stakingInfo?.userStakes && stakingInfo.userStakes.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-sm text-gray-400">Your Active Stakes:</p>
-                        {stakingInfo.userStakes.map((stake) => (
-                          <div key={stake.id} className="bg-black/30 p-3 rounded-lg border border-purple-500/20 flex justify-between items-center">
-                            <div>
-                              <p className="text-white font-medium">{stake.amount.toLocaleString()} SBETS</p>
-                              <p className="text-xs text-gray-400">
-                                +{Math.floor(stake.accumulatedRewards).toLocaleString()} rewards
-                                {!stake.canUnstake && ` (locked until ${new Date(stake.lockedUntil).toLocaleDateString()})`}
-                              </p>
+                      <div className="space-y-3">
+                        <p className="text-sm text-purple-300 font-semibold flex items-center gap-2">
+                          <Lock className="h-4 w-4" />
+                          Your Active Stakes ({stakingInfo.userStakes.length})
+                        </p>
+                        {stakingInfo.userStakes.map((stake) => {
+                          const lockEndDate = new Date(stake.lockedUntil);
+                          const now = new Date();
+                          const totalLockTime = 7 * 24 * 60 * 60 * 1000;
+                          const timeRemaining = Math.max(0, lockEndDate.getTime() - now.getTime());
+                          const progressPercent = Math.min(100, ((totalLockTime - timeRemaining) / totalLockTime) * 100);
+                          
+                          return (
+                            <div key={stake.id} className="relative overflow-hidden bg-gradient-to-r from-purple-900/40 to-indigo-900/30 p-4 rounded-xl border border-purple-500/30">
+                              <div className="flex justify-between items-start mb-3">
+                                <div>
+                                  <p className="text-xl font-black text-white">{stake.amount.toLocaleString()} SBETS</p>
+                                  <p className="text-sm text-green-400 font-medium mt-1">
+                                    +{Math.floor(stake.accumulatedRewards).toLocaleString()} SBETS earned
+                                  </p>
+                                </div>
+                                <Button 
+                                  size="sm" 
+                                  variant={stake.canUnstake ? "default" : "secondary"}
+                                  onClick={() => handleUnstake(stake.id)}
+                                  disabled={!stake.canUnstake}
+                                  className={stake.canUnstake 
+                                    ? "bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-400 hover:to-orange-400 text-white font-bold shadow-lg" 
+                                    : "bg-gray-700/50 text-gray-400 cursor-not-allowed"
+                                  }
+                                  data-testid={`btn-unstake-${stake.id}`}
+                                >
+                                  <Unlock className="h-4 w-4 mr-1" />
+                                  {stake.canUnstake ? 'Unstake + Claim' : 'Locked'}
+                                </Button>
+                              </div>
+                              
+                              {!stake.canUnstake && (
+                                <div className="space-y-2">
+                                  <div className="flex justify-between text-xs">
+                                    <span className="text-purple-300/70">Lock Progress</span>
+                                    <span className="text-purple-300">Unlocks {lockEndDate.toLocaleDateString()}</span>
+                                  </div>
+                                  <div className="h-2 bg-black/50 rounded-full overflow-hidden">
+                                    <div 
+                                      className="h-full bg-gradient-to-r from-purple-500 via-pink-500 to-purple-500 transition-all duration-1000"
+                                      style={{ width: `${progressPercent}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                            <Button 
-                              size="sm" 
-                              variant={stake.canUnstake ? "default" : "secondary"}
-                              onClick={() => handleUnstake(stake.id)}
-                              disabled={!stake.canUnstake}
-                              className={stake.canUnstake ? "bg-red-600 hover:bg-red-500" : ""}
-                              data-testid={`btn-unstake-${stake.id}`}
-                            >
-                              <Unlock className="h-3 w-3 mr-1" />
-                              {stake.canUnstake ? 'Unstake' : 'Locked'}
-                            </Button>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 text-yellow-400 bg-yellow-500/10 p-3 rounded-lg border border-yellow-500/30">
-                    <Wallet className="h-5 w-5" />
-                    <span>Connect your wallet to stake</span>
+                  <div className="bg-gradient-to-r from-yellow-500/10 to-orange-500/10 p-4 rounded-xl border border-yellow-500/30 flex items-center gap-3">
+                    <div className="p-2 bg-yellow-500/20 rounded-lg">
+                      <Wallet className="h-6 w-6 text-yellow-400" />
+                    </div>
+                    <div>
+                      <p className="text-yellow-300 font-semibold">Connect Wallet to Start Staking</p>
+                      <p className="text-yellow-300/60 text-sm">Earn {stakingInfo?.apyRate || 5}% APY on your SBETS</p>
+                    </div>
                   </div>
                 )}
               </CardContent>
