@@ -91,6 +91,9 @@ export default function PromotionsPage() {
     }
     setIsStaking(true);
     try {
+      // SBETS has 9 decimals like SUI - convert to smallest units
+      const amountInSmallestUnits = BigInt(amount) * BigInt(1_000_000_000);
+      
       // Step 1: Get user's SBETS coins
       const sbetsCoins = await suiClient.getCoins({
         owner: walletAddress,
@@ -104,35 +107,40 @@ export default function PromotionsPage() {
         return;
       }
       
-      // Check total balance
+      // Check total balance (already in smallest units from chain)
       let totalBalance = BigInt(0);
       for (const coin of sbetsCoins.data) {
         totalBalance += BigInt(coin.balance);
       }
       
-      if (totalBalance < BigInt(amount)) {
-        toast({ title: "Insufficient SBETS", description: `You have ${Number(totalBalance).toLocaleString()} SBETS`, variant: "destructive" });
+      // Convert to display units for comparison
+      const totalBalanceDisplay = Number(totalBalance) / 1_000_000_000;
+      
+      if (totalBalance < amountInSmallestUnits) {
+        toast({ title: "Insufficient SBETS", description: `You have ${totalBalanceDisplay.toLocaleString()} SBETS`, variant: "destructive" });
         setIsStaking(false);
         return;
       }
       
+      // Find a single coin with enough balance
+      const suitableCoin = sbetsCoins.data.find(c => BigInt(c.balance) >= amountInSmallestUnits);
+      
       // Step 2: Build transaction to transfer SBETS to platform treasury
       const tx = new Transaction();
       
-      // Find a coin with enough balance, or merge all coins first
-      const coinIds = sbetsCoins.data.map(c => c.coinObjectId);
-      
-      // Use the Coin module to handle the transfer properly
-      if (coinIds.length === 1) {
-        // Single coin - just split and transfer
-        const [stakeCoin] = tx.splitCoins(tx.object(coinIds[0]), [amount]);
+      if (suitableCoin) {
+        // Single coin has enough - just split and transfer
+        const [stakeCoin] = tx.splitCoins(tx.object(suitableCoin.coinObjectId), [Number(amountInSmallestUnits)]);
         tx.transferObjects([stakeCoin], PLATFORM_TREASURY);
       } else {
-        // Multiple coins - merge then split
+        // Need to merge coins first
+        const coinIds = sbetsCoins.data.map(c => c.coinObjectId);
         const primaryCoin = tx.object(coinIds[0]);
-        const otherCoins = coinIds.slice(1).map(id => tx.object(id));
-        tx.mergeCoins(primaryCoin, otherCoins);
-        const [stakeCoin] = tx.splitCoins(primaryCoin, [amount]);
+        if (coinIds.length > 1) {
+          const otherCoins = coinIds.slice(1).map(id => tx.object(id));
+          tx.mergeCoins(primaryCoin, otherCoins);
+        }
+        const [stakeCoin] = tx.splitCoins(primaryCoin, [Number(amountInSmallestUnits)]);
         tx.transferObjects([stakeCoin], PLATFORM_TREASURY);
       }
       
