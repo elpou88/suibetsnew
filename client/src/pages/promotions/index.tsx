@@ -91,8 +91,8 @@ export default function PromotionsPage() {
     }
     setIsStaking(true);
     try {
-      // SBETS has 9 decimals like SUI - convert to smallest units
-      const amountInSmallestUnits = BigInt(amount) * BigInt(1_000_000_000);
+      // SBETS has 6 decimals (not 9 like SUI) - convert to smallest units
+      const amountInSmallestUnits = BigInt(amount) * BigInt(1_000_000);
       
       // Step 1: Get user's SBETS coins
       const sbetsCoins = await suiClient.getCoins({
@@ -113,8 +113,8 @@ export default function PromotionsPage() {
         totalBalance += BigInt(coin.balance);
       }
       
-      // Convert to display units for comparison
-      const totalBalanceDisplay = Number(totalBalance) / 1_000_000_000;
+      // Convert to display units for comparison (SBETS has 6 decimals)
+      const totalBalanceDisplay = Number(totalBalance) / 1_000_000;
       
       if (totalBalance < amountInSmallestUnits) {
         toast({ title: "Insufficient SBETS", description: `You have ${totalBalanceDisplay.toLocaleString()} SBETS`, variant: "destructive" });
