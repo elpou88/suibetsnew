@@ -1936,31 +1936,64 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           });
         }
         
-        // ANTI-CHEAT: Score-based odds validation for live matches
-        // Block bets where winning team has 2+ goal lead but odds are suspiciously high
-        const homeScore = eventLookup.homeScore ?? 0;
-        const awayScore = eventLookup.awayScore ?? 0;
-        const scoreDiff = Math.abs(homeScore - awayScore);
+        // ANTI-CHEAT: Score-based odds validation for live matches (BULLETPROOF VERSION)
+        // FAIL-CLOSED: If we can't verify scores at 60+ minutes, block all bets
+        const homeScore = eventLookup.homeScore;
+        const awayScore = eventLookup.awayScore;
+        const minute = eventLookup.minute ?? 0;
         
-        if (scoreDiff >= 2 && eventLookup.minute >= 60) {
-          // Determine which team is winning
-          const homeWinning = homeScore > awayScore;
-          const awayWinning = awayScore > homeScore;
+        // Critical check: For live matches at 60+ min, we MUST have score data
+        if (minute >= 60 && (homeScore === undefined || homeScore === null || awayScore === undefined || awayScore === null)) {
+          console.log(`❌ Bet rejected (anti-cheat): Missing score data at minute ${minute}, cannot verify match state`);
+          return res.status(400).json({
+            message: "Cannot verify match state - please try again shortly",
+            code: "SCORE_DATA_UNAVAILABLE"
+          });
+        }
+        
+        const scoreDiff = Math.abs((homeScore ?? 0) - (awayScore ?? 0));
+        const homeWinning = (homeScore ?? 0) > (awayScore ?? 0);
+        const awayWinning = (awayScore ?? 0) > (homeScore ?? 0);
+        
+        // Robust outcome detection for all checks
+        const outcomeIdLower = (outcomeId || '').toLowerCase();
+        const predLower = (prediction || '').toLowerCase();
+        const homeTeamLower = (eventLookup.homeTeam || '').toLowerCase().trim();
+        const awayTeamLower = (eventLookup.awayTeam || '').toLowerCase().trim();
+        
+        // Comprehensive patterns for outcome detection
+        const homePatterns = ['home', 'h', '1', 'home_team', 'hometeam', 'home-win', 'homewin'];
+        const awayPatterns = ['away', 'a', '2', 'away_team', 'awayteam', 'away-win', 'awaywin'];
+        const drawPatterns = ['draw', 'x', 'd', 'tie'];
+        
+        const bettingOnHome = homePatterns.some(p => outcomeIdLower === p || outcomeIdLower.startsWith(p + '_')) ||
+                              (homeTeamLower.length > 2 && predLower.includes(homeTeamLower));
+        const bettingOnAway = awayPatterns.some(p => outcomeIdLower === p || outcomeIdLower.startsWith(p + '_')) ||
+                              (awayTeamLower.length > 2 && predLower.includes(awayTeamLower));
+        const bettingOnDraw = drawPatterns.some(p => outcomeIdLower === p || outcomeIdLower.includes(p));
+        
+        // Determine if betting on winning team
+        const bettingOnWinningTeam = (homeWinning && bettingOnHome) || (awayWinning && bettingOnAway);
+        const bettingOnLosingTeam = (homeWinning && bettingOnAway) || (awayWinning && bettingOnHome);
+        
+        // NUCLEAR OPTION: If 2+ goal lead at 60+ min, block winning team/draw bets with odds > 2.0
+        // EXCEPTION: Allow bets on LOSING team (risky bets with appropriate high odds)
+        if (scoreDiff >= 2 && minute >= 60 && odds > 2.0 && !bettingOnLosingTeam) {
+          console.log(`❌ Bet rejected (anti-cheat NUCLEAR): High odds ${odds} blocked - match is ${homeScore}-${awayScore} at ${minute}min, outcome: ${outcomeId}`);
+          return res.status(400).json({
+            message: "Live betting restricted - odds do not reflect match state",
+            code: "LOPSIDED_MATCH_RESTRICTED"
+          });
+        }
+        
+        // TARGETED BLOCK: Specifically block bets on winning team with any odds > 1.3/1.5
+        // This catches edge cases where odds might be just under the NUCLEAR threshold (2.0)
+        if (scoreDiff >= 2 && minute >= 45 && bettingOnWinningTeam) {
+          // Very strict threshold for betting on winning team in late-game lopsided matches
+          const strictThreshold = minute >= 60 ? 1.3 : 1.5;
           
-          // Check if betting on the winning team with suspiciously high odds
-          const predLower = prediction.toLowerCase();
-          const homeTeamLower = (eventLookup.homeTeam || '').toLowerCase();
-          const awayTeamLower = (eventLookup.awayTeam || '').toLowerCase();
-          
-          const bettingOnHome = predLower.includes(homeTeamLower) || outcomeId === 'home';
-          const bettingOnAway = predLower.includes(awayTeamLower) || outcomeId === 'away';
-          
-          // Block if betting on winning team with odds above 1.5 (should be much lower when 2+ ahead at 60+ min)
-          const suspiciousOddsThreshold = 1.5;
-          
-          if ((homeWinning && bettingOnHome && odds > suspiciousOddsThreshold) ||
-              (awayWinning && bettingOnAway && odds > suspiciousOddsThreshold)) {
-            console.log(`❌ Bet rejected (anti-cheat): Suspicious odds ${odds} for winning team at ${eventLookup.minute}min with score ${homeScore}-${awayScore}`);
+          if (odds > strictThreshold) {
+            console.log(`❌ Bet rejected (anti-cheat TARGETED): Betting on winning team with odds ${odds} at ${minute}min, score ${homeScore}-${awayScore}`);
             return res.status(400).json({
               message: "Betting suspended - odds do not reflect current match state",
               code: "SUSPICIOUS_ODDS_DETECTED"
