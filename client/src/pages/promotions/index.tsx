@@ -118,19 +118,22 @@ export default function PromotionsPage() {
       
       // Step 2: Build transaction to transfer SBETS to platform treasury
       const tx = new Transaction();
-      tx.setGasBudget(50_000_000);
       
-      // Merge coins if needed, then split and transfer exact amount
-      if (sbetsCoins.data.length > 1) {
-        const primaryCoin = tx.object(sbetsCoins.data[0].coinObjectId);
-        const coinsToMerge = sbetsCoins.data.slice(1).map(c => tx.object(c.coinObjectId));
-        tx.mergeCoins(primaryCoin, coinsToMerge);
-        const [stakeCoin] = tx.splitCoins(primaryCoin, [tx.pure.u64(amount)]);
-        tx.transferObjects([stakeCoin], tx.pure.address(PLATFORM_TREASURY));
+      // Find a coin with enough balance, or merge all coins first
+      const coinIds = sbetsCoins.data.map(c => c.coinObjectId);
+      
+      // Use the Coin module to handle the transfer properly
+      if (coinIds.length === 1) {
+        // Single coin - just split and transfer
+        const [stakeCoin] = tx.splitCoins(tx.object(coinIds[0]), [amount]);
+        tx.transferObjects([stakeCoin], PLATFORM_TREASURY);
       } else {
-        const primaryCoin = tx.object(sbetsCoins.data[0].coinObjectId);
-        const [stakeCoin] = tx.splitCoins(primaryCoin, [tx.pure.u64(amount)]);
-        tx.transferObjects([stakeCoin], tx.pure.address(PLATFORM_TREASURY));
+        // Multiple coins - merge then split
+        const primaryCoin = tx.object(coinIds[0]);
+        const otherCoins = coinIds.slice(1).map(id => tx.object(id));
+        tx.mergeCoins(primaryCoin, otherCoins);
+        const [stakeCoin] = tx.splitCoins(primaryCoin, [amount]);
+        tx.transferObjects([stakeCoin], PLATFORM_TREASURY);
       }
       
       // Step 3: Sign and execute
