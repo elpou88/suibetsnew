@@ -174,19 +174,13 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
         return false;
       }
 
-      // If using FREE SBETS, force platform payment method (database balance, no on-chain tx)
-      const usingFreeBet = options?.useFreeBet === true;
-      
       // On-chain betting - funds come directly from connected wallet
-      // EXCEPT when using FREE SBETS which is a database balance
       const betOptions: PlaceBetOptions = {
         betType: selectedBets.length > 1 ? 'parlay' : 'single',
-        currency: usingFreeBet ? 'SBETS' : (options?.currency || 'SUI'),
+        currency: options?.currency || 'SUI',
         acceptOddsChange: true,
-        paymentMethod: usingFreeBet ? 'platform' : 'wallet', // FREE SBETS uses platform balance
+        paymentMethod: 'wallet', // On-chain betting from wallet balance
         ...options,
-        // Re-apply useFreeBet to ensure it's passed to backend
-        useFreeBet: usingFreeBet,
       };
 
       // For single bets
@@ -209,15 +203,13 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
               betAmount: stakeAmount,
               prediction: bet.selectionName,
               potentialPayout: calculatePotentialWinnings(stakeAmount, bet.odds),
-              currency: betOptions.currency,
               feeCurrency: betOptions.currency,
               paymentMethod: 'platform',
               status: 'pending',
               isLive: bet.isLive,
               matchMinute: bet.matchMinute,
               homeTeam: bet.homeTeam,
-              awayTeam: bet.awayTeam,
-              useFreeBet: betOptions.useFreeBet, // Use free SBETS balance if toggled
+              awayTeam: bet.awayTeam
             });
 
             if (response.ok) {
