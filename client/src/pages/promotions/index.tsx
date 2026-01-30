@@ -131,35 +131,40 @@ export default function PromotionsPage() {
         return;
       }
       
+      // Find coins with non-zero balance
+      const nonZeroCoins = sbetsCoins.data.filter(c => BigInt(c.balance) > 0);
+      console.log('[Staking] Non-zero coins:', nonZeroCoins.length);
+      
       // Find a single coin with enough balance
-      const suitableCoin = sbetsCoins.data.find(c => BigInt(c.balance) >= amountInSmallestUnits);
+      const suitableCoin = nonZeroCoins.find(c => BigInt(c.balance) >= amountInSmallestUnits);
       console.log('[Staking] Suitable coin found:', suitableCoin ? suitableCoin.coinObjectId : 'NONE - will merge');
       
-      // Step 2: Build transaction to transfer SBETS to platform treasury
+      // Step 2: Build transaction using coin ID directly
       const tx = new Transaction();
+      
+      // Use the amount as a u64 - Sui expects this format
+      const stakeAmountU64 = tx.pure.u64(BigInt(amount) * BigInt(1_000_000_000));
       
       if (suitableCoin) {
         // Single coin has enough - just split and transfer
         console.log('[Staking] Splitting from single coin:', suitableCoin.coinObjectId);
-        const [stakeCoin] = tx.splitCoins(tx.object(suitableCoin.coinObjectId), [Number(amountInSmallestUnits)]);
-        tx.transferObjects([stakeCoin], PLATFORM_TREASURY);
+        const coinInput = tx.object(suitableCoin.coinObjectId);
+        const [stakeCoin] = tx.splitCoins(coinInput, [stakeAmountU64]);
+        tx.transferObjects([stakeCoin], tx.pure.address(PLATFORM_TREASURY));
       } else {
-        // Need to merge coins first
-        const coinIds = sbetsCoins.data.map(c => c.coinObjectId);
+        // Need to merge coins first - only use non-zero coins
+        const coinIds = nonZeroCoins.map(c => c.coinObjectId);
         console.log('[Staking] Merging coins:', coinIds);
         const primaryCoin = tx.object(coinIds[0]);
         if (coinIds.length > 1) {
           const otherCoins = coinIds.slice(1).map(id => tx.object(id));
           tx.mergeCoins(primaryCoin, otherCoins);
         }
-        const [stakeCoin] = tx.splitCoins(primaryCoin, [Number(amountInSmallestUnits)]);
-        tx.transferObjects([stakeCoin], PLATFORM_TREASURY);
+        const [stakeCoin] = tx.splitCoins(primaryCoin, [stakeAmountU64]);
+        tx.transferObjects([stakeCoin], tx.pure.address(PLATFORM_TREASURY));
       }
       
       console.log('[Staking] Transaction built, requesting signature...');
-      
-      // Set sender explicitly
-      tx.setSender(walletAddress);
       
       // Step 3: Sign and execute
       toast({ title: "Sign transaction", description: "Approve the SBETS transfer in your wallet" });
