@@ -99,8 +99,8 @@ export function useLiveEvents(sportId?: string | number | null) {
         return Array.isArray(data) ? data : [];
       }
     },
-    refetchInterval: 10000,
-    staleTime: 9000,
+    refetchInterval: 30000, // Reduced from 10s to conserve API quota
+    staleTime: 25000,
     gcTime: 60000,
     refetchOnWindowFocus: false,
     placeholderData: (previousData) => previousData ?? [],

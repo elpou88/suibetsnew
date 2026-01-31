@@ -38,13 +38,13 @@ export default function WalletDashboardPage() {
   const { data: betsData, refetch: refetchBets } = useQuery({
     queryKey: [`/api/bets?wallet=${walletAddress}`, walletAddress],
     enabled: !!walletAddress,
-    refetchInterval: 10000,
+    refetchInterval: 30000, // Reduced from 10s
   });
   
   const { data: balanceData, refetch: refetchBalance } = useQuery<{ suiBalance: number; sbetsBalance: number }>({
     queryKey: [`/api/user/balance?userId=${walletAddress}`, walletAddress],
     enabled: !!walletAddress,
-    refetchInterval: 15000,
+    refetchInterval: 30000, // Reduced from 15s
   });
   
   const userBets = Array.isArray(betsData) ? betsData : [];

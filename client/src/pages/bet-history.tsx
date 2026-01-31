@@ -48,7 +48,7 @@ export default function BetHistoryPage() {
   const { data: rawBets, refetch } = useQuery({
     queryKey: [`/api/bets?wallet=${walletAddress}`, walletAddress],
     enabled: !!walletAddress,
-    refetchInterval: 10000,
+    refetchInterval: 30000, // Reduced from 10s
   });
   
   const bets: Bet[] = Array.isArray(rawBets) ? rawBets : [];

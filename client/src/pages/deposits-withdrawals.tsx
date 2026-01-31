@@ -66,7 +66,7 @@ export default function DepositsWithdrawalsPage() {
 
   const { data: rawTransactions, refetch: refetchTransactions } = useQuery({
     queryKey: ['/api/transactions'],
-    refetchInterval: 15000,
+    refetchInterval: 30000, // Reduced from 15s
   });
 
   // Platform balance (for withdrawal of deposited funds)
@@ -78,7 +78,7 @@ export default function DepositsWithdrawalsPage() {
   }>({
     queryKey: [`/api/user/balance?userId=${walletAddress}`],
     enabled: !!walletAddress,
-    refetchInterval: 15000,
+    refetchInterval: 30000, // Reduced from 15s
   });
   
   // Use platform balances for withdrawals (database balance), fall back to 0

@@ -208,8 +208,8 @@ export default function SportsSidebar() {
         return [];
       }
     },
-    refetchInterval: 15000, // Refresh every 15 seconds for live
-    staleTime: 10000,
+    refetchInterval: 60000, // Refresh every 60 seconds for live (reduced to conserve API)
+    staleTime: 55000,
     retry: 3,
     retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 10000)
   });
@@ -249,8 +249,8 @@ export default function SportsSidebar() {
         return [];
       }
     },
-    refetchInterval: 30000, // Refresh every 30 seconds for upcoming
-    staleTime: 15000,
+    refetchInterval: 120000, // Refresh every 2 minutes for upcoming (reduced to conserve API)
+    staleTime: 110000,
     retry: 3,
     retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 10000)
   });

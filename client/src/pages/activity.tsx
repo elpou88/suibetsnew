@@ -46,13 +46,13 @@ export default function ActivityPage() {
   const { data: rawActivities, refetch } = useQuery({
     queryKey: [`/api/activity?wallet=${walletAddress}`, walletAddress],
     enabled: !!walletAddress,
-    refetchInterval: 10000,
+    refetchInterval: 30000, // Reduced from 10s
   });
 
   const { data: rawBets } = useQuery({
     queryKey: [`/api/bets?wallet=${walletAddress}`, walletAddress],
     enabled: !!walletAddress,
-    refetchInterval: 10000,
+    refetchInterval: 30000, // Reduced from 10s
   });
   
   const activities: ActivityItem[] = Array.isArray(rawActivities) ? rawActivities : [];

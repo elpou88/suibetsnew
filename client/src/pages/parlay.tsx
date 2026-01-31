@@ -81,7 +81,7 @@ export default function ParlayPage() {
   const { data: balanceData } = useQuery<{ suiBalance: number; sbetsBalance: number }>({
     queryKey: [`/api/user/balance?userId=${walletAddress}`],
     enabled: !!walletAddress,
-    refetchInterval: 15000,
+    refetchInterval: 30000, // Reduced from 15s
   });
 
   const parlayLegs: ParlayLeg[] = selectedBets.map((bet: any) => ({

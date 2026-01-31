@@ -196,10 +196,10 @@ function LiveBettingMarkets() {
         return [];
       }
     },
-    refetchInterval: 15000, // Refresh every 15 seconds for live
+    refetchInterval: 60000, // Refresh every 60 seconds (reduced to conserve API)
     retry: 2, 
     retryDelay: 1000,
-    staleTime: 15000, // Consider data fresh for 15 seconds
+    staleTime: 55000, // Consider data fresh for 55 seconds
     refetchOnWindowFocus: false, // Prevent flicker on tab focus
     placeholderData: (previousData) => previousData ?? [], // Keep previous data during refetch
   });

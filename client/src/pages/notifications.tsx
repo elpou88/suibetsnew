@@ -25,7 +25,7 @@ export default function Notifications() {
       const response = await fetch(`/api/notifications?userId=${userId}&unreadOnly=${tab === 'unread'}`);
       return response.json();
     },
-    refetchInterval: 5000 // Refresh every 5 seconds
+    refetchInterval: 60000 // Refresh every 60 seconds to conserve API quota
   });
 
   // Get icon based on notification type

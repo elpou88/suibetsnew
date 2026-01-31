@@ -46,7 +46,7 @@ export function BetSlip() {
       return res.json();
     },
     enabled: !!currentAccount?.address,
-    refetchInterval: 15000,
+    refetchInterval: 30000, // Reduced from 15s
   });
   
   // Fetch free bet balance (welcome bonus + referral rewards)
@@ -62,7 +62,7 @@ export function BetSlip() {
       return res.json();
     },
     enabled: !!currentAccount?.address,
-    refetchInterval: 10000,
+    refetchInterval: 30000, // Reduced from 10s
   });
   
   const freeBetBalance = freeBetData?.freeBetBalance || 0;

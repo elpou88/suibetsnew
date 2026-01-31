@@ -41,13 +41,13 @@ const Layout: React.FC<LayoutProps> = ({
       return res.json();
     },
     enabled: !!currentAccount?.address,
-    refetchInterval: 15000,
+    refetchInterval: 60000, // Reduced from 15s to conserve API
   });
   
   // Fetch upcoming events for the ticker
   const { data: upcomingEvents = [] } = useQuery<any[]>({
     queryKey: ['/api/events', 'upcoming'],
-    refetchInterval: 30000 // Refresh every 30 seconds
+    refetchInterval: 120000 // Refresh every 2 minutes (reduced from 30s to conserve API)
   });
   
   // Format upcoming events for ticker display
