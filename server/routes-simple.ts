@@ -1693,6 +1693,28 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const eventId = String(data.eventId);
       const { eventName, homeTeam, awayTeam, marketId, outcomeId, odds, betAmount, currency, prediction, feeCurrency, paymentMethod, txHash, onChainBetId, status, isLive, matchMinute, walletAddress, useBonus, useFreeBet } = data;
       
+      // DUPLICATE BET PREVENTION: Check if user already has a pending/confirmed bet on this exact selection
+      try {
+        const existingBets = await storage.getUserBets(userId);
+        const duplicateBet = existingBets.find((bet: any) => 
+          bet.eventId === eventId &&
+          bet.marketId === marketId &&
+          bet.outcomeId === outcomeId &&
+          (bet.status === 'pending' || bet.status === 'confirmed')
+        );
+        
+        if (duplicateBet) {
+          console.log(`❌ Duplicate bet blocked: User ${userId.slice(0, 10)}... already has bet on ${eventId}/${marketId}/${outcomeId}`);
+          return res.status(400).json({
+            message: "You already have an active bet on this selection. Wait for it to settle or choose a different outcome.",
+            code: "DUPLICATE_BET"
+          });
+        }
+      } catch (dupCheckError) {
+        console.warn('[Duplicate Check] Failed to check for duplicates, allowing bet:', dupCheckError);
+        // Continue with bet - don't block if check fails
+      }
+      
       // Anti-cheat: Block first-half markets after minute 45 and all markets after minute 80
       const isFirstHalfMarket = !!data.marketId && (
         String(data.marketId).includes('1st_half') || 

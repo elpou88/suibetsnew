@@ -51,6 +51,20 @@ export default function EventPage() {
       return 'Unknown time';
     }
   };
+  
+  // Get current total goals for live market filtering
+  const getCurrentTotalGoals = () => {
+    if (!event) return 0;
+    const homeScore = parseInt(String(event.homeScore || 0)) || 0;
+    const awayScore = parseInt(String(event.awayScore || 0)) || 0;
+    return homeScore + awayScore;
+  };
+  
+  // Check if a goals market threshold is already decided
+  const isGoalsMarketDecided = (threshold: number) => {
+    if (!event?.isLive) return false;
+    return getCurrentTotalGoals() > threshold;
+  };
 
   if (isLoading) {
     return (
@@ -257,57 +271,74 @@ export default function EventPage() {
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-lg">Total Goals</CardTitle>
+                    {event?.isLive && getCurrentTotalGoals() > 0 && (
+                      <p className="text-xs text-muted-foreground">Current: {getCurrentTotalGoals()} goals</p>
+                    )}
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Button 
-                        variant="outline"
-                        className="h-16"
-                        onClick={() => handleAddBet("Over 2.5", 1.85, "Total Goals")}
-                      >
-                        <div className="flex flex-col items-center">
-                          <span>Over 2.5</span>
-                          <span className="text-lg font-bold">{formatOdds(1.85)}</span>
-                        </div>
-                      </Button>
-                      
-                      <Button 
-                        variant="outline"
-                        className="h-16"
-                        onClick={() => handleAddBet("Under 2.5", 1.95, "Total Goals")}
-                      >
-                        <div className="flex flex-col items-center">
-                          <span>Under 2.5</span>
-                          <span className="text-lg font-bold">{formatOdds(1.95)}</span>
-                        </div>
-                      </Button>
-                    </div>
+                    {/* Over/Under 2.5 - only show if not decided */}
+                    {!isGoalsMarketDecided(2.5) ? (
+                      <div className="grid grid-cols-2 gap-3">
+                        <Button 
+                          variant="outline"
+                          className="h-16"
+                          onClick={() => handleAddBet("Over 2.5", 1.85, "Total Goals")}
+                        >
+                          <div className="flex flex-col items-center">
+                            <span>Over 2.5</span>
+                            <span className="text-lg font-bold">{formatOdds(1.85)}</span>
+                          </div>
+                        </Button>
+                        
+                        <Button 
+                          variant="outline"
+                          className="h-16"
+                          onClick={() => handleAddBet("Under 2.5", 1.95, "Total Goals")}
+                        >
+                          <div className="flex flex-col items-center">
+                            <span>Under 2.5</span>
+                            <span className="text-lg font-bold">{formatOdds(1.95)}</span>
+                          </div>
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-muted/50 rounded-lg text-center text-sm text-muted-foreground">
+                        Over/Under 2.5 - Market decided (3+ goals scored)
+                      </div>
+                    )}
                     
                     <Separator className="my-4" />
                     
-                    <div className="grid grid-cols-2 gap-3">
-                      <Button 
-                        variant="outline"
-                        className="h-16"
-                        onClick={() => handleAddBet("Over 3.5", 3.1, "Total Goals")}
-                      >
-                        <div className="flex flex-col items-center">
-                          <span>Over 3.5</span>
-                          <span className="text-lg font-bold">{formatOdds(3.1)}</span>
-                        </div>
-                      </Button>
-                      
-                      <Button 
-                        variant="outline"
-                        className="h-16"
-                        onClick={() => handleAddBet("Under 3.5", 1.35, "Total Goals")}
-                      >
-                        <div className="flex flex-col items-center">
-                          <span>Under 3.5</span>
-                          <span className="text-lg font-bold">{formatOdds(1.35)}</span>
-                        </div>
-                      </Button>
-                    </div>
+                    {/* Over/Under 3.5 - only show if not decided */}
+                    {!isGoalsMarketDecided(3.5) ? (
+                      <div className="grid grid-cols-2 gap-3">
+                        <Button 
+                          variant="outline"
+                          className="h-16"
+                          onClick={() => handleAddBet("Over 3.5", 3.1, "Total Goals")}
+                        >
+                          <div className="flex flex-col items-center">
+                            <span>Over 3.5</span>
+                            <span className="text-lg font-bold">{formatOdds(3.1)}</span>
+                          </div>
+                        </Button>
+                        
+                        <Button 
+                          variant="outline"
+                          className="h-16"
+                          onClick={() => handleAddBet("Under 3.5", 1.35, "Total Goals")}
+                        >
+                          <div className="flex flex-col items-center">
+                            <span>Under 3.5</span>
+                            <span className="text-lg font-bold">{formatOdds(1.35)}</span>
+                          </div>
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-muted/50 rounded-lg text-center text-sm text-muted-foreground">
+                        Over/Under 3.5 - Market decided (4+ goals scored)
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
                 

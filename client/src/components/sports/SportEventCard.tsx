@@ -102,7 +102,7 @@ const SportEventCard: React.FC<SportEventCardProps> = ({ event, sportId }) => {
   };
   
   // Get markets for this event based on sport type
-  let allMarkets = event.markets || [];
+  let allMarkets: Market[] = event.markets || [];
   
   // If no markets provided, use default ones based on sport
   if (!allMarkets || allMarkets.length === 0) {
@@ -110,10 +110,10 @@ const SportEventCard: React.FC<SportEventCardProps> = ({ event, sportId }) => {
       sportId, 
       event.homeTeam, 
       event.awayTeam
-    );
+    ) as Market[];
   } else {
     // Enhance the existing markets and add missing secondary markets
-    allMarkets = sportMarketsAdapter.enhanceMarketsForSport(allMarkets, sportId, event.homeTeam, event.awayTeam);
+    allMarkets = sportMarketsAdapter.enhanceMarketsForSport(allMarkets, sportId, event.homeTeam, event.awayTeam) as Market[];
   }
   
   // Filter out decided markets for live events
