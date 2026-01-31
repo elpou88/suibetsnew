@@ -6,6 +6,9 @@ import config from '../config';
 let globalPrefetcherInterval: NodeJS.Timeout | null = null;
 let globalPrefetcherStarted: boolean = false;
 
+// Prevent duplicate API verification on startup (multiple instances)
+let apiVerificationDone: boolean = false;
+
 // CRITICAL: Last successful events snapshots - NEVER return empty if we had data before
 let lastSuccessfulUpcomingEvents: SportEvent[] = [];
 let lastSuccessfulLiveEvents: SportEvent[] = [];
@@ -363,9 +366,12 @@ export class ApiSportsService {
     // Set longer timeout for API requests
     axios.defaults.timeout = 15000;
     
-    // Verify API key works correctly for direct API - start with most important APIs
-    this.verifyApiConnections();
-    this.checkForLiveFixtures();
+    // Only verify API once across all instances (prevent duplicate calls on startup)
+    if (!apiVerificationDone) {
+      apiVerificationDone = true;
+      this.verifyApiConnections();
+      this.checkForLiveFixtures();
+    }
   }
   
   /**
