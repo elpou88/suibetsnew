@@ -21,6 +21,7 @@ import { settlementWorker } from "./services/settlementWorker";
 import blockchainBetService from "./services/blockchainBetService";
 import { promotionService } from "./services/promotionService";
 import { treasuryAutoWithdrawService } from "./services/treasuryAutoWithdrawService";
+import { freeSportsService } from "./services/freeSportsService";
 
 export async function registerRoutes(app: express.Express): Promise<Server> {
   // Initialize services
@@ -41,6 +42,11 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
   // Start background odds prefetcher for 100% real odds coverage
   apiSportsService.startOddsPrefetcher();
   console.log('🎰 Odds prefetcher started - continuously warming odds cache for instant responses');
+  
+  // Start FREE sports scheduler (basketball, baseball, hockey, MMA, american-football)
+  // These use free API tier: fetch once/day morning + results once/day night
+  freeSportsService.startSchedulers();
+  console.log('🆓 Free sports scheduler started - daily updates for basketball, baseball, hockey, MMA, NFL');
 
   // Create HTTP server
   const httpServer = createServer(app);
@@ -1321,6 +1327,18 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           console.log(`❌ Football failed: ${e.message}`);
         }
         
+        // Add FREE SPORTS events from daily cache (basketball, baseball, hockey, MMA, NFL)
+        // These don't consume API quota - they're fetched once per day
+        try {
+          const freeSportsEvents = freeSportsService.getUpcomingEvents();
+          if (freeSportsEvents.length > 0) {
+            allUpcomingEventsRaw.push(...freeSportsEvents);
+            console.log(`✅ Free Sports: ${freeSportsEvents.length} events (from daily cache)`);
+          }
+        } catch (e: any) {
+          console.log(`⚠️ Free Sports cache empty or error: ${e.message}`);
+        }
+        
         // Deduplicate events by ID to prevent repeated matches
         const seenUpcomingIds = new Set<string>();
         let allUpcomingEvents = allUpcomingEventsRaw.filter(event => {
@@ -1464,6 +1482,37 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching results:", error);
       res.status(500).json({ message: "Failed to fetch results" });
+    }
+  });
+
+  // FREE SPORTS endpoints (basketball, baseball, hockey, MMA, NFL)
+  // These use free API tier - fetched once/day, no live betting
+  app.get("/api/free-sports/status", async (req: Request, res: Response) => {
+    try {
+      const status = freeSportsService.getCacheStatus();
+      res.json({
+        success: true,
+        ...status,
+        supportedSports: freeSportsService.getSupportedSports(),
+        note: "Free sports update once daily (morning). No live betting available."
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Failed to get free sports status" });
+    }
+  });
+
+  app.get("/api/free-sports/events", async (req: Request, res: Response) => {
+    try {
+      const sportSlug = req.query.sport as string | undefined;
+      const events = freeSportsService.getUpcomingEvents(sportSlug);
+      res.json({
+        success: true,
+        count: events.length,
+        events,
+        note: "No live betting for free sports - upcoming matches only"
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Failed to get free sports events" });
     }
   });
 
