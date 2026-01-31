@@ -123,6 +123,105 @@ class SettlementWorkerService {
     console.log('⏹️ SettlementWorker stopped');
   }
 
+  /**
+   * Process free sports results for settlement
+   * Called by freeSportsService after nightly results fetch
+   */
+  public async processFreeSportsResults(results: { eventId: string; homeTeam: string; awayTeam: string; homeScore: number; awayScore: number; winner: 'home' | 'away' | 'draw'; status: string }[]): Promise<void> {
+    console.log(`🆓 SettlementWorker: Processing ${results.length} free sports results...`);
+    
+    if (results.length === 0) {
+      console.log('🆓 SettlementWorker: No free sports results to process');
+      return;
+    }
+    
+    try {
+      // Get all unsettled bets
+      const unsettledBets = await this.getUnsettledBets();
+      
+      if (unsettledBets.length === 0) {
+        console.log('🆓 SettlementWorker: No unsettled bets to settle');
+        return;
+      }
+      
+      // Filter to only pending bets (not already won)
+      const pendingBets = unsettledBets.filter(bet => bet.status !== 'won');
+      
+      if (pendingBets.length === 0) {
+        console.log('🆓 SettlementWorker: No pending bets for free sports');
+        return;
+      }
+      
+      console.log(`🆓 SettlementWorker: Checking ${pendingBets.length} pending bets against ${results.length} free sports results`);
+      
+      // Convert free sports results to FinishedMatch format
+      const finishedMatches: FinishedMatch[] = results.map(result => ({
+        eventId: result.eventId,
+        homeTeam: result.homeTeam,
+        awayTeam: result.awayTeam,
+        homeScore: result.homeScore,
+        awayScore: result.awayScore,
+        winner: result.winner,
+        status: result.status
+      }));
+      
+      // Process each finished match
+      for (const match of finishedMatches) {
+        // Skip if already settled
+        if (this.isEventSettled(match.eventId)) {
+          console.log(`🆓 Skipping already settled event: ${match.eventId}`);
+          continue;
+        }
+        
+        // Find bets for this match - use event ID matching
+        const betsForMatch = pendingBets.filter(bet => {
+          const betExtId = String(bet.externalEventId || '').trim();
+          const matchId = String(match.eventId || '').trim();
+          
+          // Strategy 1: Exact event ID match
+          if (betExtId && matchId && betExtId === matchId) {
+            console.log(`🆓 Match found: bet ${betExtId} matches finished match ${matchId}`);
+            return true;
+          }
+          
+          // Strategy 2: Match by team names (for free sports that may have different ID formats)
+          if (bet.homeTeam && bet.awayTeam) {
+            const betHome = bet.homeTeam.toLowerCase().trim();
+            const betAway = bet.awayTeam.toLowerCase().trim();
+            const matchHome = match.homeTeam.toLowerCase().trim();
+            const matchAway = match.awayTeam.toLowerCase().trim();
+            
+            if ((betHome === matchHome || matchHome.includes(betHome) || betHome.includes(matchHome)) &&
+                (betAway === matchAway || matchAway.includes(betAway) || betAway.includes(matchAway))) {
+              console.log(`🆓 Team name match: ${bet.homeTeam} vs ${bet.awayTeam} matches ${match.homeTeam} vs ${match.awayTeam}`);
+              return true;
+            }
+          }
+          
+          return false;
+        });
+        
+        if (betsForMatch.length > 0) {
+          console.log(`🆓 Settling ${betsForMatch.length} bets for ${match.homeTeam} vs ${match.awayTeam} (${match.homeScore}-${match.awayScore})`);
+          await this.settleBetsForMatch(match, betsForMatch);
+        }
+      }
+      
+      // Also process parlay bets that may include free sports legs
+      const allUnsettled = await this.getUnsettledBets();
+      const parlayBets = allUnsettled.filter(bet => this.isParlayBet(bet) && bet.status !== 'won');
+      
+      if (parlayBets.length > 0) {
+        console.log(`🆓 Processing ${parlayBets.length} parlay bets with free sports results...`);
+        await this.settleParlayBets(parlayBets, finishedMatches);
+      }
+      
+      console.log(`🆓 SettlementWorker: Free sports settlement complete`);
+    } catch (error: any) {
+      console.error(`🆓 SettlementWorker: Error processing free sports results:`, error.message);
+    }
+  }
+
   public async checkAndSettleBets() {
     console.log('🔍 SettlementWorker: Checking for finished matches...');
 

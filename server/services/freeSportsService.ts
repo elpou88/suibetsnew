@@ -12,6 +12,17 @@ import { SportEvent, MarketData, OutcomeData } from '../types/betting';
  * - Cache data aggressively (24 hours)
  */
 
+// Type for finished match results (used for settlement)
+export interface FreeSportsResult {
+  eventId: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeScore: number;
+  awayScore: number;
+  winner: 'home' | 'away' | 'draw';
+  status: string;
+}
+
 // Cached data for free sports
 let cachedFreeSportsEvents: SportEvent[] = [];
 let lastFetchTime: number = 0;
@@ -276,12 +287,12 @@ export class FreeSportsService {
   }
 
   /**
-   * Fetch results for settlement
+   * Fetch results for settlement - includes team names for matching
    */
-  async fetchAllResults(): Promise<{ eventId: string; homeScore: number; awayScore: number; status: string }[]> {
+  async fetchAllResults(): Promise<FreeSportsResult[]> {
     console.log('[FreeSports] 🌙 Fetching results for settlement...');
     
-    const results: { eventId: string; homeScore: number; awayScore: number; status: string }[] = [];
+    const results: FreeSportsResult[] = [];
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const dateStr = yesterday.toISOString().split('T')[0];
@@ -309,10 +320,30 @@ export class FreeSportsService {
                             status === 'FT' || status === 'AET' || status === 'PEN';
           
           if (isFinished) {
+            // Extract team names based on sport API structure
+            let homeTeam = '';
+            let awayTeam = '';
+            
+            if (sportSlug === 'mma') {
+              // MMA has fighters instead of teams
+              homeTeam = game.fighters?.home?.name || game.home?.name || 'Fighter 1';
+              awayTeam = game.fighters?.away?.name || game.away?.name || 'Fighter 2';
+            } else {
+              // Standard team sports
+              homeTeam = game.teams?.home?.name || game.home?.name || 'Home';
+              awayTeam = game.teams?.away?.name || game.away?.name || 'Away';
+            }
+            
+            const homeScore = game.scores?.home?.total ?? game.scores?.home ?? 0;
+            const awayScore = game.scores?.away?.total ?? game.scores?.away ?? 0;
+            
             results.push({
               eventId: `${sportSlug}_${game.id}`,
-              homeScore: game.scores?.home?.total || game.scores?.home || 0,
-              awayScore: game.scores?.away?.total || game.scores?.away || 0,
+              homeTeam,
+              awayTeam,
+              homeScore: typeof homeScore === 'number' ? homeScore : parseInt(homeScore) || 0,
+              awayScore: typeof awayScore === 'number' ? awayScore : parseInt(awayScore) || 0,
+              winner: homeScore > awayScore ? 'home' : awayScore > homeScore ? 'away' : 'draw',
               status: 'finished'
             });
           }
@@ -328,7 +359,29 @@ export class FreeSportsService {
     lastResultsFetchTime = Date.now();
     lastResultsFetchDate = getUTCDateString(); // Lock: only fetch results once per day
     console.log(`[FreeSports] ✅ Total: ${results.length} finished games for settlement (locked until ${lastResultsFetchDate})`);
+    
+    // CRITICAL: Trigger settlement for free sports results
+    if (results.length > 0) {
+      this.triggerSettlement(results);
+    }
+    
     return results;
+  }
+  
+  /**
+   * Trigger settlement worker to process free sports results
+   */
+  private async triggerSettlement(results: FreeSportsResult[]): Promise<void> {
+    try {
+      // Import settlement worker dynamically to avoid circular dependencies
+      const { settlementWorker } = await import('./settlementWorker');
+      
+      console.log(`[FreeSports] 🎯 Triggering settlement for ${results.length} finished matches...`);
+      await settlementWorker.processFreeSportsResults(results);
+      console.log(`[FreeSports] ✅ Settlement triggered successfully`);
+    } catch (error: any) {
+      console.error(`[FreeSports] ❌ Failed to trigger settlement:`, error.message);
+    }
   }
 
   /**
