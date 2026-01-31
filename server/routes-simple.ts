@@ -1715,6 +1715,47 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         // Continue with bet - don't block if check fails
       }
       
+      // ANTI-CHEAT: Block Over/Under bets when goals already exceed threshold (decided markets)
+      if (data.isLive && data.marketId) {
+        const marketIdStr = String(data.marketId).toLowerCase();
+        const outcomeIdStr = String(data.outcomeId || '').toLowerCase();
+        const predictionStr = String(data.prediction || '').toLowerCase();
+        
+        // Check if this is an Over/Under or Goals market
+        const isOverUnderMarket = marketIdStr.includes('over') || marketIdStr.includes('under') || 
+                                   marketIdStr.includes('o/u') || marketIdStr.includes('goals') ||
+                                   outcomeIdStr.includes('over') || outcomeIdStr.includes('under') ||
+                                   predictionStr.includes('over') || predictionStr.includes('under');
+        
+        if (isOverUnderMarket) {
+          try {
+            // Get current score from API
+            const eventData = apiSportsService.lookupEventSync(data.eventId);
+            if (eventData) {
+              const homeScore = parseInt(String(eventData.homeScore || eventData.score?.home || 0)) || 0;
+              const awayScore = parseInt(String(eventData.awayScore || eventData.score?.away || 0)) || 0;
+              const totalGoals = homeScore + awayScore;
+              
+              // Extract threshold from market/outcome (e.g., "Over 2.5" -> 2.5)
+              const thresholdMatch = (marketIdStr + ' ' + outcomeIdStr + ' ' + predictionStr).match(/(\d+\.?\d*)/);
+              const threshold = thresholdMatch ? parseFloat(thresholdMatch[1]) : null;
+              
+              if (threshold !== null && totalGoals > threshold) {
+                console.warn(`[Anti-Cheat] Blocking decided Over/Under bet: ${data.eventId}, threshold=${threshold}, goals=${totalGoals}`);
+                return res.status(400).json({
+                  success: false,
+                  message: "MARKET_DECIDED",
+                  details: `This market is already decided (${totalGoals} goals scored, threshold was ${threshold}).`
+                });
+              }
+            }
+          } catch (ouCheckError) {
+            console.warn('[Over/Under Check] Failed to check market status, allowing bet:', ouCheckError);
+            // Continue with bet - don't block if check fails (fail open)
+          }
+        }
+      }
+      
       // Anti-cheat: Block first-half markets after minute 45 and all markets after minute 80
       const isFirstHalfMarket = !!data.marketId && (
         String(data.marketId).includes('1st_half') || 
