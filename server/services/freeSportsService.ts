@@ -74,7 +74,7 @@ loadCacheFromFile();
 // Helper to get current UTC date string
 const getUTCDateString = (): string => new Date().toISOString().split('T')[0];
 
-// Free sports configuration
+// Free sports configuration - ALL available API-Sports APIs
 const FREE_SPORTS_CONFIG: Record<string, {
   endpoint: string;
   apiHost: string;
@@ -115,6 +115,56 @@ const FREE_SPORTS_CONFIG: Record<string, {
     apiHost: 'v1.american-football.api-sports.io',
     sportId: 4,
     name: 'American Football',
+    hasDraws: false
+  },
+  // NEW SPORTS FROM API-SPORTS DASHBOARD
+  afl: {
+    endpoint: 'https://v1.afl.api-sports.io/games',
+    apiHost: 'v1.afl.api-sports.io',
+    sportId: 10,
+    name: 'AFL',
+    hasDraws: true
+  },
+  'formula-1': {
+    endpoint: 'https://v1.formula-1.api-sports.io/races',
+    apiHost: 'v1.formula-1.api-sports.io',
+    sportId: 11,
+    name: 'Formula 1',
+    hasDraws: false
+  },
+  handball: {
+    endpoint: 'https://v1.handball.api-sports.io/games',
+    apiHost: 'v1.handball.api-sports.io',
+    sportId: 12,
+    name: 'Handball',
+    hasDraws: true
+  },
+  nba: {
+    endpoint: 'https://v1.nba.api-sports.io/games',
+    apiHost: 'v1.nba.api-sports.io',
+    sportId: 13,
+    name: 'NBA',
+    hasDraws: false
+  },
+  nfl: {
+    endpoint: 'https://v1.nfl.api-sports.io/games',
+    apiHost: 'v1.nfl.api-sports.io',
+    sportId: 14,
+    name: 'NFL',
+    hasDraws: false
+  },
+  rugby: {
+    endpoint: 'https://v1.rugby.api-sports.io/games',
+    apiHost: 'v1.rugby.api-sports.io',
+    sportId: 15,
+    name: 'Rugby',
+    hasDraws: true
+  },
+  volleyball: {
+    endpoint: 'https://v1.volleyball.api-sports.io/games',
+    apiHost: 'v1.volleyball.api-sports.io',
+    sportId: 16,
+    name: 'Volleyball',
     hasDraws: false
   }
 };

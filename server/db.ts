@@ -211,6 +211,63 @@ async function seedSports() {
         wurlusSportId: 'esports_wurlus_id',
         isActive: true,
         providerId: 'sports_provider_3'
+      },
+      // New sports from API-Sports
+      { 
+        name: 'AFL', 
+        slug: 'afl',
+        icon: '🏉',
+        wurlusSportId: 'afl_wurlus_id',
+        isActive: true,
+        providerId: 'sports_provider_1'
+      },
+      { 
+        name: 'Formula 1', 
+        slug: 'formula-1',
+        icon: '🏎️',
+        wurlusSportId: 'f1_wurlus_id',
+        isActive: true,
+        providerId: 'sports_provider_1'
+      },
+      { 
+        name: 'Handball', 
+        slug: 'handball',
+        icon: '🤾',
+        wurlusSportId: 'handball_wurlus_id',
+        isActive: true,
+        providerId: 'sports_provider_1'
+      },
+      { 
+        name: 'NBA', 
+        slug: 'nba',
+        icon: '🏀',
+        wurlusSportId: 'nba_wurlus_id',
+        isActive: true,
+        providerId: 'sports_provider_1'
+      },
+      { 
+        name: 'NFL', 
+        slug: 'nfl',
+        icon: '🏈',
+        wurlusSportId: 'nfl_wurlus_id',
+        isActive: true,
+        providerId: 'sports_provider_1'
+      },
+      { 
+        name: 'Rugby', 
+        slug: 'rugby',
+        icon: '🏉',
+        wurlusSportId: 'rugby_wurlus_id',
+        isActive: true,
+        providerId: 'sports_provider_1'
+      },
+      { 
+        name: 'Volleyball', 
+        slug: 'volleyball',
+        icon: '🏐',
+        wurlusSportId: 'volleyball_wurlus_id',
+        isActive: true,
+        providerId: 'sports_provider_1'
       }
     ];
     
