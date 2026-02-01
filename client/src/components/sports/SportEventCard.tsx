@@ -16,6 +16,33 @@ const SportEventCard: React.FC<SportEventCardProps> = ({ event, sportId }) => {
   const { addBet } = useBetting();
   const [showAllMarkets, setShowAllMarkets] = useState(false);
   
+  // Check if live match is past 45 minutes (betting closed)
+  const getMatchMinute = (): number | null => {
+    const eventAny = event as any;
+    // Try various minute field names
+    if (eventAny.minute !== undefined && eventAny.minute !== null) {
+      const min = parseInt(String(eventAny.minute));
+      if (!isNaN(min)) return min;
+    }
+    if (eventAny.matchMinute !== undefined && eventAny.matchMinute !== null) {
+      const min = parseInt(String(eventAny.matchMinute));
+      if (!isNaN(min)) return min;
+    }
+    // Try to extract from status string like "75'" or "HT"
+    if (typeof eventAny.status === 'string') {
+      const match = eventAny.status.match(/(\d+)/);
+      if (match) return parseInt(match[1]);
+      if (eventAny.status === 'HT') return 45; // Half time = 45
+      if (eventAny.status.includes('2H')) return 46; // Second half started
+    }
+    return null;
+  };
+  
+  const matchMinute = getMatchMinute();
+  const isLiveMatch = event.isLive || event.status?.toLowerCase().includes('live') || 
+                      event.status?.includes('H') || event.status?.includes("'");
+  const isBettingClosed = isLiveMatch && matchMinute !== null && matchMinute >= 45;
+  
   // Helper to get current total goals from event score
   const getCurrentTotalGoals = (): number => {
     let homeScore = 0;
@@ -205,27 +232,34 @@ const SportEventCard: React.FC<SportEventCardProps> = ({ event, sportId }) => {
         {primaryMarket && (
           <div className="mt-4">
             <p className="text-xs text-gray-400 mb-2 text-center font-medium">{primaryMarket.name}</p>
-            <div className={`grid ${primaryMarket.outcomes.length > 2 ? 'grid-cols-3' : 'grid-cols-2'} gap-1 relative z-20`}>
-              {primaryMarket.outcomes.map((outcome, i) => (
-                <Button
-                  key={i}
-                  variant="outline"
-                  size="sm"
-                  className="h-12 bg-[#1e3a3f] hover:bg-cyan-800 border-[#2a4c55] text-cyan-300 hover:text-white"
-                  onClick={(e) => handleAddBet(e, primaryMarket, outcome.name, outcome.odds)}
-                >
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-normal truncate max-w-[80px]">{outcome.name}</span>
-                    <span className="font-bold text-sm">{outcome.odds.toFixed(2)}</span>
-                  </div>
-                </Button>
-              ))}
-            </div>
+            {isBettingClosed ? (
+              <div className="bg-red-900/30 border border-red-500/40 rounded-lg p-3 text-center">
+                <span className="text-red-400 font-bold text-sm">Betting Closed</span>
+                <span className="text-red-400/70 text-xs block">Match past 45 minutes</span>
+              </div>
+            ) : (
+              <div className={`grid ${primaryMarket.outcomes.length > 2 ? 'grid-cols-3' : 'grid-cols-2'} gap-1 relative z-20`}>
+                {primaryMarket.outcomes.map((outcome, i) => (
+                  <Button
+                    key={i}
+                    variant="outline"
+                    size="sm"
+                    className="h-12 bg-[#1e3a3f] hover:bg-cyan-800 border-[#2a4c55] text-cyan-300 hover:text-white"
+                    onClick={(e) => handleAddBet(e, primaryMarket, outcome.name, outcome.odds)}
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-normal truncate max-w-[80px]">{outcome.name}</span>
+                      <span className="font-bold text-sm">{outcome.odds.toFixed(2)}</span>
+                    </div>
+                  </Button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
-        {/* Expandable Secondary Markets */}
-        {secondaryMarkets.length > 0 && (
+        {/* Expandable Secondary Markets - hide when betting closed */}
+        {secondaryMarkets.length > 0 && !isBettingClosed && (
           <div className="mt-3 border-t border-[#1e3a3f] pt-2">
             <Button 
               variant="ghost" 
