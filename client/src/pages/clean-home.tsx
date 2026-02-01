@@ -30,30 +30,17 @@ function saveFavorites(favorites: Set<string>) {
 const suibetsLogo = "/images/suibets-logo.png";
 const suibetsHeroBg = "/images/hero-bg.png";
 
+// Sport IDs MUST match database: 1=Soccer, 2=Basketball, 3=Tennis, 4=American Football, 5=Baseball, 6=Ice Hockey, 7=MMA, 8=Boxing, 9=Esports
 const SPORTS_LIST = [
   { id: 1, name: "Football", icon: "⚽" },
   { id: 2, name: "Basketball", icon: "🏀" },
   { id: 3, name: "Tennis", icon: "🎾" },
-  { id: 4, name: "Baseball", icon: "⚾" },
-  { id: 5, name: "Hockey", icon: "🏒" },
-  { id: 6, name: "MMA", icon: "🥊" },
-  { id: 7, name: "Horse Racing", icon: "🏇" },
-  { id: 8, name: "Esports", icon: "🎮" },
-  { id: 9, name: "Cricket", icon: "🏏" },
-  { id: 10, name: "Rugby", icon: "🏉" },
-  { id: 11, name: "American Football", icon: "🏈" },
-  { id: 12, name: "Golf", icon: "⛳" },
-  { id: 13, name: "Volleyball", icon: "🏐" },
-  { id: 14, name: "Badminton", icon: "🏸" },
-  { id: 15, name: "Table Tennis", icon: "🏓" },
-  { id: 16, name: "Athletics", icon: "🏃" },
-  { id: 17, name: "Cycling", icon: "🚴" },
-  { id: 18, name: "Boxing", icon: "🥊" },
-  { id: 19, name: "Wrestling", icon: "🤼" },
-  { id: 20, name: "Snooker", icon: "🎱" },
-  { id: 21, name: "Darts", icon: "🎯" },
-  { id: 22, name: "Motorsports", icon: "🏎️" },
-  { id: 23, name: "F1 Racing", icon: "🏁" },
+  { id: 5, name: "Baseball", icon: "⚾" },
+  { id: 6, name: "Hockey", icon: "🏒" },
+  { id: 7, name: "MMA", icon: "🥊" },
+  { id: 4, name: "American Football", icon: "🏈" },
+  { id: 9, name: "Esports", icon: "🎮" },
+  { id: 8, name: "Boxing", icon: "🥊" },
 ];
 
 interface Outcome {
