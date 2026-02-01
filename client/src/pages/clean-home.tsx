@@ -1039,44 +1039,50 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
         ) : hasRealOdds ? (
           <div className="flex gap-1">
             {/* Home Odds */}
-            <button
-              onClick={() => handleOutcomeClick('home')}
-              className={`px-2 md:px-3 py-1.5 rounded text-xs font-medium transition-all flex items-center gap-0.5 ${
-                selectedOutcome === 'home' 
-                  ? 'bg-cyan-500 text-black' 
-                  : 'bg-[#1a1a1a] text-cyan-400 hover:bg-[#222]'
-              }`}
-              data-testid={`compact-odds-home-${event.id}`}
-            >
-              <OddsMovement direction={getOddsMovement(odds.home!)} />
-              {odds.home!.toFixed(2)}
-            </button>
-            {/* Draw Odds */}
-            <button
-              onClick={() => handleOutcomeClick('draw')}
-              className={`px-2 md:px-3 py-1.5 rounded text-xs font-medium transition-all flex items-center gap-0.5 ${
-                selectedOutcome === 'draw' 
-                  ? 'bg-yellow-500 text-black' 
-                  : 'bg-[#1a1a1a] text-yellow-400 hover:bg-[#222]'
-              }`}
-              data-testid={`compact-odds-draw-${event.id}`}
-            >
-              <OddsMovement direction={getOddsMovement(odds.draw!)} />
-              {odds.draw!.toFixed(2)}
-            </button>
+            {odds.home && (
+              <button
+                onClick={() => handleOutcomeClick('home')}
+                className={`px-2 md:px-3 py-1.5 rounded text-xs font-medium transition-all flex items-center gap-0.5 ${
+                  selectedOutcome === 'home' 
+                    ? 'bg-cyan-500 text-black' 
+                    : 'bg-[#1a1a1a] text-cyan-400 hover:bg-[#222]'
+                }`}
+                data-testid={`compact-odds-home-${event.id}`}
+              >
+                <OddsMovement direction={getOddsMovement(odds.home)} />
+                {odds.home.toFixed(2)}
+              </button>
+            )}
+            {/* Draw Odds - only for sports with draws (e.g., football) */}
+            {odds.draw && (
+              <button
+                onClick={() => handleOutcomeClick('draw')}
+                className={`px-2 md:px-3 py-1.5 rounded text-xs font-medium transition-all flex items-center gap-0.5 ${
+                  selectedOutcome === 'draw' 
+                    ? 'bg-yellow-500 text-black' 
+                    : 'bg-[#1a1a1a] text-yellow-400 hover:bg-[#222]'
+                }`}
+                data-testid={`compact-odds-draw-${event.id}`}
+              >
+                <OddsMovement direction={getOddsMovement(odds.draw)} />
+                {odds.draw.toFixed(2)}
+              </button>
+            )}
             {/* Away Odds */}
-            <button
-              onClick={() => handleOutcomeClick('away')}
-              className={`px-2 md:px-3 py-1.5 rounded text-xs font-medium transition-all flex items-center gap-0.5 ${
-                selectedOutcome === 'away' 
-                  ? 'bg-cyan-500 text-black' 
-                  : 'bg-[#1a1a1a] text-white hover:bg-[#222]'
-              }`}
-              data-testid={`compact-odds-away-${event.id}`}
-            >
-              <OddsMovement direction={getOddsMovement(odds.away!)} />
-              {odds.away!.toFixed(2)}
-            </button>
+            {odds.away && (
+              <button
+                onClick={() => handleOutcomeClick('away')}
+                className={`px-2 md:px-3 py-1.5 rounded text-xs font-medium transition-all flex items-center gap-0.5 ${
+                  selectedOutcome === 'away' 
+                    ? 'bg-cyan-500 text-black' 
+                    : 'bg-[#1a1a1a] text-white hover:bg-[#222]'
+                }`}
+                data-testid={`compact-odds-away-${event.id}`}
+              >
+                <OddsMovement direction={getOddsMovement(odds.away)} />
+                {odds.away.toFixed(2)}
+              </button>
+            )}
             {selectedOutcome && (
               <button
                 onClick={handleQuickBet}
@@ -1125,18 +1131,24 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
                   <div className="border-t border-cyan-900/30 pt-2 mt-2">
                     <span className="text-cyan-400 font-medium">Quick Stats</span>
                   </div>
-                  <div className="flex justify-between gap-4">
-                    <span className="text-gray-400">Home Win:</span>
-                    <span className="text-green-400">{((1/odds.home)*100).toFixed(0)}%</span>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <span className="text-gray-400">Draw:</span>
-                    <span className="text-yellow-400">{((1/odds.draw)*100).toFixed(0)}%</span>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <span className="text-gray-400">Away Win:</span>
-                    <span className="text-cyan-400">{((1/odds.away)*100).toFixed(0)}%</span>
-                  </div>
+                  {odds.home && (
+                    <div className="flex justify-between gap-4">
+                      <span className="text-gray-400">Home Win:</span>
+                      <span className="text-green-400">{((1/odds.home)*100).toFixed(0)}%</span>
+                    </div>
+                  )}
+                  {odds.draw && (
+                    <div className="flex justify-between gap-4">
+                      <span className="text-gray-400">Draw:</span>
+                      <span className="text-yellow-400">{((1/odds.draw)*100).toFixed(0)}%</span>
+                    </div>
+                  )}
+                  {odds.away && (
+                    <div className="flex justify-between gap-4">
+                      <span className="text-gray-400">Away Win:</span>
+                      <span className="text-cyan-400">{((1/odds.away)*100).toFixed(0)}%</span>
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -1433,38 +1445,44 @@ function EventCard({ event }: EventCardProps) {
           <div className="flex gap-2">
             {hasRealOdds ? (
               <>
-                <div 
-                  className={`bg-[#1a1a1a] rounded-lg p-3 min-w-[70px] text-center cursor-pointer transition-all ${
-                    selectedOutcome === "draw" ? "ring-2 ring-yellow-500" : "hover:bg-[#222222]"
-                  }`}
-                  onClick={(e) => handleOutcomeClick("draw", e)}
-                  data-testid={`odds-draw-${event.id}`}
-                >
-                  <div className="text-yellow-400 text-xs mb-1">Draw</div>
-                  <div className="text-yellow-400 text-xl font-bold">{odds.draw.toFixed(2)}</div>
-                </div>
-                <div 
-                  className={`bg-[#1a1a1a] rounded-lg p-3 min-w-[70px] text-center cursor-pointer transition-all ${
-                    selectedOutcome === "home" ? "ring-2 ring-cyan-500" : "hover:bg-[#222222]"
-                  }`}
-                  onClick={(e) => handleOutcomeClick("home", e)}
-                  data-testid={`odds-home-${event.id}`}
-                >
-                  <div className="text-cyan-400 text-xs mb-1">Home</div>
-                  <div className="text-cyan-400 text-xl font-bold">{odds.home.toFixed(2)}</div>
-                  <div className="text-gray-500 text-xs">{event.homeTeam?.split(' ')[0]}</div>
-                </div>
-                <div 
-                  className={`bg-[#1a1a1a] rounded-lg p-3 min-w-[70px] text-center cursor-pointer transition-all ${
-                    selectedOutcome === "away" ? "ring-2 ring-cyan-500" : "hover:bg-[#222222]"
-                  }`}
-                  onClick={(e) => handleOutcomeClick("away", e)}
-                  data-testid={`odds-away-${event.id}`}
-                >
-                  <div className="text-white text-xs mb-1">Away</div>
-                  <div className="text-white text-xl font-bold">{odds.away.toFixed(2)}</div>
-                  <div className="text-gray-500 text-xs">{event.awayTeam?.split(' ')[0]}</div>
-                </div>
+                {odds.home && (
+                  <div 
+                    className={`bg-[#1a1a1a] rounded-lg p-3 min-w-[70px] text-center cursor-pointer transition-all ${
+                      selectedOutcome === "home" ? "ring-2 ring-cyan-500" : "hover:bg-[#222222]"
+                    }`}
+                    onClick={(e) => handleOutcomeClick("home", e)}
+                    data-testid={`odds-home-${event.id}`}
+                  >
+                    <div className="text-cyan-400 text-xs mb-1">Home</div>
+                    <div className="text-cyan-400 text-xl font-bold">{odds.home.toFixed(2)}</div>
+                    <div className="text-gray-500 text-xs">{event.homeTeam?.split(' ')[0]}</div>
+                  </div>
+                )}
+                {odds.draw && (
+                  <div 
+                    className={`bg-[#1a1a1a] rounded-lg p-3 min-w-[70px] text-center cursor-pointer transition-all ${
+                      selectedOutcome === "draw" ? "ring-2 ring-yellow-500" : "hover:bg-[#222222]"
+                    }`}
+                    onClick={(e) => handleOutcomeClick("draw", e)}
+                    data-testid={`odds-draw-${event.id}`}
+                  >
+                    <div className="text-yellow-400 text-xs mb-1">Draw</div>
+                    <div className="text-yellow-400 text-xl font-bold">{odds.draw.toFixed(2)}</div>
+                  </div>
+                )}
+                {odds.away && (
+                  <div 
+                    className={`bg-[#1a1a1a] rounded-lg p-3 min-w-[70px] text-center cursor-pointer transition-all ${
+                      selectedOutcome === "away" ? "ring-2 ring-cyan-500" : "hover:bg-[#222222]"
+                    }`}
+                    onClick={(e) => handleOutcomeClick("away", e)}
+                    data-testid={`odds-away-${event.id}`}
+                  >
+                    <div className="text-white text-xs mb-1">Away</div>
+                    <div className="text-white text-xl font-bold">{odds.away.toFixed(2)}</div>
+                    <div className="text-gray-500 text-xs">{event.awayTeam?.split(' ')[0]}</div>
+                  </div>
+                )}
               </>
             ) : (
               <div className="bg-[#1a1a1a] rounded-lg p-3 text-center">
@@ -1586,19 +1604,21 @@ function EventCard({ event }: EventCardProps) {
             <h4 className="text-cyan-400 font-semibold mb-3">All Markets</h4>
             
             {/* Over/Under Markets */}
-            <div className="mb-4">
-              <div className="text-gray-400 text-sm mb-2">Over/Under 2.5 Goals</div>
-              <div className="flex gap-2">
-                <button className="flex-1 bg-[#1a1a1a] hover:bg-[#222222] text-white py-2 px-4 rounded-lg text-center transition-all">
-                  <span className="text-xs text-gray-400">Over 2.5</span>
-                  <div className="text-cyan-400 font-bold">{(odds.home * 0.9).toFixed(2)}</div>
-                </button>
-                <button className="flex-1 bg-[#1a1a1a] hover:bg-[#222222] text-white py-2 px-4 rounded-lg text-center transition-all">
-                  <span className="text-xs text-gray-400">Under 2.5</span>
-                  <div className="text-cyan-400 font-bold">{(odds.away * 1.1).toFixed(2)}</div>
-                </button>
+            {odds.home && odds.away && (
+              <div className="mb-4">
+                <div className="text-gray-400 text-sm mb-2">Over/Under 2.5 Goals</div>
+                <div className="flex gap-2">
+                  <button className="flex-1 bg-[#1a1a1a] hover:bg-[#222222] text-white py-2 px-4 rounded-lg text-center transition-all">
+                    <span className="text-xs text-gray-400">Over 2.5</span>
+                    <div className="text-cyan-400 font-bold">{(odds.home * 0.9).toFixed(2)}</div>
+                  </button>
+                  <button className="flex-1 bg-[#1a1a1a] hover:bg-[#222222] text-white py-2 px-4 rounded-lg text-center transition-all">
+                    <span className="text-xs text-gray-400">Under 2.5</span>
+                    <div className="text-cyan-400 font-bold">{(odds.away * 1.1).toFixed(2)}</div>
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Both Teams to Score */}
             <div className="mb-4">
