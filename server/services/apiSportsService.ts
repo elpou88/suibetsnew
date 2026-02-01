@@ -70,7 +70,7 @@ export class ApiSportsService {
   // Background prefetcher state
   private prefetcherRunning: boolean = false;
   private lastPrefetchTime: number = 0;
-  private prefetchInterval: number = 30 * 60 * 1000; // Refresh odds every 30 minutes (MAXIMUM API SAVING)
+  private prefetchInterval: number = 60 * 60 * 1000; // Refresh odds every 60 minutes (ULTRA API SAVING)
   
   // Pre-warmed odds cache - separate from main cache for guaranteed access
   private oddsCache: Map<string, { homeOdds: number; drawOdds?: number; awayOdds: number; timestamp: number }> = new Map();
@@ -2939,20 +2939,20 @@ export class ApiSportsService {
     }
     
     // For fixtures not found in live odds, fall back to individual fetches
-    const remainingFixtures = fixtureIds.filter(id => !resultMap.has(id));
+    // ULTRA API SAVING: Limit to max 5 fixtures to prevent quota exhaustion
+    const remainingFixtures = fixtureIds.filter(id => !resultMap.has(id)).slice(0, 5);
     if (remainingFixtures.length === 0) {
       return resultMap;
     }
     
-    // Batch fixtures into groups of 10 to maximize throughput (API-Sports allows 10 req/sec)
-    // Increased from 5 to 10 for faster prefetching
-    const batchSize = 10;
+    // Batch fixtures into groups of 5 (REDUCED for API saving)
+    const batchSize = 5;
     const batches = [];
     for (let i = 0; i < remainingFixtures.length; i += batchSize) {
       batches.push(remainingFixtures.slice(i, i + batchSize));
     }
     
-    console.log(`[ApiSportsService] 🎰 Fetching odds for ${remainingFixtures.length} remaining fixtures in ${batches.length} batch(es)`);
+    console.log(`[ApiSportsService] 🎰 Fetching odds for ${remainingFixtures.length} remaining fixtures in ${batches.length} batch(es) (ULTRA API SAVING - limited to 5)`);
     
     // Process ALL batches with rate limiting (max 10 requests per second for API-Sports)
     for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
@@ -3295,10 +3295,10 @@ export class ApiSportsService {
       .map(e => e.id?.toString())
       .filter((id): id is string => !!id);
     
-    // Step 3: Batch fetch odds for missing major league fixtures (max 30 to stay API-friendly)
+    // Step 3: Batch fetch odds for missing major league fixtures (ULTRA API SAVING: max 10)
     if (missingMajorLeagueFixtures.length > 0) {
-      const toFetch = missingMajorLeagueFixtures.slice(0, 30);
-      console.log(`[ApiSportsService] 🏆 Fetching odds for ${toFetch.length} major league fixtures missing from cache...`);
+      const toFetch = missingMajorLeagueFixtures.slice(0, 10);
+      console.log(`[ApiSportsService] 🏆 Fetching odds for ${toFetch.length} major league fixtures missing from cache (limited to 10)...`);
       
       try {
         const newOdds = await this.getOddsForFixtures(toFetch, sport);
@@ -3485,7 +3485,7 @@ export class ApiSportsService {
         let page = 1;
         let hasMore = true;
         
-        while (hasMore && page <= 20) { // Max 20 pages per date to avoid infinite loops
+        while (hasMore && page <= 5) { // Max 5 pages per date (ULTRA API SAVING - covers major leagues)
           try {
             console.log(`[ApiSportsService] 📅 Fetching odds for ${date} (page ${page})...`);
             
