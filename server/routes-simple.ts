@@ -1948,7 +1948,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         }
       }
 
-      // MAX STAKE VALIDATION - Backend enforcement (100 SUI / 10M SBETS)
+      // MAX STAKE VALIDATION - Backend enforcement (100 SUI / 10,000 SBETS)
       // Use feeCurrency as primary indicator (client sends this), fallback to currency
       const betCurrency = feeCurrency || currency || 'SUI';
       
@@ -1962,13 +1962,13 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       }
       
       const MAX_STAKE_SUI = 100;
-      const MAX_STAKE_SBETS = 10000000;
+      const MAX_STAKE_SBETS = 10000; // 10,000 SBETS max per bet
       const maxStake = betCurrency === 'SBETS' ? MAX_STAKE_SBETS : MAX_STAKE_SUI;
       
       if (betAmount > maxStake) {
         console.log(`❌ Bet rejected (max stake exceeded): ${betAmount} ${betCurrency} > ${maxStake} ${betCurrency}`);
         return res.status(400).json({
-          message: `Maximum stake is ${maxStake} ${betCurrency}`,
+          message: `Maximum stake is ${maxStake.toLocaleString()} ${betCurrency}`,
           code: "MAX_STAKE_EXCEEDED"
         });
       }
@@ -2558,15 +2558,15 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         });
       }
       
-      // MAX STAKE VALIDATION - Backend enforcement (100 SUI / 10M SBETS)
+      // MAX STAKE VALIDATION - Backend enforcement (100 SUI / 10,000 SBETS)
       const MAX_STAKE_SUI = 100;
-      const MAX_STAKE_SBETS = 10000000;
+      const MAX_STAKE_SBETS = 10000; // 10,000 SBETS max per parlay
       const maxStake = currency === 'SBETS' ? MAX_STAKE_SBETS : MAX_STAKE_SUI;
       
       if (betAmount > maxStake) {
         console.log(`❌ Parlay rejected (max stake exceeded): ${betAmount} ${currency} > ${maxStake} ${currency}`);
         return res.status(400).json({
-          message: `Maximum stake is ${maxStake} ${currency}`,
+          message: `Maximum stake is ${maxStake.toLocaleString()} ${currency}`,
           code: "MAX_STAKE_EXCEEDED"
         });
       }

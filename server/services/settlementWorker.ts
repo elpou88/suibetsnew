@@ -689,9 +689,10 @@ class SettlementWorkerService {
     const finishedMatches: FinishedMatch[] = [];
     
     try {
-      // Check all sports with API endpoints for finished matches
+      // Check ALL 15 sports with API endpoints for finished matches
       // Football uses paid API, others use free API endpoints
-      const sportsToCheck = ['football', 'basketball', 'baseball', 'hockey', 'volleyball', 'handball', 'rugby', 'afl'];
+      // Covers: Football, Basketball, Baseball, Hockey, Volleyball, Handball, Rugby, AFL, MMA, American Football, Tennis, Formula 1, Boxing, Esports, NFL
+      const sportsToCheck = ['football', 'basketball', 'baseball', 'hockey', 'volleyball', 'handball', 'rugby', 'afl', 'mma', 'american-football', 'tennis', 'formula-1', 'boxing', 'esports', 'nfl'];
       
       for (const sport of sportsToCheck) {
         try {
@@ -733,6 +734,7 @@ class SettlementWorkerService {
     
     const datesToCheck = [todayStr, yesterdayStr];
     
+    // ALL 15 sports API endpoints for settlement
     const sportEndpoints: Record<string, string> = {
       football: 'https://v3.football.api-sports.io/fixtures',
       basketball: 'https://v1.basketball.api-sports.io/games',
@@ -741,7 +743,14 @@ class SettlementWorkerService {
       volleyball: 'https://v1.volleyball.api-sports.io/games',
       handball: 'https://v1.handball.api-sports.io/games',
       rugby: 'https://v1.rugby.api-sports.io/games',
-      afl: 'https://v1.afl.api-sports.io/games'
+      afl: 'https://v1.afl.api-sports.io/games',
+      mma: 'https://v1.mma.api-sports.io/fights',
+      'american-football': 'https://v1.american-football.api-sports.io/games',
+      tennis: 'https://v1.tennis.api-sports.io/games',
+      'formula-1': 'https://v1.formula-1.api-sports.io/races',
+      boxing: 'https://v1.boxing.api-sports.io/fights',
+      esports: 'https://v1.esports.api-sports.io/games',
+      nfl: 'https://v1.american-football.api-sports.io/games'
     };
 
     const url = sportEndpoints[sport];
