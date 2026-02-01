@@ -70,7 +70,7 @@ export class ApiSportsService {
   // Background prefetcher state
   private prefetcherRunning: boolean = false;
   private lastPrefetchTime: number = 0;
-  private prefetchInterval: number = 60 * 60 * 1000; // Refresh odds every 60 minutes (ULTRA API SAVING)
+  private prefetchInterval: number = 120 * 60 * 1000; // Refresh odds every 2 hours (MINIMAL API USAGE)
   
   // Pre-warmed odds cache - separate from main cache for guaranteed access
   private oddsCache: Map<string, { homeOdds: number; drawOdds?: number; awayOdds: number; timestamp: number }> = new Map();
@@ -3396,10 +3396,11 @@ export class ApiSportsService {
       this.prefetchOdds();
     }, this.prefetchInterval);
     
-    // Also run a faster refresh for imminent matches (every 10 minutes - reduced from 2 to save API)
-    setInterval(() => {
-      this.prefetchImminentOdds();
-    }, 10 * 60 * 1000);
+    // DISABLED to save API calls - imminent odds check not needed
+    // Individual fixture odds are fetched on-demand if not in cache
+    // setInterval(() => {
+    //   this.prefetchImminentOdds();
+    // }, 10 * 60 * 1000);
   }
   
   /**
@@ -3477,7 +3478,7 @@ export class ApiSportsService {
         let page = 1;
         let hasMore = true;
         
-        while (hasMore && page <= 5) { // Max 5 pages per date (ULTRA API SAVING - covers major leagues)
+        while (hasMore && page <= 3) { // Max 3 pages per date (MINIMAL API USAGE - only major leagues)
           try {
             console.log(`[ApiSportsService] 📅 Fetching odds for ${date} (page ${page})...`);
             
