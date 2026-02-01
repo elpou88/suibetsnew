@@ -1,4 +1,6 @@
 import axios from 'axios';
+import * as fs from 'fs';
+import * as path from 'path';
 import { SportEvent, MarketData, OutcomeData } from '../types/betting';
 
 /**
@@ -10,6 +12,7 @@ import { SportEvent, MarketData, OutcomeData } from '../types/betting';
  * - Fetch results ONCE per day (night 11 PM UTC)
  * - No live betting for free sports
  * - Cache data aggressively (24 hours)
+ * - ULTRA API SAVING: File-based cache persistence to survive restarts
  */
 
 // Type for finished match results (used for settlement)
@@ -23,6 +26,11 @@ export interface FreeSportsResult {
   status: string;
 }
 
+// Cache file paths for persistence across restarts
+const CACHE_DIR = '/tmp';
+const CACHE_DATE_FILE = path.join(CACHE_DIR, 'free_sports_cache_date.txt');
+const CACHE_DATA_FILE = path.join(CACHE_DIR, 'free_sports_cache_data.json');
+
 // Cached data for free sports
 let cachedFreeSportsEvents: SportEvent[] = [];
 let lastFetchTime: number = 0;
@@ -32,6 +40,36 @@ const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours cache
 // Per-day locks to prevent duplicate fetches (stores YYYY-MM-DD)
 let lastUpcomingFetchDate: string = '';
 let lastResultsFetchDate: string = '';
+
+// ULTRA API SAVING: Load cache from file on startup
+function loadCacheFromFile(): void {
+  try {
+    if (fs.existsSync(CACHE_DATE_FILE)) {
+      lastUpcomingFetchDate = fs.readFileSync(CACHE_DATE_FILE, 'utf8').trim();
+    }
+    if (fs.existsSync(CACHE_DATA_FILE)) {
+      const data = fs.readFileSync(CACHE_DATA_FILE, 'utf8');
+      cachedFreeSportsEvents = JSON.parse(data);
+      lastFetchTime = Date.now();
+      console.log(`[FreeSports] Loaded ${cachedFreeSportsEvents.length} events from file cache (date: ${lastUpcomingFetchDate})`);
+    }
+  } catch (err: any) {
+    console.warn(`[FreeSports] Could not load cache from file: ${err.message}`);
+  }
+}
+
+// ULTRA API SAVING: Save cache to file
+function saveCacheToFile(): void {
+  try {
+    fs.writeFileSync(CACHE_DATE_FILE, lastUpcomingFetchDate);
+    fs.writeFileSync(CACHE_DATA_FILE, JSON.stringify(cachedFreeSportsEvents));
+  } catch (err: any) {
+    console.warn(`[FreeSports] Could not save cache to file: ${err.message}`);
+  }
+}
+
+// Load cache on module init
+loadCacheFromFile();
 
 // Helper to get current UTC date string
 const getUTCDateString = (): string => new Date().toISOString().split('T')[0];
@@ -194,6 +232,9 @@ export class FreeSportsService {
     cachedFreeSportsEvents = allEvents;
     lastFetchTime = Date.now();
     lastUpcomingFetchDate = getUTCDateString(); // Lock: only fetch once per day
+    
+    // ULTRA API SAVING: Persist cache to file for restart survival
+    saveCacheToFile();
     
     console.log(`[FreeSports] ✅ Total: ${allEvents.length} upcoming matches cached (locked until ${lastUpcomingFetchDate})`);
     return allEvents;

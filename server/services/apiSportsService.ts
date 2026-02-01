@@ -370,26 +370,21 @@ export class ApiSportsService {
     if (!apiVerificationDone) {
       apiVerificationDone = true;
       this.verifyApiConnections();
-      this.checkForLiveFixtures();
+      // ULTRA API SAVING: Skip live fixtures check on startup (saves 1 call)
+      // The odds prefetcher already shows live fixtures in the console
+      console.log('[ApiSportsService] Skipping live fixtures check to save API quota');
     }
   }
   
   /**
    * Verify API connections with all major sports APIs
+   * ULTRA API SAVING: Only verify football API once on startup (skips basketball, mma-ufc)
    */
   private async verifyApiConnections() {
     try {
-      // Try to verify at least the football API connection first
+      // ULTRA API SAVING: Only verify football API (saves 2 calls per restart)
       await this.verifyApiConnection('football');
-      
-      // Try other important sports APIs in parallel (only ones that exist)
-      // Note: tennis, cricket, golf, boxing, cycling APIs don't exist
-      Promise.all([
-        this.verifyApiConnection('basketball'),
-        this.verifyApiConnection('mma-ufc')
-      ]).catch(error => {
-        console.warn(`[ApiSportsService] Some sport APIs may not be available: ${error.message}`);
-      });
+      console.log('[ApiSportsService] Skipping basketball/mma-ufc status checks to save API quota');
     } catch (error) {
       console.error('[ApiSportsService] API connections verification failed:', error);
     }
@@ -3466,16 +3461,13 @@ export class ApiSportsService {
    */
   private async prefetchOdds(): Promise<void> {
     try {
-      console.log('[ApiSportsService] 🔄 Prefetching ALL odds (with pagination)...');
+      console.log('[ApiSportsService] 🔄 Prefetching odds for TODAY only (ULTRA API SAVING)...');
       const startTime = Date.now();
       
-      // Get today and tomorrow dates
+      // ULTRA API SAVING: Only fetch today's odds (cuts API calls in half)
       const today = new Date();
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      
       const formatDate = (d: Date) => d.toISOString().split('T')[0];
-      const dates = [formatDate(today), formatDate(tomorrow)];
+      const dates = [formatDate(today)]; // Only today, skip tomorrow
       
       let totalOdds = 0;
       let totalApiCalls = 0;
