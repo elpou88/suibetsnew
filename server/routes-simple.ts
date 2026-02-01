@@ -1656,7 +1656,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
 
-  // Pre-flight validation for bet placement (checks 80-minute cutoff BEFORE on-chain tx)
+  // Pre-flight validation for bet placement (checks 45-minute cutoff BEFORE on-chain tx)
   app.post("/api/bets/validate", async (req: Request, res: Response) => {
     try {
       const { eventId, isLive } = req.body;
@@ -1688,12 +1688,12 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         });
       }
       
-      // CRITICAL: 80-minute cutoff for live matches
+      // CRITICAL: 45-minute cutoff for live matches (users can only bet in first 45 minutes)
       if (eventLookup.source === 'live' && eventLookup.minute !== undefined) {
-        if (eventLookup.minute >= 80) {
-          console.log(`[validate] Event ${eventId} rejected: ${eventLookup.minute} min >= 80 cutoff`);
+        if (eventLookup.minute >= 45) {
+          console.log(`[validate] Event ${eventId} rejected: ${eventLookup.minute} min >= 45 cutoff`);
           return res.status(400).json({ 
-            message: `Betting closed for this match (80+ minute cutoff). Match is at ${eventLookup.minute} minutes.`,
+            message: `Betting closed for this match (45+ minute cutoff). Match is at ${eventLookup.minute} minutes.`,
             code: "MATCH_CUTOFF"
           });
         }
@@ -1805,7 +1805,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         }
       }
       
-      // Anti-cheat: Block first-half markets after minute 45 and all markets after minute 80
+      // Anti-cheat: Block ALL live bets after minute 45 (first half only betting)
       const isFirstHalfMarket = !!data.marketId && (
         String(data.marketId).includes('1st_half') || 
         String(data.marketId).includes('1st-half') ||
@@ -1819,20 +1819,13 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const currentMinute = data.matchMinute || (data.isLive ? parseInt(String(apiSportsService.lookupEventSync(data.eventId).minute || 0)) : 0);
 
       if (data.isLive) {
-        if (isFirstHalfMarket && currentMinute >= 45) {
-          console.warn(`[Anti-Cheat] Blocking late 1st half bet: event ${data.eventId}, minute ${currentMinute}`);
-          return res.status(400).json({ 
-            success: false, 
-            message: "MARKET_CLOSED_HALF_TIME",
-            details: "This market closed at the end of the first half."
-          });
-        }
-        if (currentMinute >= 80) {
-          console.warn(`[Anti-Cheat] Blocking late match bet: event ${data.eventId}, minute ${currentMinute}`);
+        // Block ALL live bets after 45 minutes (users can only bet in first half)
+        if (currentMinute >= 45) {
+          console.warn(`[Anti-Cheat] Blocking live bet after first half: event ${data.eventId}, minute ${currentMinute}`);
           return res.status(400).json({ 
             success: false, 
             message: "MATCH_CUTOFF",
-            details: "Betting is closed after the 80th minute."
+            details: "Live betting is only available during the first half (first 45 minutes)."
           });
         }
       }
@@ -2011,21 +2004,21 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         
         // Event found with fresh cache - check if it's live (server determines this, not client)
         if (eventLookup.source === 'live') {
-          // FAIL-CLOSED: If we have no minute data for a live match, we cannot verify it's under 80 min
+          // FAIL-CLOSED: If we have no minute data for a live match, we cannot verify it's under 45 min
           // API-Sports may omit minute during halftime, glitches, or for non-football sports
           if (eventLookup.minute === undefined || eventLookup.minute === null) {
-            console.log(`❌ Bet rejected (unverifiable minute): Live match has no minute data, eventId: ${eventId}, cannot verify < 80 min cutoff`);
+            console.log(`❌ Bet rejected (unverifiable minute): Live match has no minute data, eventId: ${eventId}, cannot verify < 45 min cutoff`);
             return res.status(400).json({ 
               message: "Cannot verify match time - please try again shortly",
               code: "UNVERIFIABLE_MATCH_TIME"
             });
           }
           
-        // Check trusted minute against 80-minute cutoff
-        if (eventLookup.minute >= 80) {
-          console.log(`❌ Bet rejected (server-verified): Live match at ${eventLookup.minute} minutes (>= 80 min cutoff), eventId: ${eventId}, client claimed isLive: ${isLive}`);
+        // Check trusted minute against 45-minute cutoff (users can only bet in first half)
+        if (eventLookup.minute >= 45) {
+          console.log(`❌ Bet rejected (server-verified): Live match at ${eventLookup.minute} minutes (>= 45 min cutoff), eventId: ${eventId}, client claimed isLive: ${isLive}`);
           return res.status(400).json({ 
-            message: "Betting closed for this match (80+ minutes played)",
+            message: "Live betting is only available during the first half (first 45 minutes)",
             code: "MATCH_TIME_EXCEEDED",
             serverVerified: true
           });
@@ -2113,13 +2106,13 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           }
         }
         
-        // Live match under 80 minutes with fresh cache and verified minute - allow bet to proceed
+        // Live match under 45 minutes with fresh cache and verified minute - allow bet to proceed
         console.log(`✅ Live bet allowed: eventId ${eventId}, minute: ${eventLookup.minute}, cache age: ${Math.round(eventLookup.cacheAgeMs/1000)}s`);
         } else if (eventLookup.source === 'upcoming') {
           // Event found in upcoming cache - but check if it SHOULD be live based on start time
           if (eventLookup.shouldBeLive) {
             // START TIME HAS PASSED - match should be live but isn't in live cache
-            // This is the critical bypass scenario: match could be at 80+ minutes
+            // This is the critical bypass scenario: match could be at 45+ minutes
             // FAIL-CLOSED: Reject - we can't verify the match state
             console.log(`❌ Bet rejected (should be live): Event ${eventId} startTime has passed (${eventLookup.startTime}) but not in live cache, client isLive: ${isLive}`);
             return res.status(400).json({ 
