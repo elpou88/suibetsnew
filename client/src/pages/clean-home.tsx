@@ -220,6 +220,11 @@ export default function CleanHome() {
 
   const handleSportClick = (sportId: number) => {
     setSelectedSport(sportId);
+    // Non-football sports only have "Upcoming" (no live betting)
+    // Football (sportId === 1) is the only sport with live betting
+    if (sportId !== 1) {
+      setActiveTab("upcoming");
+    }
   };
 
   const handleConnectWallet = () => {
@@ -448,20 +453,23 @@ export default function CleanHome() {
           </div>
         </div>
 
-        {/* Live / Upcoming Tabs */}
+        {/* Live / Upcoming Tabs - Live only available for Football (sportId 1) */}
         <div ref={matchesSectionRef} className="flex gap-2 mb-4 scroll-mt-4">
-          <button
-            onClick={() => handleTabClick("live")}
-            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
-              activeTab === "live"
-                ? "bg-[#111111] text-cyan-400 border border-cyan-500"
-                : "bg-transparent text-gray-400 hover:text-white"
-            }`}
-            data-testid="tab-live"
-          >
-            <Clock size={16} />
-            Live ({liveEvents.length})
-          </button>
+          {/* Live tab - Only for Football (sportId === 1) */}
+          {selectedSport === 1 && (
+            <button
+              onClick={() => handleTabClick("live")}
+              className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
+                activeTab === "live"
+                  ? "bg-[#111111] text-cyan-400 border border-cyan-500"
+                  : "bg-transparent text-gray-400 hover:text-white"
+              }`}
+              data-testid="tab-live"
+            >
+              <Clock size={16} />
+              Live ({liveEvents.length})
+            </button>
+          )}
           <button
             onClick={() => handleTabClick("upcoming")}
             className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${

@@ -284,8 +284,20 @@ export class FreeSportsService {
     config: typeof FREE_SPORTS_CONFIG[string]
   ): SportEvent | null {
     try {
-      const homeTeam = game.teams?.home?.name || game.home?.name || 'Home Team';
-      const awayTeam = game.teams?.away?.name || game.away?.name || 'Away Team';
+      // MMA uses 'fighters' structure instead of 'teams'
+      let homeTeam: string;
+      let awayTeam: string;
+      
+      if (sportSlug === 'mma') {
+        // MMA API structure: fighters.first and fighters.second (or fighters.home/away)
+        homeTeam = game.fighters?.first?.name || game.fighters?.home?.name || game.home?.name || 'Fighter 1';
+        awayTeam = game.fighters?.second?.name || game.fighters?.away?.name || game.away?.name || 'Fighter 2';
+      } else {
+        // Standard team sports (basketball, baseball, hockey, american-football)
+        homeTeam = game.teams?.home?.name || game.home?.name || 'Home Team';
+        awayTeam = game.teams?.away?.name || game.away?.name || 'Away Team';
+      }
+      
       const league = game.league?.name || game.competition?.name || 'Unknown League';
       const startTime = game.date || game.timestamp ? new Date(game.timestamp * 1000).toISOString() : new Date().toISOString();
       const gameId = String(game.id);

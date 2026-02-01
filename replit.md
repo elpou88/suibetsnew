@@ -20,7 +20,8 @@ Preferred communication style: Simple, everyday language.
 - **Real-time**: WebSocket for live score updates
 - **Data Aggregation**: Multi-API with resilience and fallback mechanisms
 - **Authentication**: Session-based with optional blockchain authentication
-- **Security**: Server-authoritative betting cutoff (80 minutes), rejection of stale event data.
+- **Security**: Server-authoritative betting cutoff (45 minutes for live betting), rejection of stale event data, anti-exploit protections.
+- **Anti-Exploit Measures**: Rate limiting (20 bets/hour/wallet), Unknown Event rejection, event validation before bet acceptance, settlement blocking for unverified events.
 
 ### Data Storage
 - **Primary Database**: PostgreSQL with Drizzle ORM
@@ -50,8 +51,16 @@ Preferred communication style: Simple, everyday language.
 ## External Dependencies
 
 ### Sports Data Providers
-- **API-Sports**: Primary data source.
-- **SportsData API**: Secondary data source.
+- **API-Sports**: Primary data source for Football (paid tier with live betting).
+- **Free Sports API**: Basketball, Baseball, Ice Hockey, MMA, American Football (daily updates at 6 AM/11 PM UTC, no live betting).
+- **Sports Coverage**:
+  - **Football (sportId 1)**: Live betting (first 45 min only) + Upcoming matches, paid API
+  - **Basketball (sportId 2)**: Upcoming only, free API
+  - **Baseball (sportId 5)**: Upcoming only, free API
+  - **Ice Hockey (sportId 6)**: Upcoming only, free API
+  - **MMA (sportId 7)**: Upcoming only, free API
+  - **American Football (sportId 4)**: Upcoming only, free API
+  - **Tennis, Esports, Boxing**: Placeholder (no API integration yet)
 
 ### Blockchain Services
 - **Sui Network**: Layer 1 blockchain.
