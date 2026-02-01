@@ -1334,7 +1334,22 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         
         if (existingSnapshot.events.length > 0 && snapshotAgeMs < SNAPSHOT_FRESH_DURATION) {
           console.log(`📦 Using fresh snapshot (${existingSnapshot.events.length} events, ${Math.round(snapshotAgeMs/1000)}s old)`);
-          let allUpcomingEvents = existingSnapshot.events;
+          let allUpcomingEvents = [...existingSnapshot.events];
+          
+          // CRITICAL: ALWAYS add free sports events from daily cache
+          // These are Basketball, Baseball, Hockey, MMA, AFL, Formula 1, Handball, NBA, NFL, Rugby, Volleyball
+          try {
+            const freeSportsEvents = freeSportsService.getUpcomingEvents();
+            if (freeSportsEvents.length > 0) {
+              // Deduplicate by ID
+              const existingIds = new Set(allUpcomingEvents.map(e => String(e.id)));
+              const newFreeSportsEvents = freeSportsEvents.filter(e => !existingIds.has(String(e.id)));
+              allUpcomingEvents.push(...newFreeSportsEvents);
+              console.log(`📦 Added ${newFreeSportsEvents.length} free sports events (${freeSportsEvents.length} total in cache)`);
+            }
+          } catch (e) {
+            console.log(`📦 Free sports cache empty`);
+          }
           
           // CRITICAL: Apply cached odds from prefetcher to snapshot events
           // This ensures odds are updated as the prefetcher warms the cache
