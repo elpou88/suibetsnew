@@ -2880,74 +2880,22 @@ export class ApiSportsService {
     
     const resultMap = new Map<string, any>();
     
-    // For LIVE events, first try to get all live odds in one call (more efficient)
-    if (isLive && (sport === 'football' || sport === 'soccer')) {
-      try {
-        const liveResponse = await axios.get('https://v3.football.api-sports.io/odds/live', {
-          headers: {
-            'x-apisports-key': this.apiKey,
-            'Accept': 'application/json'
-          },
-          timeout: 10000
-        });
-        
-        if (liveResponse.data?.response && Array.isArray(liveResponse.data.response)) {
-          for (const item of liveResponse.data.response) {
-            const fixtureId = String(item.fixture?.id);
-            if (fixtureIds.includes(fixtureId) && item.odds && item.odds.length > 0) {
-              // Find Match Winner odds in the live data
-              const matchWinner = item.odds.find((o: any) => 
-                o.name?.toLowerCase().includes('winner') || 
-                o.name?.toLowerCase().includes('1x2') ||
-                o.name?.toLowerCase() === 'match winner'
-              );
-              if (matchWinner?.values) {
-                const oddsValues: any = { fixtureId, source: 'live' };
-                for (const val of matchWinner.values) {
-                  const outcome = val.value?.toLowerCase();
-                  const oddValue = parseFloat(val.odd);
-                  if (outcome === 'home' || outcome === '1') {
-                    oddsValues.homeOdds = oddValue;
-                  } else if (outcome === 'draw' || outcome === 'x') {
-                    oddsValues.drawOdds = oddValue;
-                  } else if (outcome === 'away' || outcome === '2') {
-                    oddsValues.awayOdds = oddValue;
-                  }
-                }
-                if (oddsValues.homeOdds && oddsValues.awayOdds) {
-                  resultMap.set(fixtureId, oddsValues);
-                  console.log(`[ApiSportsService] 🔴 LIVE odds for fixture ${fixtureId}`);
-                }
-              }
-            }
-          }
-          console.log(`[ApiSportsService] 🔴 Got ${resultMap.size}/${fixtureIds.length} live odds from /odds/live endpoint`);
-          
-          // If we got all fixtures, return early
-          if (resultMap.size === fixtureIds.length) {
-            return resultMap;
-          }
-        }
-      } catch (liveError: any) {
-        console.log(`[ApiSportsService] ⚠️ Live odds bulk fetch failed: ${liveError.message}`);
+    // ULTRA API SAVING: Return ONLY cached odds - no API calls
+    // All odds come from prefetch scheduler only
+    console.log(`[ApiSportsService] 🎰 CACHE-ONLY mode: Returning cached odds for ${fixtureIds.length} fixtures (no API calls)`);
+    
+    for (const fixtureId of fixtureIds) {
+      const cached = this.oddsCache.get(fixtureId);
+      if (cached) {
+        resultMap.set(fixtureId, cached);
       }
     }
     
-    // For fixtures not found in live odds, fall back to individual fetches
-    // ULTRA API SAVING: Limit to max 5 fixtures to prevent quota exhaustion
-    const remainingFixtures = fixtureIds.filter(id => !resultMap.has(id)).slice(0, 5);
-    if (remainingFixtures.length === 0) {
-      return resultMap;
-    }
+    console.log(`[ApiSportsService] 🎰 Found ${resultMap.size}/${fixtureIds.length} fixtures in cache`);
+    return resultMap;
     
-    // Batch fixtures into groups of 5 (REDUCED for API saving)
-    const batchSize = 5;
-    const batches = [];
-    for (let i = 0; i < remainingFixtures.length; i += batchSize) {
-      batches.push(remainingFixtures.slice(i, i + batchSize));
-    }
-    
-    console.log(`[ApiSportsService] 🎰 Fetching odds for ${remainingFixtures.length} remaining fixtures in ${batches.length} batch(es) (ULTRA API SAVING - limited to 5)`);
+    // ===== DISABLED: Individual API calls - use prefetch scheduler instead =====
+    /*
     
     // Process ALL batches with rate limiting (max 10 requests per second for API-Sports)
     for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
@@ -3101,6 +3049,7 @@ export class ApiSportsService {
     
     console.log(`[ApiSportsService] 🎰 Got odds for ${resultMap.size}/${fixtureIds.length} fixtures`);
     return resultMap;
+    */
   }
 
   /**
