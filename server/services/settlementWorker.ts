@@ -689,9 +689,9 @@ class SettlementWorkerService {
     const finishedMatches: FinishedMatch[] = [];
     
     try {
-      // AGGRESSIVE API SAVING: Only check football (99% of bets)
-      // Other sports rarely have bets and waste API calls
-      const sportsToCheck = ['football'];
+      // Check all sports with API endpoints for finished matches
+      // Football uses paid API, others use free API endpoints
+      const sportsToCheck = ['football', 'basketball', 'baseball', 'hockey', 'volleyball', 'handball', 'rugby', 'afl'];
       
       for (const sport of sportsToCheck) {
         try {
@@ -737,7 +737,11 @@ class SettlementWorkerService {
       football: 'https://v3.football.api-sports.io/fixtures',
       basketball: 'https://v1.basketball.api-sports.io/games',
       baseball: 'https://v1.baseball.api-sports.io/games',
-      hockey: 'https://v1.hockey.api-sports.io/games'
+      hockey: 'https://v1.hockey.api-sports.io/games',
+      volleyball: 'https://v1.volleyball.api-sports.io/games',
+      handball: 'https://v1.handball.api-sports.io/games',
+      rugby: 'https://v1.rugby.api-sports.io/games',
+      afl: 'https://v1.afl.api-sports.io/games'
     };
 
     const url = sportEndpoints[sport];
