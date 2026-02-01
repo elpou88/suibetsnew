@@ -23,6 +23,11 @@ import { promotionService } from "./services/promotionService";
 import { treasuryAutoWithdrawService } from "./services/treasuryAutoWithdrawService";
 import { freeSportsService } from "./services/freeSportsService";
 
+// SUI BETTING PAUSE - Set to true to pause SUI betting until treasury is funded
+// Users can still bet with SBETS
+const SUI_BETTING_PAUSED = true;
+const SUI_PAUSE_MESSAGE = "SUI betting is temporarily paused while we add funds to the treasury. Please bet with SBETS instead!";
+
 export async function registerRoutes(app: express.Express): Promise<Server> {
   // Initialize services
   const adminService = new AdminService();
@@ -82,6 +87,15 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       }
     });
   }, 5 * 60 * 1000); // Every 5 minutes
+
+  // Betting status endpoint - check if SUI betting is paused
+  app.get("/api/betting-status", (req: Request, res: Response) => {
+    res.json({
+      suiBettingPaused: SUI_BETTING_PAUSED,
+      sbetsBettingEnabled: true,
+      pauseMessage: SUI_BETTING_PAUSED ? SUI_PAUSE_MESSAGE : null
+    });
+  });
 
   // Health check endpoint
   app.get("/api/health", async (req: Request, res: Response) => {
@@ -1833,6 +1847,16 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       // MAX STAKE VALIDATION - Backend enforcement (100 SUI / 10M SBETS)
       // Use feeCurrency as primary indicator (client sends this), fallback to currency
       const betCurrency = feeCurrency || currency || 'SUI';
+      
+      // SUI BETTING PAUSE - Block SUI bets until treasury is funded
+      if (SUI_BETTING_PAUSED && betCurrency !== 'SBETS') {
+        console.log(`❌ SUI bet blocked - betting paused until treasury funded`);
+        return res.status(400).json({
+          message: SUI_PAUSE_MESSAGE,
+          code: "SUI_BETTING_PAUSED"
+        });
+      }
+      
       const MAX_STAKE_SUI = 100;
       const MAX_STAKE_SBETS = 10000000;
       const maxStake = betCurrency === 'SBETS' ? MAX_STAKE_SBETS : MAX_STAKE_SUI;
@@ -2420,6 +2444,15 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       
       // Determine currency (default to SUI)
       const currency: 'SUI' | 'SBETS' = feeCurrency === 'SBETS' ? 'SBETS' : 'SUI';
+      
+      // SUI BETTING PAUSE - Block SUI bets until treasury is funded
+      if (SUI_BETTING_PAUSED && currency !== 'SBETS') {
+        console.log(`❌ SUI parlay blocked - betting paused until treasury funded`);
+        return res.status(400).json({
+          message: SUI_PAUSE_MESSAGE,
+          code: "SUI_BETTING_PAUSED"
+        });
+      }
       
       // MAX STAKE VALIDATION - Backend enforcement (100 SUI / 10M SBETS)
       const MAX_STAKE_SUI = 100;

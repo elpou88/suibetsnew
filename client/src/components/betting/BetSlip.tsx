@@ -27,7 +27,7 @@ export function BetSlip() {
   const { toast } = useToast();
   const [betType, setBetType] = useState<'single' | 'parlay'>(selectedBets.length > 1 ? 'parlay' : 'single');
   const [isLoading, setIsLoading] = useState(false);
-  const [betCurrency, setBetCurrency] = useState<'SUI' | 'SBETS'>('SUI');
+  const [betCurrency, setBetCurrency] = useState<'SUI' | 'SBETS'>('SBETS'); // Default to SBETS during SUI pause
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [confirmedBet, setConfirmedBet] = useState<BetConfirmation | null>(null);
   const [useBonus, setUseBonus] = useState(false);
@@ -48,6 +48,23 @@ export function BetSlip() {
     enabled: !!currentAccount?.address,
     refetchInterval: 30000, // Reduced from 15s
   });
+  
+  // Fetch betting status (SUI pause)
+  const { data: bettingStatus } = useQuery<{
+    suiBettingPaused: boolean;
+    sbetsBettingEnabled: boolean;
+    pauseMessage: string | null;
+  }>({
+    queryKey: ['/api/betting-status'],
+    queryFn: async () => {
+      const res = await fetch('/api/betting-status');
+      if (!res.ok) throw new Error('Failed to fetch betting status');
+      return res.json();
+    },
+    staleTime: 30000,
+  });
+  
+  const suiBettingPaused = bettingStatus?.suiBettingPaused ?? true; // Default to paused for safety
   
   // Fetch free bet balance (welcome bonus + referral rewards)
   const { data: freeBetData, refetch: refetchFreeBet } = useQuery<{
@@ -554,19 +571,35 @@ export function BetSlip() {
 
           {/* Currency & Total */}
           <div className="px-4 py-3 border-b border-cyan-900/20">
+            {/* SUI Betting Paused Banner */}
+            {suiBettingPaused && (
+              <div className="bg-orange-500/20 border border-orange-500/40 rounded-lg p-3 mb-3" data-testid="sui-pause-banner">
+                <div className="flex items-center gap-2">
+                  <span className="text-orange-400 text-lg">⏸️</span>
+                  <div className="flex flex-col">
+                    <span className="text-orange-400 font-bold text-sm">SUI Betting Paused</span>
+                    <span className="text-orange-300/80 text-xs">Bet with SBETS while we fund the treasury!</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div className="flex items-center justify-between mb-2">
               <span className="text-gray-400 text-sm">Currency:</span>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setBetCurrency('SUI')}
+                  onClick={() => !suiBettingPaused && setBetCurrency('SUI')}
+                  disabled={suiBettingPaused}
                   className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                    betCurrency === 'SUI' 
-                      ? 'bg-cyan-500 text-black' 
-                      : 'bg-[#1a1a1a] text-gray-400 hover:text-white'
+                    suiBettingPaused
+                      ? 'bg-gray-800 text-gray-600 cursor-not-allowed line-through'
+                      : betCurrency === 'SUI' 
+                        ? 'bg-cyan-500 text-black' 
+                        : 'bg-[#1a1a1a] text-gray-400 hover:text-white'
                   }`}
                   data-testid="btn-currency-sui"
                 >
-                  SUI
+                  SUI {suiBettingPaused && '(Paused)'}
                 </button>
                 <button
                   onClick={() => setBetCurrency('SBETS')}
