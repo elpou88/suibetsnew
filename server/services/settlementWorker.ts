@@ -775,8 +775,24 @@ class SettlementWorkerService {
         if (response.data?.response && Array.isArray(response.data.response)) {
           for (const match of response.data.response) {
             const eventId = match.fixture?.id?.toString() || match.id?.toString();
-            const homeTeam = match.teams?.home?.name || '';
-            const awayTeam = match.teams?.away?.name || '';
+            
+            // Handle different sports' team/fighter naming conventions
+            let homeTeam = '';
+            let awayTeam = '';
+            
+            if (sport === 'mma' || sport === 'boxing') {
+              // MMA and Boxing use 'fighters' structure
+              homeTeam = match.fighters?.first?.name || match.fighters?.home?.name || match.teams?.home?.name || '';
+              awayTeam = match.fighters?.second?.name || match.fighters?.away?.name || match.teams?.away?.name || '';
+            } else if (sport === 'formula-1') {
+              // Formula 1 uses 'driver' or 'team' structure - store race winner
+              homeTeam = match.driver?.name || match.team?.name || match.winner?.name || '';
+              awayTeam = 'Race'; // F1 is not home vs away
+            } else {
+              // All other sports use standard teams structure
+              homeTeam = match.teams?.home?.name || '';
+              awayTeam = match.teams?.away?.name || '';
+            }
             
             let homeScore = 0;
             let awayScore = 0;
@@ -787,24 +803,42 @@ class SettlementWorkerService {
             } else if (sport === 'basketball') {
               homeScore = match.scores?.home?.total || 0;
               awayScore = match.scores?.away?.total || 0;
+            } else if (sport === 'mma' || sport === 'boxing') {
+              // MMA/Boxing: winner is determined by result, not score
+              // Check if there's a winner field
+              const winnerName = match.winner?.name || match.result?.winner || '';
+              if (winnerName && homeTeam && winnerName.toLowerCase().includes(homeTeam.toLowerCase())) {
+                homeScore = 1;
+                awayScore = 0;
+              } else if (winnerName && awayTeam && winnerName.toLowerCase().includes(awayTeam.toLowerCase())) {
+                homeScore = 0;
+                awayScore = 1;
+              }
+            } else if (sport === 'formula-1') {
+              // F1: Position-based, winner gets score 1
+              homeScore = match.position === 1 ? 1 : 0;
+              awayScore = 0;
             } else {
-              homeScore = match.scores?.home || 0;
-              awayScore = match.scores?.away || 0;
+              homeScore = match.scores?.home || match.score?.home || 0;
+              awayScore = match.scores?.away || match.score?.away || 0;
             }
 
             const winner: 'home' | 'away' | 'draw' = 
               homeScore > awayScore ? 'home' : 
               awayScore > homeScore ? 'away' : 'draw';
 
-            finished.push({
-              eventId,
-              homeTeam,
-              awayTeam,
-              homeScore,
-              awayScore,
-              winner,
-              status: 'finished'
-            });
+            // Only add if we have valid team/fighter names
+            if (homeTeam || awayTeam || eventId) {
+              finished.push({
+                eventId,
+                homeTeam,
+                awayTeam,
+                homeScore,
+                awayScore,
+                winner,
+                status: 'finished'
+              });
+            }
           }
         }
       } catch (error) {
