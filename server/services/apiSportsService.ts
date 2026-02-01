@@ -77,7 +77,7 @@ export class ApiSportsService {
   private oddsCacheTTL: number = 30 * 60 * 1000; // 30 minutes TTL for odds (AGGRESSIVE API SAVING)
   
   // Cache settings - AGGRESSIVE API SAVING to prevent quota exhaustion
-  private shortCacheExpiry: number = 60 * 1000; // 60 seconds for live events (was 10s)
+  private shortCacheExpiry: number = 120 * 1000; // 2 minutes for live events (was 60s) - saves 50% API calls
   private mediumCacheExpiry: number = 10 * 60 * 1000; // 10 minutes for medium-priority data (was 2min)
   private longCacheExpiry: number = 30 * 60 * 1000; // 30 minutes for stable data (was 10min)
   private cacheExpiry: number = 5 * 60 * 1000; // 5 minutes default cache (was 30s)
