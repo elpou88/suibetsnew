@@ -1134,6 +1134,31 @@ export class BlockchainBetService {
             continue; // Already tracked
           }
 
+          // ANTI-EXPLOIT: Block bets on "Unknown Event" - these are likely fake/exploitative bets
+          // Users betting directly on the contract with invalid event IDs will be rejected
+          if (eventName === "Unknown Event" || homeTeam === "Unknown" || awayTeam === "Unknown") {
+            console.warn(`🚫 EXPLOIT BLOCKED: Rejecting bet ${betObjectId.slice(0, 12)}... - Unknown Event (likely fake/exploitative bet)`);
+            continue; // Don't sync bets we can't verify
+          }
+          
+          // ANTI-EXPLOIT: Validate event ID is a real event in our system
+          try {
+            const apiSportsService = (await import('./apiSportsService')).default;
+            const eventData = apiSportsService.lookupEventSync(eventId);
+            if (!eventData || !eventData.homeTeam || !eventData.awayTeam) {
+              console.warn(`🚫 EXPLOIT BLOCKED: Rejecting bet ${betObjectId.slice(0, 12)}... - Event ${eventId} not found in our system`);
+              continue; // Don't sync bets for events we don't track
+            }
+            
+            // Use real event data if found
+            homeTeam = eventData.homeTeam;
+            awayTeam = eventData.awayTeam;
+            eventName = `${homeTeam} vs ${awayTeam}`;
+          } catch (eventCheckError) {
+            console.warn(`🚫 EXPLOIT BLOCKED: Rejecting bet ${betObjectId.slice(0, 12)}... - Could not verify event ${eventId}`);
+            continue; // Don't sync bets for unverifiable events
+          }
+          
           // CRITICAL: Check if bet object is SHARED (new contract) or OWNED (legacy contract)
           // Legacy bets from before Jan 27, 2026 are owned objects and cannot be settled by admin
           try {

@@ -28,6 +28,48 @@ import { freeSportsService } from "./services/freeSportsService";
 const SUI_BETTING_PAUSED = true;
 const SUI_PAUSE_MESSAGE = "SUI betting is temporarily paused while we add funds to the treasury. Please bet with SBETS instead!";
 
+// ANTI-EXPLOIT: Rate limiting for bet placement
+// Tracks bets per wallet per hour to prevent spam/exploitation
+const BET_RATE_LIMIT = new Map<string, { count: number; resetTime: number }>();
+const MAX_BETS_PER_HOUR = 20; // Maximum bets per wallet per hour
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+
+function checkBetRateLimit(walletAddress: string): { allowed: boolean; message?: string } {
+  const now = Date.now();
+  const key = walletAddress.toLowerCase();
+  
+  const existing = BET_RATE_LIMIT.get(key);
+  
+  if (!existing || now > existing.resetTime) {
+    // Reset or create new entry
+    BET_RATE_LIMIT.set(key, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
+    return { allowed: true };
+  }
+  
+  if (existing.count >= MAX_BETS_PER_HOUR) {
+    const minutesLeft = Math.ceil((existing.resetTime - now) / 60000);
+    return { 
+      allowed: false, 
+      message: `Rate limit exceeded. Maximum ${MAX_BETS_PER_HOUR} bets per hour. Please wait ${minutesLeft} minutes.`
+    };
+  }
+  
+  // Increment counter
+  existing.count++;
+  BET_RATE_LIMIT.set(key, existing);
+  return { allowed: true };
+}
+
+// Cleanup rate limit map every hour to prevent memory leaks
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of BET_RATE_LIMIT.entries()) {
+    if (now > value.resetTime) {
+      BET_RATE_LIMIT.delete(key);
+    }
+  }
+}, 60 * 60 * 1000);
+
 export async function registerRoutes(app: express.Express): Promise<Server> {
   // Initialize services
   const adminService = new AdminService();
@@ -1755,6 +1797,53 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const userId = String(data.userId);
       const eventId = String(data.eventId);
       const { eventName, homeTeam, awayTeam, marketId, outcomeId, odds, betAmount, currency, prediction, feeCurrency, paymentMethod, txHash, onChainBetId, status, isLive, matchMinute, walletAddress, useBonus, useFreeBet } = data;
+      
+      // ANTI-EXPLOIT: Rate limiting - max bets per hour
+      const rateLimitKey = walletAddress || userId;
+      if (rateLimitKey && rateLimitKey.startsWith('0x')) {
+        const rateLimitResult = checkBetRateLimit(rateLimitKey);
+        if (!rateLimitResult.allowed) {
+          console.log(`❌ Rate limit hit for ${rateLimitKey.slice(0, 12)}...`);
+          return res.status(429).json({
+            message: rateLimitResult.message,
+            code: "RATE_LIMIT_EXCEEDED"
+          });
+        }
+      }
+      
+      // ANTI-EXPLOIT: Block bets on "Unknown Event" or invalid events
+      if (!eventName || eventName === "Unknown Event" || eventName.trim() === "") {
+        console.log(`❌ Blocked bet on Unknown Event from ${(walletAddress || userId).slice(0, 12)}...`);
+        return res.status(400).json({
+          message: "Invalid event. Please select a valid match to bet on.",
+          code: "INVALID_EVENT"
+        });
+      }
+      
+      // ANTI-EXPLOIT: Validate teams are provided
+      if (!homeTeam || !awayTeam || homeTeam === "Unknown" || awayTeam === "Unknown") {
+        console.log(`❌ Blocked bet with unknown teams from ${(walletAddress || userId).slice(0, 12)}...`);
+        return res.status(400).json({
+          message: "Invalid match data. Please select a valid match to bet on.",
+          code: "INVALID_TEAMS"
+        });
+      }
+      
+      // ANTI-EXPLOIT: Validate event exists in our system (for non-live bets)
+      if (!isLive) {
+        try {
+          const eventCheck = apiSportsService.lookupEventSync(eventId);
+          if (!eventCheck) {
+            console.log(`❌ Blocked bet on unknown event ${eventId} from ${(walletAddress || userId).slice(0, 12)}...`);
+            return res.status(400).json({
+              message: "Event not found. Please select a valid match from our system.",
+              code: "EVENT_NOT_FOUND"
+            });
+          }
+        } catch (eventCheckError) {
+          console.warn('[Event Check] Could not verify event, allowing bet:', eventCheckError);
+        }
+      }
       
       // DUPLICATE BET PREVENTION: Check if user already has a pending/confirmed bet on this exact selection
       try {

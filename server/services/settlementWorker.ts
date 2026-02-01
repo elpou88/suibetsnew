@@ -851,6 +851,13 @@ class SettlementWorkerService {
         continue;
       }
       
+      // ANTI-EXPLOIT: Never settle bets on "Unknown Event" - these are likely fake/exploitative
+      if ((bet as any).eventName === "Unknown Event" || bet.homeTeam === "Unknown" || bet.awayTeam === "Unknown") {
+        console.warn(`🚫 EXPLOIT BLOCKED: Skipping settlement for bet ${bet.id} - Unknown Event/Teams`);
+        this.settledBetIds.add(bet.id); // Mark as processed to avoid retry spam
+        continue;
+      }
+      
       try {
         // SPECIAL HANDLING: Bets already marked as 'won' are confirmed winners needing payout retry
         // Skip match result determination - they've already been confirmed as winners
