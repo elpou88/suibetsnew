@@ -838,7 +838,7 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
   }, [event?.minute]);
 
   const isBettingClosed = useMemo(() => {
-    return !!(event?.isLive && minuteNum >= 80);
+    return !!(event?.isLive && minuteNum >= 45);
   }, [event?.isLive, minuteNum]);
 
   // Helper to check if a market is closed based on match minute
@@ -856,8 +856,8 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
       
       if (isFirstHalf && minuteNum >= 45) return true;
       
-      // Also block full-time result and other markets after minute 80
-      if (minuteNum >= 80) return true;
+      // Block all markets after minute 45 (live betting only in first half)
+      if (minuteNum >= 45) return true;
     } catch (e) {
       console.error("Error in isMarketClosed:", e);
     }
@@ -1240,6 +1240,32 @@ function EventCard({ event }: EventCardProps) {
   
   // Check if this event has real odds from API (betting enabled)
   const hasRealOdds = (event as any).oddsSource === 'api-sports';
+  
+  // Check if live match is past 45 minutes (betting closed)
+  const getMatchMinute = (): number | null => {
+    const eventAny = event as any;
+    if (eventAny.minute !== undefined && eventAny.minute !== null) {
+      const min = parseInt(String(eventAny.minute));
+      if (!isNaN(min)) return min;
+    }
+    if (eventAny.matchMinute !== undefined && eventAny.matchMinute !== null) {
+      const min = parseInt(String(eventAny.matchMinute));
+      if (!isNaN(min)) return min;
+    }
+    // Try to extract from status string like "75'" or "HT"
+    if (typeof eventAny.status === 'string') {
+      const match = eventAny.status.match(/(\d+)/);
+      if (match) return parseInt(match[1]);
+      if (eventAny.status === 'HT') return 45;
+      if (eventAny.status.includes('2H')) return 46;
+    }
+    return null;
+  };
+  
+  const matchMinute = getMatchMinute();
+  const isLiveMatch = event.isLive || event.status?.toLowerCase().includes('live') || 
+                      event.status?.includes('H') || event.status?.includes("'");
+  const isBettingClosed = isLiveMatch && matchMinute !== null && matchMinute >= 45;
 
   const getOddsFromMarkets = () => {
     const defaultOdds = { home: 2.05, draw: 3.40, away: 3.00 };
@@ -1279,6 +1305,15 @@ function EventCard({ event }: EventCardProps) {
 
   const handleOutcomeClick = (outcome: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    // Block selections if betting is closed (past 45 minutes)
+    if (isBettingClosed) {
+      toast({
+        title: "Betting Closed",
+        description: "Live betting is only available during the first 45 minutes",
+        variant: "destructive",
+      });
+      return;
+    }
     setSelectedOutcome(outcome === selectedOutcome ? null : outcome);
   };
 
@@ -1455,7 +1490,12 @@ function EventCard({ event }: EventCardProps) {
 
         {/* Bet Button */}
         <div className="flex justify-center mb-4">
-          {hasRealOdds ? (
+          {isBettingClosed ? (
+            <div className="bg-red-900/30 border border-red-500/40 rounded-lg px-4 py-2 text-center">
+              <span className="text-red-400 font-bold text-sm">Betting Closed</span>
+              <span className="text-red-400/70 text-xs block">Match past 45 minutes</span>
+            </div>
+          ) : hasRealOdds ? (
             <>
               <button 
                 className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold px-6 py-2 rounded-lg flex items-center gap-2 transition-all"
