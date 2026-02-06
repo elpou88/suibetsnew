@@ -225,10 +225,11 @@ function CreateChallengeModal({ onClose, wallet }: { onClose: () => void; wallet
       }
       const txHash = result.digest;
       toast({ title: 'SBETS stake sent', description: 'Verifying and creating challenge...' });
+      const expiresAtUTC = new Date(expiresAt).toISOString();
       const res = await fetch('/api/social/challenges', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description, stakeAmount, currency, maxParticipants: parseInt(maxParticipants), expiresAt, wallet, txHash })
+        body: JSON.stringify({ title, description, stakeAmount, currency, maxParticipants: parseInt(maxParticipants), expiresAt: expiresAtUTC, wallet, txHash })
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));

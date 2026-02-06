@@ -5618,9 +5618,11 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       }).returning();
       console.log(`[Social] ON-CHAIN challenge created: #${challenge.id} "${title.trim().slice(0,50)}" by ${walletLower.slice(0,10)}... | Stake: ${parsedStake} SBETS | TX: ${txHash} | VERIFIED`);
       res.json(challenge);
-    } catch (error) {
-      console.error('Create challenge error:', error);
-      res.status(500).json({ error: 'Failed to create challenge' });
+    } catch (error: any) {
+      console.error('Create challenge error:', error?.message || error);
+      res.status(500).json({ error: error?.message?.includes('verify') || error?.message?.includes('Sui') 
+        ? 'Blockchain verification failed - please try again' 
+        : 'Failed to create challenge' });
     }
   });
 
