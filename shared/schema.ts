@@ -600,3 +600,82 @@ export const userLimits = pgTable("user_limits", {
 export const insertUserLimitSchema = createInsertSchema(userLimits).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertUserLimit = z.infer<typeof insertUserLimitSchema>;
 export type UserLimit = typeof userLimits.$inferSelect;
+
+// ============================================
+// Social / Network Effect Engine Tables
+// ============================================
+
+export const socialPredictions = pgTable("social_predictions", {
+  id: serial("id").primaryKey(),
+  creatorWallet: text("creator_wallet").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  category: text("category").notNull().default("other"),
+  endDate: timestamp("end_date").notNull(),
+  status: text("status").notNull().default("active"),
+  totalYesAmount: real("total_yes_amount").default(0),
+  totalNoAmount: real("total_no_amount").default(0),
+  totalParticipants: integer("total_participants").default(0),
+  resolvedOutcome: text("resolved_outcome"),
+  createdAt: timestamp("created_at").defaultNow(),
+  resolvedAt: timestamp("resolved_at")
+});
+
+export const socialPredictionBets = pgTable("social_prediction_bets", {
+  id: serial("id").primaryKey(),
+  predictionId: integer("prediction_id").notNull(),
+  wallet: text("wallet").notNull(),
+  side: text("side").notNull(),
+  amount: real("amount").notNull(),
+  currency: text("currency").notNull().default("SUI"),
+  createdAt: timestamp("created_at").defaultNow()
+});
+
+export const socialChallenges = pgTable("social_challenges", {
+  id: serial("id").primaryKey(),
+  creatorWallet: text("creator_wallet").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  stakeAmount: real("stake_amount").notNull(),
+  currency: text("currency").notNull().default("SUI"),
+  maxParticipants: integer("max_participants").default(10),
+  currentParticipants: integer("current_participants").default(1),
+  status: text("status").notNull().default("open"),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow()
+});
+
+export const socialChallengeParticipants = pgTable("social_challenge_participants", {
+  id: serial("id").primaryKey(),
+  challengeId: integer("challenge_id").notNull(),
+  wallet: text("wallet").notNull(),
+  side: text("side").notNull().default("for"),
+  createdAt: timestamp("created_at").defaultNow()
+});
+
+export const socialFollows = pgTable("social_follows", {
+  id: serial("id").primaryKey(),
+  followerWallet: text("follower_wallet").notNull(),
+  followingWallet: text("following_wallet").notNull(),
+  createdAt: timestamp("created_at").defaultNow()
+});
+
+export const insertSocialPredictionSchema = createInsertSchema(socialPredictions).omit({ id: true, createdAt: true, resolvedAt: true });
+export type InsertSocialPrediction = z.infer<typeof insertSocialPredictionSchema>;
+export type SocialPrediction = typeof socialPredictions.$inferSelect;
+
+export const insertSocialPredictionBetSchema = createInsertSchema(socialPredictionBets).omit({ id: true, createdAt: true });
+export type InsertSocialPredictionBet = z.infer<typeof insertSocialPredictionBetSchema>;
+export type SocialPredictionBet = typeof socialPredictionBets.$inferSelect;
+
+export const insertSocialChallengeSchema = createInsertSchema(socialChallenges).omit({ id: true, createdAt: true });
+export type InsertSocialChallenge = z.infer<typeof insertSocialChallengeSchema>;
+export type SocialChallenge = typeof socialChallenges.$inferSelect;
+
+export const insertSocialChallengeParticipantSchema = createInsertSchema(socialChallengeParticipants).omit({ id: true, createdAt: true });
+export type InsertSocialChallengeParticipant = z.infer<typeof insertSocialChallengeParticipantSchema>;
+export type SocialChallengeParticipant = typeof socialChallengeParticipants.$inferSelect;
+
+export const insertSocialFollowSchema = createInsertSchema(socialFollows).omit({ id: true, createdAt: true });
+export type InsertSocialFollow = z.infer<typeof insertSocialFollowSchema>;
+export type SocialFollow = typeof socialFollows.$inferSelect;

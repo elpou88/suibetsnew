@@ -50,6 +50,7 @@ import ResultsPage from "@/pages/results";
 import ActivityPage from "@/pages/activity";
 import DepositsWithdrawalsPage from "@/pages/deposits-withdrawals";
 import WhitepaperPage from "@/pages/whitepaper";
+import NetworkPage from "@/pages/network";
 import AdminPanel from "@/pages/admin-panel";
 
 // Informational Pages
@@ -169,6 +170,7 @@ function App() {
                           <Route path="/activity" component={ActivityPage} />
                           <Route path="/deposits-withdrawals" component={DepositsWithdrawalsPage} />
                           <Route path="/whitepaper" component={WhitepaperPage} />
+                          <Route path="/network" component={NetworkPage} />
                           <Route path="/join" component={JoinPage} />
                           
                           {/* Info Pages */}

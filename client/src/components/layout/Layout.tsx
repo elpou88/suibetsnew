@@ -90,6 +90,7 @@ const Layout: React.FC<LayoutProps> = ({
     { label: 'Revenue', href: '/revenue' },
     { label: 'Leaderboard', href: '/leaderboard' },
     { label: 'Whitepaper', href: '/whitepaper' },
+    { label: 'Predict', href: '/network' },
   ];
 
   const bottomNavItems = [

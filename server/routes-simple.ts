@@ -5249,5 +5249,282 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
 
+  // ============================================
+  // Social / Network Effect Engine API Routes
+  // ============================================
+
+  app.get("/api/social/predictions", async (req: Request, res: Response) => {
+    try {
+      const { socialPredictions } = await import('@shared/schema');
+      const { desc } = await import('drizzle-orm');
+      const category = req.query.category as string;
+      let query = db.select().from(socialPredictions).orderBy(desc(socialPredictions.createdAt)).limit(50);
+      const predictions = await query;
+      const filtered = category && category !== 'all' 
+        ? predictions.filter(p => p.category === category)
+        : predictions;
+      res.json(filtered);
+    } catch (error) {
+      console.error('Social predictions fetch error:', error);
+      res.status(500).json({ error: 'Failed to fetch predictions' });
+    }
+  });
+
+  app.post("/api/social/predictions", async (req: Request, res: Response) => {
+    try {
+      const { socialPredictions } = await import('@shared/schema');
+      const { title, description, category, endDate, wallet } = req.body;
+      if (!wallet || !title || !endDate) {
+        return res.status(400).json({ error: 'Title, wallet, and end date required' });
+      }
+      const [prediction] = await db.insert(socialPredictions).values({
+        creatorWallet: wallet.toLowerCase(),
+        title,
+        description: description || '',
+        category: category || 'other',
+        endDate: new Date(endDate),
+        status: 'active',
+        totalYesAmount: 0,
+        totalNoAmount: 0,
+        totalParticipants: 0
+      }).returning();
+      res.json(prediction);
+    } catch (error) {
+      console.error('Create prediction error:', error);
+      res.status(500).json({ error: 'Failed to create prediction' });
+    }
+  });
+
+  app.post("/api/social/predictions/:id/bet", async (req: Request, res: Response) => {
+    try {
+      const { socialPredictions, socialPredictionBets } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      const predictionId = parseInt(req.params.id);
+      const { wallet, side, amount, currency } = req.body;
+      if (!wallet || !side || !amount) {
+        return res.status(400).json({ error: 'Wallet, side, and amount required' });
+      }
+      const [prediction] = await db.select().from(socialPredictions).where(eq(socialPredictions.id, predictionId));
+      if (!prediction || prediction.status !== 'active') {
+        return res.status(400).json({ error: 'Prediction not found or not active' });
+      }
+      await db.insert(socialPredictionBets).values({
+        predictionId,
+        wallet: wallet.toLowerCase(),
+        side,
+        amount: parseFloat(amount),
+        currency: currency || 'SUI'
+      });
+      const yesInc = side === 'yes' ? parseFloat(amount) : 0;
+      const noInc = side === 'no' ? parseFloat(amount) : 0;
+      await db.update(socialPredictions)
+        .set({
+          totalYesAmount: (prediction.totalYesAmount || 0) + yesInc,
+          totalNoAmount: (prediction.totalNoAmount || 0) + noInc,
+          totalParticipants: (prediction.totalParticipants || 0) + 1
+        })
+        .where(eq(socialPredictions.id, predictionId));
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Prediction bet error:', error);
+      res.status(500).json({ error: 'Failed to place prediction bet' });
+    }
+  });
+
+  app.get("/api/social/challenges", async (req: Request, res: Response) => {
+    try {
+      const { socialChallenges } = await import('@shared/schema');
+      const { desc } = await import('drizzle-orm');
+      const challenges = await db.select().from(socialChallenges).orderBy(desc(socialChallenges.createdAt)).limit(50);
+      res.json(challenges);
+    } catch (error) {
+      console.error('Social challenges fetch error:', error);
+      res.status(500).json({ error: 'Failed to fetch challenges' });
+    }
+  });
+
+  app.post("/api/social/challenges", async (req: Request, res: Response) => {
+    try {
+      const { socialChallenges } = await import('@shared/schema');
+      const { title, description, stakeAmount, currency, maxParticipants, expiresAt, wallet } = req.body;
+      if (!wallet || !title || !stakeAmount || !expiresAt) {
+        return res.status(400).json({ error: 'Title, wallet, stake amount, and expiry required' });
+      }
+      const [challenge] = await db.insert(socialChallenges).values({
+        creatorWallet: wallet.toLowerCase(),
+        title,
+        description: description || '',
+        stakeAmount: parseFloat(stakeAmount),
+        currency: currency || 'SUI',
+        maxParticipants: maxParticipants || 10,
+        currentParticipants: 1,
+        status: 'open',
+        expiresAt: new Date(expiresAt)
+      }).returning();
+      res.json(challenge);
+    } catch (error) {
+      console.error('Create challenge error:', error);
+      res.status(500).json({ error: 'Failed to create challenge' });
+    }
+  });
+
+  app.post("/api/social/challenges/:id/join", async (req: Request, res: Response) => {
+    try {
+      const { socialChallenges, socialChallengeParticipants } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      const challengeId = parseInt(req.params.id);
+      const { wallet, side } = req.body;
+      if (!wallet) return res.status(400).json({ error: 'Wallet required' });
+      const [challenge] = await db.select().from(socialChallenges).where(eq(socialChallenges.id, challengeId));
+      if (!challenge || challenge.status !== 'open') {
+        return res.status(400).json({ error: 'Challenge not found or not open' });
+      }
+      if ((challenge.currentParticipants || 0) >= (challenge.maxParticipants || 10)) {
+        return res.status(400).json({ error: 'Challenge is full' });
+      }
+      await db.insert(socialChallengeParticipants).values({
+        challengeId,
+        wallet: wallet.toLowerCase(),
+        side: side || 'against'
+      });
+      await db.update(socialChallenges)
+        .set({ currentParticipants: (challenge.currentParticipants || 1) + 1 })
+        .where(eq(socialChallenges.id, challengeId));
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Join challenge error:', error);
+      res.status(500).json({ error: 'Failed to join challenge' });
+    }
+  });
+
+  app.post("/api/social/follow", async (req: Request, res: Response) => {
+    try {
+      const { socialFollows } = await import('@shared/schema');
+      const { eq, and } = await import('drizzle-orm');
+      const { followerWallet, followingWallet } = req.body;
+      if (!followerWallet || !followingWallet) {
+        return res.status(400).json({ error: 'Both wallets required' });
+      }
+      if (followerWallet.toLowerCase() === followingWallet.toLowerCase()) {
+        return res.status(400).json({ error: 'Cannot follow yourself' });
+      }
+      const existing = await db.select().from(socialFollows).where(
+        and(
+          eq(socialFollows.followerWallet, followerWallet.toLowerCase()),
+          eq(socialFollows.followingWallet, followingWallet.toLowerCase())
+        )
+      );
+      if (existing.length > 0) {
+        await db.delete(socialFollows).where(
+          and(
+            eq(socialFollows.followerWallet, followerWallet.toLowerCase()),
+            eq(socialFollows.followingWallet, followingWallet.toLowerCase())
+          )
+        );
+        return res.json({ success: true, action: 'unfollowed' });
+      }
+      await db.insert(socialFollows).values({
+        followerWallet: followerWallet.toLowerCase(),
+        followingWallet: followingWallet.toLowerCase()
+      });
+      res.json({ success: true, action: 'followed' });
+    } catch (error) {
+      console.error('Follow error:', error);
+      res.status(500).json({ error: 'Failed to follow/unfollow' });
+    }
+  });
+
+  app.get("/api/social/following", async (req: Request, res: Response) => {
+    try {
+      const { socialFollows } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      const wallet = req.query.wallet as string;
+      if (!wallet) return res.json([]);
+      const follows = await db.select().from(socialFollows).where(
+        eq(socialFollows.followerWallet, wallet.toLowerCase())
+      );
+      res.json(follows.map(f => f.followingWallet));
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch following list' });
+    }
+  });
+
+  app.get("/api/social/followers-count/:wallet", async (req: Request, res: Response) => {
+    try {
+      const { socialFollows } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      const wallet = req.params.wallet.toLowerCase();
+      const followers = await db.select().from(socialFollows).where(
+        eq(socialFollows.followingWallet, wallet)
+      );
+      const following = await db.select().from(socialFollows).where(
+        eq(socialFollows.followerWallet, wallet)
+      );
+      res.json({ followers: followers.length, following: following.length });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch follower counts' });
+    }
+  });
+
+  app.get("/api/social/profile/:wallet", async (req: Request, res: Response) => {
+    try {
+      const wallet = req.params.wallet.toLowerCase();
+      const userBets = await storage.getUserBets(wallet);
+      const totalBets = userBets.length;
+      const wonBets = userBets.filter(b => b.status === 'won' || b.status === 'paid_out');
+      const lostBets = userBets.filter(b => b.status === 'lost');
+      const settledBets = wonBets.length + lostBets.length;
+      const winRate = settledBets > 0 ? (wonBets.length / settledBets) * 100 : 0;
+      const totalStaked = userBets.reduce((sum, b) => sum + (b.stake || b.betAmount || 0), 0);
+      const totalWinnings = wonBets.reduce((sum, b) => sum + (b.potentialPayout || 0), 0);
+      const totalLost = lostBets.reduce((sum, b) => sum + (b.stake || b.betAmount || 0), 0);
+      const profit = totalWinnings - totalStaked;
+      const roi = totalStaked > 0 ? (profit / totalStaked) * 100 : 0;
+      const biggestWin = wonBets.length > 0 
+        ? Math.max(...wonBets.map(b => (b.potentialPayout || 0) - (b.stake || b.betAmount || 0)))
+        : 0;
+      const sportCounts: Record<string, number> = {};
+      userBets.forEach(b => {
+        const sid = b.sportId?.toString() || 'unknown';
+        sportCounts[sid] = (sportCounts[sid] || 0) + 1;
+      });
+      const favoriteSport = Object.entries(sportCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+      const recentBets = userBets
+        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+        .slice(0, 10)
+        .map(b => ({
+          id: b.id,
+          event: b.eventName || b.externalEventId || 'Unknown',
+          prediction: b.prediction,
+          odds: b.odds,
+          stake: b.stake || b.betAmount,
+          status: b.status,
+          potentialPayout: b.potentialPayout,
+          createdAt: b.createdAt
+        }));
+      const { socialFollows } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      const followers = await db.select().from(socialFollows).where(eq(socialFollows.followingWallet, wallet));
+      const following = await db.select().from(socialFollows).where(eq(socialFollows.followerWallet, wallet));
+
+      res.json({
+        wallet,
+        totalBets,
+        winRate: Math.round(winRate * 10) / 10,
+        roi: Math.round(roi * 10) / 10,
+        profit: Math.round(profit * 1000) / 1000,
+        biggestWin: Math.round(biggestWin * 1000) / 1000,
+        totalStaked: Math.round(totalStaked * 1000) / 1000,
+        favoriteSport,
+        followers: followers.length,
+        following: following.length,
+        recentBets
+      });
+    } catch (error) {
+      console.error('Social profile error:', error);
+      res.status(500).json({ error: 'Failed to fetch profile' });
+    }
+  });
+
   return httpServer;
 }
