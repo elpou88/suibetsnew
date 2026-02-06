@@ -477,7 +477,17 @@ class SettlementWorkerService {
         
         for (const leg of legs) {
           const eventId = String(leg.eventId).trim();
-          const match = finishedMatchMap.get(eventId);
+          let match = finishedMatchMap.get(eventId);
+          
+          if (!match) {
+            // On-demand lookup: if this is a free sports event, fetch its result directly from API
+            const fetchedResult = await this.fetchFreeSportsLegResult(eventId);
+            if (fetchedResult) {
+              match = fetchedResult;
+              finishedMatchMap.set(eventId, match); // Cache for other parlays
+              console.log(`🔍 Fetched result for parlay leg ${eventId}: ${match.homeTeam} ${match.homeScore}-${match.awayScore} ${match.awayTeam}`);
+            }
+          }
           
           if (!match) {
             console.log(`⏳ Parlay leg ${eventId} not yet finished`);
@@ -537,6 +547,84 @@ class SettlementWorkerService {
     }
   }
   
+  /**
+   * Fetch a specific free sports game result by eventId (e.g., "basketball_489697")
+   * Used for on-demand lookback when parlay legs aren't in the current day's results
+   */
+  private async fetchFreeSportsLegResult(eventId: string): Promise<FinishedMatch | null> {
+    const FREE_SPORT_API_MAP: Record<string, { endpoint: string; apiHost: string }> = {
+      basketball: { endpoint: 'https://v1.basketball.api-sports.io/games', apiHost: 'v1.basketball.api-sports.io' },
+      baseball: { endpoint: 'https://v1.baseball.api-sports.io/games', apiHost: 'v1.baseball.api-sports.io' },
+      'ice-hockey': { endpoint: 'https://v1.hockey.api-sports.io/games', apiHost: 'v1.hockey.api-sports.io' },
+      rugby: { endpoint: 'https://v1.rugby.api-sports.io/games', apiHost: 'v1.rugby.api-sports.io' },
+      handball: { endpoint: 'https://v1.handball.api-sports.io/games', apiHost: 'v1.handball.api-sports.io' },
+      volleyball: { endpoint: 'https://v1.volleyball.api-sports.io/games', apiHost: 'v1.volleyball.api-sports.io' },
+      mma: { endpoint: 'https://v1.mma.api-sports.io/fights', apiHost: 'v1.mma.api-sports.io' },
+      'american-football': { endpoint: 'https://v1.american-football.api-sports.io/games', apiHost: 'v1.american-football.api-sports.io' },
+      afl: { endpoint: 'https://v1.afl.api-sports.io/games', apiHost: 'v1.afl.api-sports.io' },
+      'formula-1': { endpoint: 'https://v1.formula-1.api-sports.io/races', apiHost: 'v1.formula-1.api-sports.io' },
+      nba: { endpoint: 'https://v1.nba.api-sports.io/games', apiHost: 'v1.nba.api-sports.io' },
+      nfl: { endpoint: 'https://v1.nfl.api-sports.io/games', apiHost: 'v1.nfl.api-sports.io' },
+    };
+
+    try {
+      // Split on last underscore to handle sport slugs with hyphens (e.g., "ice-hockey_404167")
+      const lastUnderscore = eventId.lastIndexOf('_');
+      if (lastUnderscore <= 0) return null;
+      const sportSlug = eventId.substring(0, lastUnderscore);
+      const gameId = eventId.substring(lastUnderscore + 1);
+      if (!gameId || !/^\d+$/.test(gameId)) return null;
+      const apiConfig = FREE_SPORT_API_MAP[sportSlug];
+      if (!apiConfig) return null;
+
+      const apiKey = process.env.API_SPORTS_KEY;
+      if (!apiKey) return null;
+
+      const axios = (await import('axios')).default;
+      const response = await axios.get(apiConfig.endpoint, {
+        params: { id: gameId },
+        headers: { 'x-rapidapi-key': apiKey, 'x-rapidapi-host': apiConfig.apiHost },
+        timeout: 10000
+      });
+
+      const game = response.data?.response?.[0];
+      if (!game) return null;
+
+      const status = game.status?.long || game.status?.short || '';
+      const isFinished = status.toLowerCase().includes('finished') ||
+                         status.toLowerCase().includes('final') ||
+                         status === 'FT' || status === 'AET' || status === 'AOT' || status === 'PEN';
+      if (!isFinished) return null;
+
+      let homeTeam = '', awayTeam = '';
+      if (sportSlug === 'mma') {
+        homeTeam = game.fighters?.home?.name || game.home?.name || 'Fighter 1';
+        awayTeam = game.fighters?.away?.name || game.away?.name || 'Fighter 2';
+      } else {
+        homeTeam = game.teams?.home?.name || game.home?.name || 'Home';
+        awayTeam = game.teams?.away?.name || game.away?.name || 'Away';
+      }
+
+      const homeScore = game.scores?.home?.total ?? game.scores?.home ?? 0;
+      const awayScore = game.scores?.away?.total ?? game.scores?.away ?? 0;
+      const hScore = typeof homeScore === 'number' ? homeScore : parseInt(homeScore) || 0;
+      const aScore = typeof awayScore === 'number' ? awayScore : parseInt(awayScore) || 0;
+
+      return {
+        eventId,
+        homeTeam,
+        awayTeam,
+        homeScore: hScore,
+        awayScore: aScore,
+        winner: hScore > aScore ? 'home' : aScore > hScore ? 'away' : 'draw',
+        status: 'finished'
+      };
+    } catch (error: any) {
+      console.warn(`⚠️ Failed to fetch free sports result for ${eventId}: ${error.message}`);
+      return null;
+    }
+  }
+
   private async settleParlaySingleBet(bet: UnsettledBet, match: FinishedMatch, isWinner: boolean) {
     // DUPLICATE SETTLEMENT PREVENTION: Skip if already settled this session
     if (this.settledBetIds.has(bet.id)) {
