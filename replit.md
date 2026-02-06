@@ -71,6 +71,7 @@ Preferred communication style: Simple, everyday language.
   - **Tennis, Esports, Boxing**: Placeholder (no API-Sports endpoint available)
 - **Pre-game Cutoff**: Server-side enforcement prevents betting on free sports events that have already started (no live betting for free sports).
 - **Odds Cache**: Football odds cache TTL extended to 4 hours with 30-minute prefetch interval for consistent coverage.
+- **Live Fallback Odds**: Probability-based model accounting for score difference AND match time elapsed. A team leading 3-1 at minute 43 gets ~1.15 odds (not 3.0). Odds capped at 51.00 max. Uses 5% bookmaker margin.
 
 ### Blockchain Services
 - **Sui Network**: Layer 1 blockchain.

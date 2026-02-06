@@ -3172,27 +3172,64 @@ export class ApiSportsService {
         };
       }
       
-      // For live events without API odds, generate score-based fallback odds
-      // so users can still bet on matches before 45 minutes
+      // For live events without API odds, generate probability-based fallback odds
+      // Model accounts for: score difference, match time elapsed (non-linear), total goals
+      // Uses interaction term so time amplifies the effect of goal difference
+      // Examples: 3-1 at 43' → ~1.15, 3-2 at 45' → ~1.34, 1-0 at 75' → ~1.14
       if (isLive) {
         const homeScore = event.homeScore ?? event.score?.home ?? 0;
         const awayScore = event.awayScore ?? event.score?.away ?? 0;
         const scoreDiff = homeScore - awayScore;
-        let fallbackHome = 2.10;
-        let fallbackDraw = 3.30;
-        let fallbackAway = 3.20;
-        if (scoreDiff > 0) {
-          fallbackHome = Math.max(1.20, 2.10 - scoreDiff * 0.40);
-          fallbackDraw = 3.30 + scoreDiff * 0.50;
-          fallbackAway = 3.20 + scoreDiff * 0.80;
-        } else if (scoreDiff < 0) {
-          fallbackHome = 3.20 + Math.abs(scoreDiff) * 0.80;
-          fallbackDraw = 3.30 + Math.abs(scoreDiff) * 0.50;
-          fallbackAway = Math.max(1.20, 2.10 - Math.abs(scoreDiff) * 0.40);
+        const totalGoals = homeScore + awayScore;
+        const minute = event.minute || 0;
+        const timeProgress = Math.min(minute / 90, 1);
+        const timeWeight = Math.pow(timeProgress, 1.3);
+
+        let homeProb: number;
+        let drawProb: number;
+        let awayProb: number;
+
+        if (scoreDiff === 0) {
+          const baseDraw = 0.28 + timeWeight * 0.37;
+          drawProb = Math.min(baseDraw, 0.65);
+          if (totalGoals > 0) {
+            drawProb = Math.max(drawProb - totalGoals * 0.015, 0.22);
+          }
+          homeProb = (1 - drawProb) * 0.53;
+          awayProb = (1 - drawProb) * 0.47;
+        } else {
+          const absDiff = Math.abs(scoreDiff);
+          const goalFactor = Math.min(absDiff * 0.13, 0.35);
+          const timeFactor = timeWeight * 0.35;
+          const interaction = goalFactor * timeFactor * 0.5;
+          const winProb = Math.min(0.50 + goalFactor + timeFactor + interaction, 0.97);
+          const drawChance = Math.max(0.02, 0.18 - absDiff * 0.04 - timeWeight * 0.08);
+          drawProb = (1 - winProb) * Math.min(drawChance / Math.max(1 - winProb, 0.01), 0.45);
+          drawProb = Math.max(drawProb, 0.015);
+          const loseProb = Math.max(1 - winProb - drawProb, 0.01);
+
+          if (scoreDiff > 0) {
+            homeProb = winProb;
+            awayProb = loseProb;
+          } else {
+            awayProb = winProb;
+            homeProb = loseProb;
+          }
         }
-        fallbackHome = Math.round(fallbackHome * 100) / 100;
-        fallbackDraw = Math.round(fallbackDraw * 100) / 100;
-        fallbackAway = Math.round(fallbackAway * 100) / 100;
+
+        const totalProb = homeProb + drawProb + awayProb;
+        homeProb /= totalProb;
+        drawProb /= totalProb;
+        awayProb /= totalProb;
+
+        const margin = 1.05;
+        let fallbackHome = Math.round((margin / homeProb) * 100) / 100;
+        let fallbackDraw = Math.round((margin / drawProb) * 100) / 100;
+        let fallbackAway = Math.round((margin / awayProb) * 100) / 100;
+
+        fallbackHome = Math.max(1.01, Math.min(fallbackHome, 51.00));
+        fallbackDraw = Math.max(1.01, Math.min(fallbackDraw, 51.00));
+        fallbackAway = Math.max(1.01, Math.min(fallbackAway, 51.00));
 
         const fallbackMarkets = event.markets?.map(market => {
           if (market.name === 'Match Result' || market.name === 'Match Winner') {
