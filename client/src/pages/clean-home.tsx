@@ -841,8 +841,9 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
   }, [event?.minute]);
 
   const isBettingClosed = useMemo(() => {
-    return !!(event?.isLive && minuteNum >= 45);
-  }, [event?.isLive, minuteNum]);
+    if (!event?.isLive) return false;
+    return true;
+  }, [event?.isLive]);
 
   // Helper to check if a market is closed based on match minute
   const isMarketClosed = useCallback((marketId: any) => {
@@ -866,11 +867,17 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
                               marketStr.includes('double chance');
       if ((isBtts || isDoubleChance) && minuteNum >= 10) return true;
 
-      // Over/Under markets close after 20 minutes of live play
+      // Over/Under markets close after 10 minutes of live play
       const isOverUnder = marketStr.includes('over') || marketStr.includes('under') ||
                           marketStr.includes('o/u') || marketStr.includes('goals') ||
                           marketStr.includes('over_under');
-      if (isOverUnder && minuteNum >= 20) return true;
+      if (isOverUnder && minuteNum >= 10) return true;
+
+      // Match Winner not available in live betting at all
+      const isMatchWinner = marketStr.includes('match_winner') || marketStr.includes('match-winner') ||
+                            marketStr.includes('match_result') || marketStr.includes('match-result') ||
+                            marketStr === 'match winner' || marketStr === 'match result';
+      if (isMatchWinner) return true;
       
       // Block all markets after minute 45 (live betting only in first half)
       if (minuteNum >= 45) return true;
@@ -1187,7 +1194,7 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
       </AnimatePresence>
       
       {/* More Markets Button and Expandable Section */}
-      {secondaryMarkets.length > 0 && hasRealOdds && !isBettingClosed && (
+      {secondaryMarkets.length > 0 && hasRealOdds && (
         <>
           <button
             onClick={() => setShowMoreMarkets(!showMoreMarkets)}
@@ -1294,7 +1301,7 @@ function EventCard({ event }: EventCardProps) {
   const matchMinute = getMatchMinute();
   const isLiveMatch = event.isLive || event.status?.toLowerCase().includes('live') || 
                       event.status?.includes('H') || event.status?.includes("'");
-  const isBettingClosed = isLiveMatch && matchMinute !== null && matchMinute >= 45;
+  const isBettingClosed = !!isLiveMatch;
 
   const getOddsFromMarkets = () => {
     const defaultOdds = { home: 2.05, draw: 3.40, away: 3.00 };
