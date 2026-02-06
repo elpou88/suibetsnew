@@ -28,6 +28,15 @@ import { freeSportsService } from "./services/freeSportsService";
 const SUI_BETTING_PAUSED = true;
 const SUI_PAUSE_MESSAGE = "SUI betting is temporarily paused while we add funds to the treasury. Please bet with SBETS instead!";
 
+// ANTI-EXPLOIT: Blocked wallet addresses (known exploiters)
+const BLOCKED_WALLETS = new Set([
+  '0xaa7f49920b411adeaf6a79a16fc5e8cd0b2da25fdee3eda70fafb06bdba5abf1',
+]);
+
+function isWalletBlocked(wallet: string): boolean {
+  return BLOCKED_WALLETS.has(wallet.toLowerCase());
+}
+
 // ANTI-EXPLOIT: Rate limiting for bet placement
 // Tracks bets per wallet per hour to prevent spam/exploitation
 const BET_RATE_LIMIT = new Map<string, { count: number; resetTime: number }>();
@@ -1837,6 +1846,15 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const eventId = String(data.eventId);
       const { eventName, homeTeam, awayTeam, marketId, outcomeId, odds, betAmount, currency, prediction, feeCurrency, paymentMethod, txHash, onChainBetId, status, isLive, matchMinute, walletAddress, useBonus, useFreeBet } = data;
       
+      // ANTI-EXPLOIT: Wallet blocklist check
+      if (walletAddress && isWalletBlocked(walletAddress)) {
+        console.log(`🚫 BLOCKED WALLET: Bet rejected from ${walletAddress.slice(0, 12)}...`);
+        return res.status(403).json({
+          message: "This wallet has been suspended due to policy violations.",
+          code: "WALLET_BLOCKED"
+        });
+      }
+
       // ANTI-EXPLOIT: Rate limiting - max bets per hour
       const rateLimitKey = walletAddress || userId;
       if (rateLimitKey && rateLimitKey.startsWith('0x')) {
@@ -1890,7 +1908,11 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
             });
           }
         } catch (eventCheckError) {
-          console.warn('[Event Check] Could not verify event, allowing bet:', eventCheckError);
+          console.log(`❌ Blocked bet (event check error) on ${eventId} from ${(walletAddress || userId).slice(0, 12)}...`);
+          return res.status(400).json({
+            message: "Could not verify event. Please try again.",
+            code: "EVENT_VERIFICATION_FAILED"
+          });
         }
       }
       
@@ -2579,6 +2601,15 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
 
       const { userId, selections, betAmount, feeCurrency } = validation.data!;
       const userIdStr = String(userId);
+
+      // ANTI-EXPLOIT: Wallet blocklist check
+      if (userIdStr.startsWith('0x') && isWalletBlocked(userIdStr)) {
+        console.log(`🚫 BLOCKED WALLET: Parlay rejected from ${userIdStr.slice(0, 12)}...`);
+        return res.status(403).json({
+          message: "This wallet has been suspended due to policy violations.",
+          code: "WALLET_BLOCKED"
+        });
+      }
       
       const eventIds = selections.map((s: any) => s.eventId);
       const uniqueEventIds = new Set(eventIds);
@@ -2588,6 +2619,23 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           message: "Cannot place parlay with multiple selections from the same match",
           code: "DUPLICATE_EVENT_IN_PARLAY"
         });
+      }
+
+      // ANTI-EXPLOIT: Validate all parlay selections reference real events
+      for (const sel of selections) {
+        const selEventId = String(sel.eventId);
+        const eventLookup = apiSportsService.lookupEventSync(selEventId);
+        if (!eventLookup.found) {
+          const { freeSportsService } = await import('./services/freeSportsService');
+          const freeLookup = freeSportsService.lookupEvent(selEventId);
+          if (!freeLookup.found) {
+            console.log(`🚫 EXPLOIT BLOCKED: Parlay selection references unknown event ${selEventId} from ${userIdStr.slice(0, 12)}...`);
+            return res.status(400).json({
+              message: "One or more selections reference invalid events. Please refresh and try again.",
+              code: "INVALID_PARLAY_EVENT"
+            });
+          }
+        }
       }
       
       const currency: 'SUI' | 'SBETS' = feeCurrency === 'SBETS' ? 'SBETS' : 'SUI';
@@ -2719,7 +2767,44 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         legs 
       } = req.body;
 
+      // ANTI-EXPLOIT: Wallet blocklist check (check both walletAddress and userId)
+      const parlayWallet = walletAddress || userId;
+      if (parlayWallet && isWalletBlocked(parlayWallet)) {
+        console.log(`🚫 BLOCKED WALLET: On-chain parlay rejected from ${parlayWallet.slice(0, 12)}...`);
+        return res.status(403).json({
+          message: "This wallet has been suspended due to policy violations.",
+          code: "WALLET_BLOCKED"
+        });
+      }
+      if (walletAddress && userId && walletAddress !== userId && isWalletBlocked(userId)) {
+        console.log(`🚫 BLOCKED WALLET: On-chain parlay rejected (userId) from ${userId.slice(0, 12)}...`);
+        return res.status(403).json({
+          message: "This wallet has been suspended due to policy violations.",
+          code: "WALLET_BLOCKED"
+        });
+      }
+
+      // ANTI-EXPLOIT: Require walletAddress for on-chain parlays
+      if (!walletAddress) {
+        return res.status(400).json({
+          message: "Wallet address is required for on-chain parlays.",
+          code: "MISSING_WALLET"
+        });
+      }
+
       const currency: 'SUI' | 'SBETS' = feeCurrency === 'SBETS' ? 'SBETS' : 'SUI';
+
+      // MAX STAKE VALIDATION
+      const MAX_STAKE_SUI = 100;
+      const MAX_STAKE_SBETS = 10000;
+      const maxStake = currency === 'SBETS' ? MAX_STAKE_SBETS : MAX_STAKE_SUI;
+      if (betAmount > maxStake) {
+        console.log(`❌ On-chain parlay rejected (max stake exceeded): ${betAmount} ${currency} > ${maxStake} ${currency}`);
+        return res.status(400).json({
+          message: `Maximum stake is ${maxStake.toLocaleString()} ${currency}`,
+          code: "MAX_STAKE_EXCEEDED"
+        });
+      }
       
       if (legs && Array.isArray(legs) && legs.length > 1) {
         const legEventIds = legs.map((l: any) => l.eventId);
@@ -2730,6 +2815,32 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
             message: "Cannot place parlay with multiple selections from the same match",
             code: "DUPLICATE_EVENT_IN_PARLAY"
           });
+        }
+      }
+
+      // ANTI-EXPLOIT: Validate all parlay legs reference real events
+      if (legs && Array.isArray(legs)) {
+        for (const leg of legs) {
+          const legEventId = String(leg.eventId || '');
+          if (!legEventId) {
+            console.log(`🚫 EXPLOIT BLOCKED: On-chain parlay has leg with no event ID from ${walletAddress}`);
+            return res.status(400).json({
+              message: "Invalid parlay - all selections must reference valid events.",
+              code: "INVALID_PARLAY_EVENT"
+            });
+          }
+          const eventLookup = apiSportsService.lookupEventSync(legEventId);
+          if (!eventLookup.found) {
+            const { freeSportsService } = await import('./services/freeSportsService');
+            const freeLookup = freeSportsService.lookupEvent(legEventId);
+            if (!freeLookup.found) {
+              console.log(`🚫 EXPLOIT BLOCKED: On-chain parlay leg references unknown event ${legEventId} from ${walletAddress}`);
+              return res.status(400).json({
+                message: "One or more selections reference invalid events.",
+                code: "INVALID_PARLAY_EVENT"
+              });
+            }
+          }
         }
       }
       

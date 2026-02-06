@@ -1134,6 +1134,15 @@ export class BlockchainBetService {
             continue; // Already tracked
           }
 
+          // ANTI-EXPLOIT: Blocked wallet check
+          const BLOCKED_WALLETS = new Set([
+            '0xaa7f49920b411adeaf6a79a16fc5e8cd0b2da25fdee3eda70fafb06bdba5abf1',
+          ]);
+          if (BLOCKED_WALLETS.has(bettor?.toLowerCase())) {
+            console.warn(`🚫 EXPLOIT BLOCKED: Rejecting bet ${betObjectId.slice(0, 12)}... from blocked wallet ${bettor.slice(0, 12)}...`);
+            continue;
+          }
+
           // ANTI-EXPLOIT: Block bets on "Unknown Event" - these are likely fake/exploitative bets
           // Users betting directly on the contract with invalid event IDs will be rejected
           if (eventName === "Unknown Event" || homeTeam === "Unknown" || awayTeam === "Unknown") {
