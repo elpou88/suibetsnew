@@ -40,6 +40,7 @@ class SettlementWorkerService {
   private checkInterval = 5 * 60 * 1000; // 5 minutes (AGGRESSIVE API SAVING - was 2min)
   private finishedMatchesCache: { data: FinishedMatch[]; timestamp: number } | null = null;
   private finishedMatchesCacheTTL = 3 * 60 * 1000; // Cache finished matches for 3 minutes
+  private cachedFreeSportsResults: FinishedMatch[] = []; // Nightly results cache - only updated at 11 PM UTC
 
   async start() {
     if (this._isRunning) {
@@ -134,6 +135,18 @@ class SettlementWorkerService {
       console.log('🆓 SettlementWorker: No free sports results to process');
       return;
     }
+
+    // Store results in cache so the regular settlement cycle can also use them
+    this.cachedFreeSportsResults = results.map(r => ({
+      eventId: r.eventId,
+      homeTeam: r.homeTeam,
+      awayTeam: r.awayTeam,
+      homeScore: r.homeScore,
+      awayScore: r.awayScore,
+      winner: r.winner,
+      status: r.status
+    }));
+    console.log(`🆓 SettlementWorker: Cached ${this.cachedFreeSportsResults.length} free sports results for settlement cycle`);
     
     try {
       // Get all unsettled bets
@@ -769,18 +782,19 @@ class SettlementWorkerService {
     const finishedMatches: FinishedMatch[] = [];
     
     try {
-      // Check ALL 15 sports with API endpoints for finished matches
-      // Football uses paid API, others use free API endpoints
-      // Covers: Football, Basketball, Baseball, Hockey, Volleyball, Handball, Rugby, AFL, MMA, American Football, Tennis, Formula 1, Boxing, Esports, NFL
-      const sportsToCheck = ['football', 'basketball', 'baseball', 'hockey', 'volleyball', 'handball', 'rugby', 'afl', 'mma', 'american-football', 'tennis', 'formula-1', 'boxing', 'esports', 'nfl'];
-      
-      for (const sport of sportsToCheck) {
-        try {
-          const response = await this.fetchFinishedForSport(sport);
-          finishedMatches.push(...response);
-        } catch (error) {
-          // Silently skip failed sports
-        }
+      // ONLY check football via paid API every 5 minutes
+      // Free sports (basketball, baseball, hockey, etc.) are settled via nightly results
+      // fetched at 11 PM UTC by freeSportsService - NO direct API calls here
+      try {
+        const footballResults = await this.fetchFinishedForSport('football');
+        finishedMatches.push(...footballResults);
+      } catch (error) {
+        // Silently skip if football API fails
+      }
+
+      // Merge in cached free sports results from nightly fetch (no new API calls)
+      if (this.cachedFreeSportsResults.length > 0) {
+        finishedMatches.push(...this.cachedFreeSportsResults);
       }
 
       // Cache the results
@@ -789,9 +803,6 @@ class SettlementWorkerService {
         timestamp: Date.now()
       };
 
-      // NOTE: Don't filter out matches based on settledEventIdsCache here!
-      // Multiple bets can exist on the same match. The settlement logic
-      // will naturally skip matches with no pending bets.
       return finishedMatches;
     } catch (error) {
       console.error('Error fetching finished matches:', error);
