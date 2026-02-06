@@ -51,7 +51,7 @@ export const ParlaySchema = z.object({
       odds: OddsSchema,
       prediction: z.string()
     })
-  ).min(2, 'Parlay requires at least 2 selections').max(10, 'Maximum 10 selections per parlay'),
+  ).min(2, 'Parlay requires at least 2 selections').max(12, 'Maximum 12 selections per parlay'),
   betAmount: BetAmountSchema,
   feeCurrency: z.enum(['SUI', 'SBETS']).optional().default('SUI')
 });

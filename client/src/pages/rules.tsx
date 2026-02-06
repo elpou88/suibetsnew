@@ -97,7 +97,7 @@ export default function RulesPage() {
             <ul className="space-y-3">
               <li className="flex items-start gap-3">
                 <CheckCircle className="h-5 w-5 text-cyan-400 flex-shrink-0 mt-0.5" />
-                <span>Minimum 2 selections, maximum 10 selections per parlay</span>
+                <span>Minimum 2 selections, maximum 12 selections per parlay</span>
               </li>
               <li className="flex items-start gap-3">
                 <CheckCircle className="h-5 w-5 text-cyan-400 flex-shrink-0 mt-0.5" />

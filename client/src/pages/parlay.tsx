@@ -447,7 +447,7 @@ export default function ParlayPage() {
               </h3>
               <ul className="text-gray-400 text-sm space-y-2">
                 <li>• Minimum 2 selections required for a parlay</li>
-                <li>• Maximum 10 selections per parlay</li>
+                <li>• Maximum 12 selections per parlay</li>
                 <li>• All selections must win for the parlay to pay out</li>
                 <li>• Odds are multiplied together for final payout</li>
                 <li>• Live events can be included in parlays</li>
