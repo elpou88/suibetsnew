@@ -719,16 +719,27 @@ async function buildSbetsTransferTx(
   const tx = new Transaction();
   const amountInSmallest = BigInt(Math.floor(amount * 1_000_000_000));
 
-  const sbetsCoins = await suiClient.getCoins({
-    owner: senderAddress,
-    coinType: SBETS_TOKEN_TYPE,
-  });
+  let allCoins: any[] = [];
+  let cursor: string | null = null;
+  let hasMore = true;
+  while (hasMore) {
+    const sbetsCoins: any = await suiClient.getCoins({
+      owner: senderAddress,
+      coinType: SBETS_TOKEN_TYPE,
+      ...(cursor ? { cursor } : {}),
+    });
+    if (sbetsCoins.data && sbetsCoins.data.length > 0) {
+      allCoins = allCoins.concat(sbetsCoins.data);
+    }
+    cursor = sbetsCoins.nextCursor || null;
+    hasMore = sbetsCoins.hasNextPage === true && cursor !== null;
+  }
 
-  if (!sbetsCoins.data || sbetsCoins.data.length === 0) {
+  if (allCoins.length === 0) {
     throw new Error('No SBETS tokens found in your wallet. You need SBETS to place prediction bets.');
   }
 
-  const nonZeroCoins = sbetsCoins.data.filter((c: any) => BigInt(c.balance) > 0);
+  const nonZeroCoins = allCoins.filter((c: any) => BigInt(c.balance) > 0);
   const totalBalance = nonZeroCoins.reduce((sum: bigint, c: any) => sum + BigInt(c.balance), BigInt(0));
 
   if (totalBalance < amountInSmallest) {
