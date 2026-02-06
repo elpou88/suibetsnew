@@ -200,6 +200,80 @@ export class BlockchainBetService {
     }
   }
 
+  async verifySbetsTransfer(txHash: string, expectedSender: string, expectedAmount: number): Promise<{
+    verified: boolean;
+    sender?: string;
+    recipient?: string;
+    amount?: number;
+    error?: string;
+  }> {
+    try {
+      if (!txHash || typeof txHash !== 'string' || txHash.length < 20) {
+        return { verified: false, error: 'Invalid transaction hash' };
+      }
+
+      const txResponse = await this.client.getTransactionBlock({
+        digest: txHash,
+        options: {
+          showEffects: true,
+          showBalanceChanges: true,
+          showInput: true,
+        }
+      });
+
+      if (!txResponse) {
+        return { verified: false, error: 'Transaction not found on-chain' };
+      }
+
+      if (txResponse.effects?.status?.status !== 'success') {
+        return { verified: false, error: 'Transaction failed on-chain' };
+      }
+
+      const sender = txResponse.transaction?.data?.sender;
+      if (!sender || sender.toLowerCase() !== expectedSender.toLowerCase()) {
+        return { verified: false, error: `Sender mismatch: expected ${expectedSender.slice(0,10)}..., got ${sender?.slice(0,10)}...` };
+      }
+
+      const balanceChanges = txResponse.balanceChanges || [];
+      const sbetsChanges = balanceChanges.filter((bc: any) =>
+        bc.coinType && bc.coinType.includes('sbets::SBETS')
+      );
+
+      if (sbetsChanges.length === 0) {
+        return { verified: false, error: 'No SBETS transfer found in transaction' };
+      }
+
+      const adminWallet = ADMIN_WALLET.toLowerCase();
+      const adminReceive = sbetsChanges.find((bc: any) =>
+        bc.owner?.AddressOwner?.toLowerCase() === adminWallet &&
+        BigInt(bc.amount) > 0
+      );
+
+      if (!adminReceive) {
+        return { verified: false, error: 'SBETS not sent to platform treasury wallet' };
+      }
+
+      const receivedAmount = Number(BigInt(adminReceive.amount)) / 1_000_000_000;
+      if (receivedAmount < expectedAmount) {
+        return { verified: false, error: `Amount too low: expected ${expectedAmount} SBETS, received ${receivedAmount} SBETS` };
+      }
+      if (receivedAmount > expectedAmount * 1.5) {
+        return { verified: false, error: `Amount suspiciously high: expected ${expectedAmount} SBETS, received ${receivedAmount} SBETS` };
+      }
+
+      console.log(`[Verify] SBETS transfer verified: ${sender.slice(0,10)}... -> treasury | ${receivedAmount} SBETS | TX: ${txHash}`);
+      return {
+        verified: true,
+        sender,
+        recipient: adminWallet,
+        amount: receivedAmount
+      };
+    } catch (error: any) {
+      console.error('[Verify] SBETS transfer verification failed:', error.message);
+      return { verified: false, error: `Verification failed: ${error.message}` };
+    }
+  }
+
   async getWalletBalance(walletAddress: string): Promise<{
     sui: number;
     sbets: number;

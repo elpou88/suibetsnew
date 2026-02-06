@@ -651,6 +651,7 @@ export const socialChallengeParticipants = pgTable("social_challenge_participant
   challengeId: integer("challenge_id").notNull(),
   wallet: text("wallet").notNull(),
   side: text("side").notNull().default("for"),
+  txHash: text("tx_hash"),
   createdAt: timestamp("created_at").defaultNow()
 });
 

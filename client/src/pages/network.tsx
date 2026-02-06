@@ -2,7 +2,8 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
-import { useCurrentAccount } from '@mysten/dapp-kit';
+import { useCurrentAccount, useSignAndExecuteTransaction, useSuiClient } from '@mysten/dapp-kit';
+import { Transaction } from '@mysten/sui/transactions';
 import { useToast } from '@/hooks/use-toast';
 import {
   TrendingUp, Users, Zap, Trophy, Copy, UserPlus,
@@ -41,6 +42,7 @@ const CATEGORIES = [
 ];
 
 const BET_AMOUNTS = [100, 500, 1000, 5000, 10000];
+const SBETS_TOKEN_TYPE = '0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285::sbets::SBETS';
 
 function formatWallet(wallet: string) {
   if (!wallet) return 'Anonymous';
@@ -681,8 +683,54 @@ function HomeTab({ onViewProfile }: { onViewProfile: (w: string) => void }) {
   );
 }
 
+async function buildSbetsTransferTx(
+  suiClient: any,
+  senderAddress: string,
+  recipientAddress: string,
+  amount: number
+): Promise<Transaction> {
+  const tx = new Transaction();
+  const amountInSmallest = BigInt(Math.floor(amount * 1_000_000_000));
+
+  const sbetsCoins = await suiClient.getCoins({
+    owner: senderAddress,
+    coinType: SBETS_TOKEN_TYPE,
+  });
+
+  if (!sbetsCoins.data || sbetsCoins.data.length === 0) {
+    throw new Error('No SBETS tokens found in your wallet. You need SBETS to place prediction bets.');
+  }
+
+  const nonZeroCoins = sbetsCoins.data.filter((c: any) => BigInt(c.balance) > 0);
+  const totalBalance = nonZeroCoins.reduce((sum: bigint, c: any) => sum + BigInt(c.balance), BigInt(0));
+
+  if (totalBalance < amountInSmallest) {
+    const have = Number(totalBalance) / 1_000_000_000;
+    throw new Error(`Insufficient SBETS balance. Need ${amount.toLocaleString()} SBETS but you have ${have.toLocaleString()} SBETS.`);
+  }
+
+  const suitableCoin = nonZeroCoins.find((c: any) => BigInt(c.balance) >= amountInSmallest);
+  if (suitableCoin) {
+    const [splitCoin] = tx.splitCoins(tx.object(suitableCoin.coinObjectId), [amountInSmallest]);
+    tx.transferObjects([splitCoin], tx.pure.address(recipientAddress));
+  } else {
+    const coinIds = nonZeroCoins.map((c: any) => c.coinObjectId);
+    const primaryCoin = tx.object(coinIds[0]);
+    if (coinIds.length > 1) {
+      const otherCoins = coinIds.slice(1).map((id: string) => tx.object(id));
+      tx.mergeCoins(primaryCoin, otherCoins);
+    }
+    const [splitCoin] = tx.splitCoins(primaryCoin, [amountInSmallest]);
+    tx.transferObjects([splitCoin], tx.pure.address(recipientAddress));
+  }
+
+  return tx;
+}
+
 function PredictTab({ wallet }: { wallet?: string }) {
   const { toast } = useToast();
+  const suiClient = useSuiClient();
+  const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
   const [showCreate, setShowCreate] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [betAmounts, setBetAmounts] = useState<Record<number, number>>({});
@@ -708,24 +756,44 @@ function PredictTab({ wallet }: { wallet?: string }) {
     enabled: !!wallet
   });
 
+  const { data: treasuryWallet } = useQuery<string>({
+    queryKey: ['/api/social/treasury-wallet'],
+    queryFn: async () => {
+      const res = await fetch('/api/social/treasury-wallet');
+      if (!res.ok) throw new Error('Failed to get treasury wallet');
+      const data = await res.json();
+      return data.wallet;
+    }
+  });
+
   const betMutation = useMutation({
     mutationFn: async ({ predictionId, side, amount }: { predictionId: number; side: string; amount: number }) => {
+      if (!wallet || !treasuryWallet) {
+        throw new Error('Wallet not connected or treasury unavailable');
+      }
+      toast({ title: 'Sending SBETS on-chain', description: `Sign the transaction to send ${amount} SBETS` });
+      const tx = await buildSbetsTransferTx(suiClient, wallet, treasuryWallet, amount);
+      const result = await signAndExecute({ transaction: tx } as any);
+      if (!result.digest) {
+        throw new Error('Transaction failed - no digest returned from wallet');
+      }
+      const txHash = result.digest;
+      toast({ title: 'SBETS sent on-chain', description: `Verifying transaction... TX: ${txHash.slice(0, 12)}...` });
       const res = await fetch(`/api/social/predictions/${predictionId}/bet`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet, side, amount, currency: 'SBETS' })
+        body: JSON.stringify({ wallet, side, amount, currency: 'SBETS', txHash })
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || 'Failed to place bet');
+        throw new Error(err.error || 'Failed to record bet after on-chain transfer');
       }
       return res.json();
     },
     onSuccess: (data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['/api/social/predictions'] });
       queryClient.invalidateQueries({ queryKey: ['/api/social/predictions/bets'] });
-      const txDesc = data?.txId ? ` | TX: ${data.txId}` : '';
-      toast({ title: 'Bet Placed', description: `${vars.amount} SBETS on ${vars.side.toUpperCase()}${txDesc}` });
+      toast({ title: 'Bet Placed On-Chain', description: `${vars.amount} SBETS on ${vars.side.toUpperCase()} | Verified TX: ${data?.txId?.slice(0, 16)}...` });
     },
     onError: (err: Error) => {
       toast({ title: 'Bet Failed', description: err.message, variant: 'destructive' });
@@ -794,10 +862,10 @@ function PredictTab({ wallet }: { wallet?: string }) {
           {showHowItWorks && (
             <div className="mt-3 space-y-2 text-sm text-gray-400">
               <p>Predict = Pool-based prediction market. You bet YES or NO on any question.</p>
-              <p>All SBETS from bettors go into a shared pool.</p>
-              <p>When the creator resolves the market (YES or NO), the winning side splits the ENTIRE pool proportionally to how much each person bet.</p>
+              <p>When you place a bet, your SBETS are transferred on-chain to the platform treasury. Your wallet signs the real transaction.</p>
+              <p>When the creator resolves the market (YES or NO), the winning side splits the ENTIRE pool proportionally. Payouts are sent directly to your wallet from treasury.</p>
               <p className="text-cyan-400/80">Example: If 10,000 SBETS on YES and 5,000 on NO, and YES wins, YES bettors split 15,000 SBETS proportionally.</p>
-              <p>Every bet is recorded on-chain with a unique transaction ID tied to your wallet. Payouts are calculated and distributed automatically when the market resolves.</p>
+              <p>Every bet is a real on-chain SBETS transfer verified by the Sui blockchain. No fake transactions - your wallet signs each bet.</p>
             </div>
           )}
         </CardContent>
@@ -1011,18 +1079,41 @@ function PredictTab({ wallet }: { wallet?: string }) {
 
 function ChallengeTab({ wallet }: { wallet?: string }) {
   const { toast } = useToast();
+  const suiClient = useSuiClient();
+  const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
   const [showCreate, setShowCreate] = useState(false);
 
   const { data: challenges = [], isLoading } = useQuery<any[]>({
     queryKey: ['/api/social/challenges'],
   });
 
+  const { data: treasuryWallet } = useQuery<string>({
+    queryKey: ['/api/social/treasury-wallet'],
+    queryFn: async () => {
+      const res = await fetch('/api/social/treasury-wallet');
+      if (!res.ok) throw new Error('Failed to get treasury wallet');
+      const data = await res.json();
+      return data.wallet;
+    }
+  });
+
   const joinMutation = useMutation({
-    mutationFn: async ({ challengeId, side }: { challengeId: number; side: string }) => {
+    mutationFn: async ({ challengeId, side, stakeAmount }: { challengeId: number; side: string; stakeAmount: number }) => {
+      if (!wallet || !treasuryWallet) {
+        throw new Error('Wallet not connected or treasury unavailable');
+      }
+      toast({ title: 'Sending SBETS stake on-chain', description: `Sign the transaction to send ${stakeAmount} SBETS` });
+      const tx = await buildSbetsTransferTx(suiClient, wallet, treasuryWallet, stakeAmount);
+      const result = await signAndExecute({ transaction: tx } as any);
+      if (!result.digest) {
+        throw new Error('Transaction failed - no digest returned from wallet');
+      }
+      const txHash = result.digest;
+      toast({ title: 'SBETS stake sent', description: `Verifying transaction...` });
       const res = await fetch(`/api/social/challenges/${challengeId}/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet, side })
+        body: JSON.stringify({ wallet, side, txHash })
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -1032,7 +1123,7 @@ function ChallengeTab({ wallet }: { wallet?: string }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/social/challenges'] });
-      toast({ title: 'Challenge Joined', description: 'You faded this bet! Good luck!' });
+      toast({ title: 'Challenge Joined On-Chain', description: 'Your SBETS stake has been verified and recorded on-chain!' });
     },
     onError: (err: Error) => {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -1044,7 +1135,9 @@ function ChallengeTab({ wallet }: { wallet?: string }) {
       window.dispatchEvent(new CustomEvent('suibets:connect-wallet-required'));
       return;
     }
-    joinMutation.mutate({ challengeId, side });
+    const challenge = challenges.find((c: any) => c.id === challengeId);
+    const stakeAmount = challenge?.stakeAmount || 100;
+    joinMutation.mutate({ challengeId, side, stakeAmount });
   };
 
   const openChallenges = challenges.filter(c => c.status === 'open');

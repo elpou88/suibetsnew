@@ -5315,19 +5315,24 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
 
+  app.get("/api/social/treasury-wallet", async (_req: Request, res: Response) => {
+    res.json({ wallet: blockchainBetService.getAdminWallet() });
+  });
+
   const socialBetRateLimits = new Map<string, { count: number; resetAt: number }>();
   const SOCIAL_BET_LIMIT = 20;
   const SOCIAL_BET_WINDOW = 60 * 60 * 1000;
+  const usedTxHashes = new Set<string>();
 
   app.post("/api/social/predictions/:id/bet", async (req: Request, res: Response) => {
     try {
       const { socialPredictions, socialPredictionBets } = await import('@shared/schema');
-      const { eq } = await import('drizzle-orm');
+      const { eq, sql } = await import('drizzle-orm');
       const predictionId = parseInt(req.params.id);
       if (isNaN(predictionId) || predictionId <= 0) {
         return res.status(400).json({ error: 'Invalid prediction ID' });
       }
-      const { wallet, side, amount } = req.body;
+      const { wallet, side, amount, txHash } = req.body;
       if (!wallet || typeof wallet !== 'string' || !wallet.startsWith('0x') || wallet.length < 10) {
         return res.status(400).json({ error: 'Valid wallet address required' });
       }
@@ -5341,6 +5346,12 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const VALID_AMOUNTS = [100, 500, 1000, 5000, 10000];
       if (!VALID_AMOUNTS.includes(parsedAmount)) {
         return res.status(400).json({ error: 'Amount must be 100, 500, 1000, 5000, or 10000 SBETS' });
+      }
+      if (!txHash || typeof txHash !== 'string' || txHash.length < 20) {
+        return res.status(400).json({ error: 'On-chain transaction hash required. Send SBETS to treasury first.' });
+      }
+      if (usedTxHashes.has(txHash)) {
+        return res.status(400).json({ error: 'Transaction already used for a bet - each bet requires a new transaction' });
       }
       const walletLower = wallet.toLowerCase();
       const now = Date.now();
@@ -5367,26 +5378,35 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       if (walletLower === prediction.creatorWallet?.toLowerCase()) {
         return res.status(403).json({ error: 'Creator cannot bet on their own prediction' });
       }
-      const txId = `sp_${Date.now()}_${predictionId}_${Math.random().toString(36).slice(2, 10)}`;
+      const existingBet = await db.select().from(socialPredictionBets).where(eq(socialPredictionBets.txId, txHash));
+      if (existingBet.length > 0) {
+        return res.status(400).json({ error: 'Transaction already used for a bet' });
+      }
+      const verification = await blockchainBetService.verifySbetsTransfer(txHash, walletLower, parsedAmount);
+      if (!verification.verified) {
+        console.error(`[Social] On-chain verification FAILED for bet: ${verification.error} | TX: ${txHash} | Wallet: ${walletLower.slice(0,10)}...`);
+        return res.status(400).json({ error: `On-chain verification failed: ${verification.error}` });
+      }
+      usedTxHashes.add(txHash);
       const [bet] = await db.insert(socialPredictionBets).values({
         predictionId,
         wallet: walletLower,
         side,
         amount: parsedAmount,
         currency: 'SBETS',
-        txId
+        txId: txHash
       }).returning();
       const yesInc = side === 'yes' ? parsedAmount : 0;
       const noInc = side === 'no' ? parsedAmount : 0;
       await db.update(socialPredictions)
         .set({
-          totalYesAmount: (prediction.totalYesAmount || 0) + yesInc,
-          totalNoAmount: (prediction.totalNoAmount || 0) + noInc,
-          totalParticipants: (prediction.totalParticipants || 0) + 1
+          totalYesAmount: sql`COALESCE(${socialPredictions.totalYesAmount}, 0) + ${yesInc}`,
+          totalNoAmount: sql`COALESCE(${socialPredictions.totalNoAmount}, 0) + ${noInc}`,
+          totalParticipants: sql`COALESCE(${socialPredictions.totalParticipants}, 0) + 1`
         })
         .where(eq(socialPredictions.id, predictionId));
-      console.log(`[Social] Prediction bet: ${walletLower.slice(0,10)}... | ${side.toUpperCase()} ${parsedAmount} SBETS on #${predictionId} | TX: ${txId}`);
-      res.json({ success: true, txId, betId: bet.id });
+      console.log(`[Social] ON-CHAIN prediction bet: ${walletLower.slice(0,10)}... | ${side.toUpperCase()} ${parsedAmount} SBETS on #${predictionId} | TX: ${txHash} | VERIFIED`);
+      res.json({ success: true, txId: txHash, betId: bet.id, verified: true });
     } catch (error) {
       console.error('Prediction bet error:', error);
       res.status(500).json({ error: 'Failed to place prediction bet' });
@@ -5454,23 +5474,24 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
   app.post("/api/social/challenges/:id/join", async (req: Request, res: Response) => {
     try {
       const { socialChallenges, socialChallengeParticipants } = await import('@shared/schema');
-      const { eq } = await import('drizzle-orm');
+      const { eq, and, sql } = await import('drizzle-orm');
       const challengeId = parseInt(req.params.id);
       if (isNaN(challengeId) || challengeId <= 0) {
         return res.status(400).json({ error: 'Invalid challenge ID' });
       }
-      const { wallet, side } = req.body;
+      const { wallet, side, txHash } = req.body;
       if (!wallet || typeof wallet !== 'string' || !wallet.startsWith('0x') || wallet.length < 10) {
         return res.status(400).json({ error: 'Valid wallet address required' });
       }
       if (side && !['for', 'against'].includes(side)) {
         return res.status(400).json({ error: 'Side must be "for" or "against"' });
       }
+      const walletLower = wallet.toLowerCase();
       const [challenge] = await db.select().from(socialChallenges).where(eq(socialChallenges.id, challengeId));
       if (!challenge || challenge.status !== 'open') {
         return res.status(400).json({ error: 'Challenge not found or not open' });
       }
-      if (wallet.toLowerCase() === challenge.creatorWallet?.toLowerCase()) {
+      if (walletLower === challenge.creatorWallet?.toLowerCase()) {
         return res.status(400).json({ error: 'Cannot join your own challenge' });
       }
       if ((challenge.currentParticipants || 0) >= (challenge.maxParticipants || 10)) {
@@ -5479,15 +5500,42 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       if (challenge.expiresAt && new Date(challenge.expiresAt) < new Date()) {
         return res.status(400).json({ error: 'Challenge has expired' });
       }
+      const existingParticipant = await db.select().from(socialChallengeParticipants).where(
+        and(
+          eq(socialChallengeParticipants.challengeId, challengeId),
+          eq(socialChallengeParticipants.wallet, walletLower)
+        )
+      );
+      if (existingParticipant.length > 0) {
+        return res.status(400).json({ error: 'You have already joined this challenge' });
+      }
+      if (!txHash || typeof txHash !== 'string' || txHash.length < 20) {
+        return res.status(400).json({ error: 'On-chain transaction hash required. Send SBETS stake to treasury first.' });
+      }
+      if (usedTxHashes.has(txHash)) {
+        return res.status(400).json({ error: 'Transaction already used - each join requires a new transaction' });
+      }
+      const stakeAmount = challenge.stakeAmount || 0;
+      if (stakeAmount <= 0) {
+        return res.status(400).json({ error: 'Challenge has invalid stake amount' });
+      }
+      const verification = await blockchainBetService.verifySbetsTransfer(txHash, walletLower, stakeAmount);
+      if (!verification.verified) {
+        console.error(`[Social] Challenge join verification FAILED: ${verification.error} | TX: ${txHash}`);
+        return res.status(400).json({ error: `On-chain verification failed: ${verification.error}` });
+      }
+      usedTxHashes.add(txHash);
       await db.insert(socialChallengeParticipants).values({
         challengeId,
-        wallet: wallet.toLowerCase(),
-        side: side || 'against'
+        wallet: walletLower,
+        side: side || 'against',
+        txHash
       });
       await db.update(socialChallenges)
-        .set({ currentParticipants: (challenge.currentParticipants || 1) + 1 })
+        .set({ currentParticipants: sql`COALESCE(${socialChallenges.currentParticipants}, 0) + 1` })
         .where(eq(socialChallenges.id, challengeId));
-      res.json({ success: true });
+      console.log(`[Social] ON-CHAIN challenge join: ${walletLower.slice(0,10)}... joined #${challengeId} | Stake: ${stakeAmount} SBETS | TX: ${txHash} | VERIFIED`);
+      res.json({ success: true, verified: true });
     } catch (error) {
       console.error('Join challenge error:', error);
       res.status(500).json({ error: 'Failed to join challenge' });
