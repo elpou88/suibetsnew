@@ -5442,7 +5442,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
   app.post("/api/social/challenges", async (req: Request, res: Response) => {
     try {
       const { socialChallenges } = await import('@shared/schema');
-      const { title, description, stakeAmount, maxParticipants, expiresAt, wallet } = req.body;
+      const { title, description, stakeAmount, maxParticipants, expiresAt, wallet, txHash } = req.body;
       if (!wallet || typeof wallet !== 'string' || !wallet.startsWith('0x') || wallet.length < 10) {
         return res.status(400).json({ error: 'Valid wallet address required' });
       }
@@ -5452,6 +5452,12 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const parsedStake = parseFloat(stakeAmount);
       if (isNaN(parsedStake) || parsedStake < 100 || parsedStake > 10000) {
         return res.status(400).json({ error: 'Stake must be between 100 and 10,000 SBETS' });
+      }
+      if (!txHash || typeof txHash !== 'string' || txHash.length < 20) {
+        return res.status(400).json({ error: 'On-chain transaction hash required. Send SBETS stake to treasury first.' });
+      }
+      if (usedTxHashes.has(txHash)) {
+        return res.status(400).json({ error: 'Transaction already used - each challenge requires a new transaction' });
       }
       if (!expiresAt) {
         return res.status(400).json({ error: 'Expiry date required' });
@@ -5465,9 +5471,16 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       if (expiry > maxExpiry) {
         return res.status(400).json({ error: 'Expiry cannot be more than 30 days from now' });
       }
+      const walletLower = wallet.toLowerCase();
+      const verification = await blockchainBetService.verifySbetsTransfer(txHash, walletLower, parsedStake);
+      if (!verification.verified) {
+        console.error(`[Social] Challenge creation verification FAILED: ${verification.error} | TX: ${txHash}`);
+        return res.status(400).json({ error: `On-chain verification failed: ${verification.error}` });
+      }
+      usedTxHashes.add(txHash);
       const safeParts = Math.min(Math.max(parseInt(maxParticipants) || 10, 2), 100);
       const [challenge] = await db.insert(socialChallenges).values({
-        creatorWallet: wallet.toLowerCase(),
+        creatorWallet: walletLower,
         title: title.trim().slice(0, 200),
         description: (description || '').trim().slice(0, 1000),
         stakeAmount: parsedStake,
@@ -5477,7 +5490,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         status: 'open',
         expiresAt: expiry
       }).returning();
-      console.log(`[Social] Challenge created: #${challenge.id} "${title.trim().slice(0,50)}" by ${wallet.slice(0,10)}... | Stake: ${parsedStake} SBETS`);
+      console.log(`[Social] ON-CHAIN challenge created: #${challenge.id} "${title.trim().slice(0,50)}" by ${walletLower.slice(0,10)}... | Stake: ${parsedStake} SBETS | TX: ${txHash} | VERIFIED`);
       res.json(challenge);
     } catch (error) {
       console.error('Create challenge error:', error);
@@ -5528,6 +5541,10 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       }
       if (usedTxHashes.has(txHash)) {
         return res.status(400).json({ error: 'Transaction already used - each join requires a new transaction' });
+      }
+      const existingTx = await db.select().from(socialChallengeParticipants).where(eq(socialChallengeParticipants.txHash, txHash));
+      if (existingTx.length > 0) {
+        return res.status(400).json({ error: 'Transaction already used for a challenge join' });
       }
       const stakeAmount = challenge.stakeAmount || 0;
       if (stakeAmount <= 0) {
@@ -5720,16 +5737,16 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         if (prediction.endDate && new Date(prediction.endDate) > new Date()) {
           return res.status(400).json({ error: 'Cannot resolve before end date' });
         }
-        const newStatus = resolution === 'yes' ? 'resolved_yes' : 'resolved_no';
-        await db.update(socialPredictions)
-          .set({ status: newStatus, resolvedAt: new Date() })
-          .where(eq(socialPredictions.id, predictionId));
         const allBets = await db.select().from(socialPredictionBets).where(eq(socialPredictionBets.predictionId, predictionId));
         const winners = allBets.filter(b => b.side === resolution);
         const losers = allBets.filter(b => b.side !== resolution);
         const totalPool = allBets.reduce((sum, b) => sum + (b.amount || 0), 0);
         const winnersTotal = winners.reduce((sum, b) => sum + (b.amount || 0), 0);
+        const newStatus = resolution === 'yes' ? 'resolved_yes' : 'resolved_no';
         if (totalPool === 0 || winners.length === 0) {
+          await db.update(socialPredictions)
+            .set({ status: newStatus, resolvedOutcome: resolution, resolvedAt: new Date() })
+            .where(eq(socialPredictions.id, predictionId));
           console.log(`[Social] Prediction #${predictionId} resolved ${resolution.toUpperCase()} - no winners to pay (pool: ${totalPool} SBETS)`);
           return res.json({
             success: true,
@@ -5746,7 +5763,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           betAmount: w.amount,
           payout: winnersTotal > 0 ? ((w.amount || 0) / winnersTotal) * totalPool : 0
         }));
-        console.log(`[Social] Prediction #${predictionId} resolved ${resolution.toUpperCase()} | Pool: ${totalPool} SBETS | Winners: ${winners.length} | Losers: ${losers.length}`);
+        console.log(`[Social] Prediction #${predictionId} resolving ${resolution.toUpperCase()} | Pool: ${totalPool} SBETS | Winners: ${winners.length} | Losers: ${losers.length}`);
         const payoutResults: { wallet: string; amount: number; txHash?: string; error?: string }[] = [];
         for (const payout of payouts) {
           if (payout.payout <= 0) continue;
@@ -5766,10 +5783,14 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         }
         const successfulPayouts = payoutResults.filter(p => p.txHash);
         const failedPayouts = payoutResults.filter(p => p.error);
-        console.log(`[Social] Settlement complete: ${successfulPayouts.length}/${payoutResults.length} payouts successful`);
+        const finalStatus = failedPayouts.length === 0 ? newStatus : (successfulPayouts.length > 0 ? `${newStatus}_partial` : `${newStatus}_failed`);
+        await db.update(socialPredictions)
+          .set({ status: finalStatus, resolvedOutcome: resolution, resolvedAt: new Date() })
+          .where(eq(socialPredictions.id, predictionId));
+        console.log(`[Social] Settlement complete: ${successfulPayouts.length}/${payoutResults.length} payouts successful | Status: ${finalStatus}`);
         res.json({
           success: true,
-          resolution: newStatus,
+          resolution: finalStatus,
           totalPool,
           winnersCount: winners.length,
           losersCount: losers.length,
@@ -5785,7 +5806,8 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       }
     } catch (error) {
       console.error('Resolve prediction error:', error);
-      resolvingPredictions.delete(predictionId);
+      const pid = parseInt(req.params.id);
+      if (!isNaN(pid)) resolvingPredictions.delete(pid);
       res.status(500).json({ error: 'Failed to resolve prediction' });
     }
   });
@@ -5825,20 +5847,26 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         if (challenge.expiresAt && new Date(challenge.expiresAt) > new Date()) {
           return res.status(400).json({ error: 'Cannot settle before expiry date' });
         }
-        await db.update(socialChallenges)
-          .set({ status: 'settled' })
-          .where(eq(socialChallenges.id, challengeId));
         const participants = await db.select().from(socialChallengeParticipants).where(eq(socialChallengeParticipants.challengeId, challengeId));
         const totalPool = (challenge.stakeAmount || 0) * ((challenge.currentParticipants || 1));
         let payouts: { wallet: string; payout: number }[] = [];
         if (winner === 'creator') {
-          payouts = [{ wallet: challenge.creatorWallet!, payout: totalPool }];
+          const forParticipants = participants.filter(p => p.side === 'for');
+          const winnerCount = 1 + forParticipants.length;
+          const perPerson = totalPool / winnerCount;
+          payouts = [
+            { wallet: challenge.creatorWallet!, payout: perPerson },
+            ...forParticipants.map(p => ({ wallet: p.wallet, payout: perPerson }))
+          ];
         } else {
           const challengers = participants.filter(p => p.side === 'against');
-          const perPerson = challengers.length > 0 ? totalPool / challengers.length : 0;
+          if (challengers.length === 0) {
+            return res.status(400).json({ error: 'No challengers to pay - cannot settle as challengers win' });
+          }
+          const perPerson = totalPool / challengers.length;
           payouts = challengers.map(p => ({ wallet: p.wallet, payout: perPerson }));
         }
-        console.log(`[Social] Challenge #${challengeId} settled: ${winner} wins | Pool: ${totalPool} SBETS | Payouts: ${payouts.length}`);
+        console.log(`[Social] Challenge #${challengeId} settling: ${winner} wins | Pool: ${totalPool} SBETS | Payouts: ${payouts.length}`);
         const payoutResults: { wallet: string; amount: number; txHash?: string; error?: string }[] = [];
         for (const payout of payouts) {
           if (payout.payout <= 0) continue;
@@ -5857,7 +5885,12 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           }
         }
         const successfulPayouts = payoutResults.filter(p => p.txHash);
-        console.log(`[Social] Challenge settlement complete: ${successfulPayouts.length}/${payoutResults.length} payouts successful`);
+        const failedPayouts = payoutResults.filter(p => p.error);
+        const finalStatus = failedPayouts.length === 0 ? 'settled' : (successfulPayouts.length > 0 ? 'settled_partial' : 'settled_failed');
+        await db.update(socialChallenges)
+          .set({ status: finalStatus })
+          .where(eq(socialChallenges.id, challengeId));
+        console.log(`[Social] Challenge settlement complete: ${successfulPayouts.length}/${payoutResults.length} payouts successful | Status: ${finalStatus}`);
         res.json({
           success: true,
           winner,
@@ -5865,7 +5898,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           payouts,
           payoutResults: {
             successful: successfulPayouts.length,
-            failed: payoutResults.filter(p => p.error).length,
+            failed: failedPayouts.length,
             details: payoutResults
           }
         });
@@ -5874,7 +5907,8 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       }
     } catch (error) {
       console.error('Settle challenge error:', error);
-      settlingChallenges.delete(challengeId);
+      const cid = parseInt(req.params.id);
+      if (!isNaN(cid)) settlingChallenges.delete(cid);
       res.status(500).json({ error: 'Failed to settle challenge' });
     }
   });

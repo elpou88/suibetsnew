@@ -189,6 +189,8 @@ function CreatePredictionModal({ onClose, wallet }: { onClose: () => void; walle
 
 function CreateChallengeModal({ onClose, wallet }: { onClose: () => void; wallet: string }) {
   const { toast } = useToast();
+  const suiClient = useSuiClient();
+  const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [stakeAmount, setStakeAmount] = useState('100');
@@ -196,12 +198,37 @@ function CreateChallengeModal({ onClose, wallet }: { onClose: () => void; wallet
   const [maxParticipants, setMaxParticipants] = useState('10');
   const [expiresAt, setExpiresAt] = useState('');
 
+  const { data: treasuryWallet } = useQuery<string>({
+    queryKey: ['/api/social/treasury-wallet'],
+    queryFn: async () => {
+      const res = await fetch('/api/social/treasury-wallet');
+      if (!res.ok) throw new Error('Failed to get treasury wallet');
+      const data = await res.json();
+      return data.wallet;
+    }
+  });
+
   const createMutation = useMutation({
     mutationFn: async () => {
+      if (!wallet || !treasuryWallet) {
+        throw new Error('Wallet not connected or treasury unavailable');
+      }
+      const parsedStake = parseFloat(stakeAmount);
+      if (isNaN(parsedStake) || parsedStake < 100) {
+        throw new Error('Invalid stake amount');
+      }
+      toast({ title: 'Sending SBETS stake on-chain', description: `Sign the transaction to stake ${stakeAmount} SBETS for your challenge` });
+      const tx = await buildSbetsTransferTx(suiClient, wallet, treasuryWallet, parsedStake);
+      const result = await signAndExecute({ transaction: tx } as any);
+      if (!result.digest) {
+        throw new Error('Transaction failed - no digest returned from wallet');
+      }
+      const txHash = result.digest;
+      toast({ title: 'SBETS stake sent', description: 'Verifying and creating challenge...' });
       const res = await fetch('/api/social/challenges', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description, stakeAmount, currency, maxParticipants: parseInt(maxParticipants), expiresAt, wallet })
+        body: JSON.stringify({ title, description, stakeAmount, currency, maxParticipants: parseInt(maxParticipants), expiresAt, wallet, txHash })
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -211,7 +238,7 @@ function CreateChallengeModal({ onClose, wallet }: { onClose: () => void; wallet
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/social/challenges'] });
-      toast({ title: 'Challenge Created', description: `Your ${stakeAmount} ${currency} challenge is live!` });
+      toast({ title: 'Challenge Created On-Chain', description: `Your ${stakeAmount} SBETS stake has been verified and challenge is live!` });
       onClose();
     },
     onError: (err: Error) => {
