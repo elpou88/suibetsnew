@@ -52,7 +52,8 @@ Preferred communication style: Simple, everyday language.
 
 ### Sports Data Providers
 - **API-Sports**: Primary data source for Football (paid tier with live betting).
-- **Free Sports API**: Basketball, Baseball, Ice Hockey, MMA, American Football, AFL, Formula 1, Handball, NBA, NFL, Rugby, Volleyball (daily updates at 6 AM/11 PM UTC, 7-day lookahead, no live betting).
+- **Free Sports API**: Basketball, Baseball, Ice Hockey, MMA, American Football, AFL, Formula 1, Handball, NBA, NFL, Rugby, Volleyball (upcoming at 6 AM UTC, 7-day lookahead, no live betting).
+- **Free Sports Settlement**: Settlement worker actively fetches results for free sports every 30 minutes (only for sports with pending bets). Results cached to file for restart persistence. Also receives nightly batch at 11 PM UTC via freeSportsService as fallback.
 - **Sports Coverage**:
   - **Football (sportId 1)**: Live betting (first 45 min only) + Upcoming matches, paid API
   - **Basketball (sportId 2)**: Upcoming only, free API, 7-day lookahead

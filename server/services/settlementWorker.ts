@@ -4,6 +4,9 @@ import { blockchainBetService } from './blockchainBetService';
 import { db } from '../db';
 import { settledEvents } from '../../shared/schema';
 import { eq, sql } from 'drizzle-orm';
+import axios from 'axios';
+import * as fs from 'fs';
+import * as path from 'path';
 
 interface FinishedMatch {
   eventId: string;
@@ -33,14 +36,104 @@ interface UnsettledBet {
 
 const REVENUE_WALLET = 'platform_revenue';
 
+const FREE_SPORTS_SETTLEMENT_CONFIG: Record<string, {
+  endpoint: string;
+  apiHost: string;
+  sportId: number;
+  name: string;
+  hasDraws: boolean;
+}> = {
+  basketball: {
+    endpoint: 'https://v1.basketball.api-sports.io/games',
+    apiHost: 'v1.basketball.api-sports.io',
+    sportId: 2,
+    name: 'Basketball',
+    hasDraws: false
+  },
+  baseball: {
+    endpoint: 'https://v1.baseball.api-sports.io/games',
+    apiHost: 'v1.baseball.api-sports.io',
+    sportId: 5,
+    name: 'Baseball',
+    hasDraws: false
+  },
+  'ice-hockey': {
+    endpoint: 'https://v1.hockey.api-sports.io/games',
+    apiHost: 'v1.hockey.api-sports.io',
+    sportId: 6,
+    name: 'Ice Hockey',
+    hasDraws: false
+  },
+  mma: {
+    endpoint: 'https://v1.mma.api-sports.io/fights',
+    apiHost: 'v1.mma.api-sports.io',
+    sportId: 7,
+    name: 'MMA',
+    hasDraws: false
+  },
+  'american-football': {
+    endpoint: 'https://v1.american-football.api-sports.io/games',
+    apiHost: 'v1.american-football.api-sports.io',
+    sportId: 4,
+    name: 'American Football',
+    hasDraws: false
+  },
+  afl: {
+    endpoint: 'https://v1.afl.api-sports.io/games',
+    apiHost: 'v1.afl.api-sports.io',
+    sportId: 10,
+    name: 'AFL',
+    hasDraws: true
+  },
+  'formula-1': {
+    endpoint: 'https://v1.formula-1.api-sports.io/races',
+    apiHost: 'v1.formula-1.api-sports.io',
+    sportId: 11,
+    name: 'Formula 1',
+    hasDraws: false
+  },
+  handball: {
+    endpoint: 'https://v1.handball.api-sports.io/games',
+    apiHost: 'v1.handball.api-sports.io',
+    sportId: 12,
+    name: 'Handball',
+    hasDraws: true
+  },
+  nfl: {
+    endpoint: 'https://v1.nfl.api-sports.io/games',
+    apiHost: 'v1.nfl.api-sports.io',
+    sportId: 14,
+    name: 'NFL',
+    hasDraws: false
+  },
+  rugby: {
+    endpoint: 'https://v1.rugby.api-sports.io/games',
+    apiHost: 'v1.rugby.api-sports.io',
+    sportId: 15,
+    name: 'Rugby',
+    hasDraws: true
+  },
+  volleyball: {
+    endpoint: 'https://v1.volleyball.api-sports.io/games',
+    apiHost: 'v1.volleyball.api-sports.io',
+    sportId: 16,
+    name: 'Volleyball',
+    hasDraws: false
+  }
+};
+
+const FREE_SPORTS_RESULTS_CACHE_FILE = path.join('/tmp', 'free_sports_results_cache.json');
+
 class SettlementWorkerService {
   private _isRunning = false;
   private intervalId: NodeJS.Timeout | null = null;
-  private settledEventIdsCache = new Set<string>(); // In-memory cache, synced from DB
-  private checkInterval = 5 * 60 * 1000; // 5 minutes (AGGRESSIVE API SAVING - was 2min)
+  private settledEventIdsCache = new Set<string>();
+  private checkInterval = 5 * 60 * 1000; // 5 minutes
   private finishedMatchesCache: { data: FinishedMatch[]; timestamp: number } | null = null;
   private finishedMatchesCacheTTL = 3 * 60 * 1000; // Cache finished matches for 3 minutes
-  private cachedFreeSportsResults: FinishedMatch[] = []; // Nightly results cache - only updated at 11 PM UTC
+  private cachedFreeSportsResults: FinishedMatch[] = [];
+  private freeSportsResultsCache: { data: FinishedMatch[]; timestamp: number } | null = null;
+  private freeSportsResultsCacheTTL = 30 * 60 * 1000; // Fetch free sports results every 30 minutes
 
   async start() {
     if (this._isRunning) {
@@ -270,8 +363,7 @@ class SettlementWorkerService {
         return;
       }
 
-      // Only fetch finished matches if we have pending bets to settle
-      const finishedMatches = await this.getFinishedMatches();
+      const finishedMatches = await this.getFinishedMatches(pendingBets);
       
       if (finishedMatches.length === 0) {
         console.log('📭 SettlementWorker: No new finished matches to settle');
@@ -709,33 +801,41 @@ class SettlementWorkerService {
     return false;
   }
 
-  private async getFinishedMatches(): Promise<FinishedMatch[]> {
-    // AGGRESSIVE API SAVING: Use cache if fresh
+  private async getFinishedMatches(pendingBets: UnsettledBet[]): Promise<FinishedMatch[]> {
     if (this.finishedMatchesCache && 
         (Date.now() - this.finishedMatchesCache.timestamp) < this.finishedMatchesCacheTTL) {
       console.log('📦 SettlementWorker: Using cached finished matches');
       return this.finishedMatchesCache.data;
     }
     
+    const seenIds = new Set<string>();
     const finishedMatches: FinishedMatch[] = [];
+
+    const addUnique = (matches: FinishedMatch[]) => {
+      for (const m of matches) {
+        if (!seenIds.has(m.eventId)) {
+          seenIds.add(m.eventId);
+          finishedMatches.push(m);
+        }
+      }
+    };
     
     try {
-      // ONLY check football via paid API every 5 minutes
-      // Free sports (basketball, baseball, hockey, etc.) are settled via nightly results
-      // fetched at 11 PM UTC by freeSportsService - NO direct API calls here
       try {
-        const footballResults = await this.fetchFinishedForSport('football');
-        finishedMatches.push(...footballResults);
-      } catch (error) {
-        // Silently skip if football API fails
+        addUnique(await this.fetchFinishedForSport('football'));
+      } catch (error) {}
+
+      const neededSports = this.detectNeededFreeSports(pendingBets);
+      if (neededSports.length > 0) {
+        try {
+          addUnique(await this.fetchFreeSportsResults(neededSports));
+        } catch (error) {
+          console.error('⚠️ Free sports results fetch failed:', error);
+        }
       }
 
-      // Merge in cached free sports results from nightly fetch (no new API calls)
-      if (this.cachedFreeSportsResults.length > 0) {
-        finishedMatches.push(...this.cachedFreeSportsResults);
-      }
+      addUnique(this.cachedFreeSportsResults);
 
-      // Cache the results
       this.finishedMatchesCache = {
         data: finishedMatches,
         timestamp: Date.now()
@@ -746,6 +846,174 @@ class SettlementWorkerService {
       console.error('Error fetching finished matches:', error);
       return [];
     }
+  }
+
+  private detectNeededFreeSports(pendingBets: UnsettledBet[]): string[] {
+    const sportSlugs = new Set<string>();
+    const slugsByPrefix: Record<string, string> = {};
+    for (const [slug] of Object.entries(FREE_SPORTS_SETTLEMENT_CONFIG)) {
+      slugsByPrefix[slug] = slug;
+    }
+
+    for (const bet of pendingBets) {
+      const extId = bet.externalEventId || '';
+      for (const prefix of Object.keys(slugsByPrefix)) {
+        if (extId.startsWith(`${prefix}_`)) {
+          sportSlugs.add(prefix);
+          break;
+        }
+      }
+    }
+
+    if (sportSlugs.size === 0) {
+      return [];
+    }
+
+    console.log(`🏀 SettlementWorker: Pending bets need results for: ${[...sportSlugs].join(', ')}`);
+    return [...sportSlugs];
+  }
+
+  private async fetchFreeSportsResults(neededSports: string[]): Promise<FinishedMatch[]> {
+    if (this.freeSportsResultsCache &&
+        (Date.now() - this.freeSportsResultsCache.timestamp) < this.freeSportsResultsCacheTTL) {
+      return this.freeSportsResultsCache.data;
+    }
+
+    try {
+      const cached = this.loadFreeSportsResultsFromFile();
+      if (cached) {
+        this.freeSportsResultsCache = cached;
+        return cached.data;
+      }
+    } catch (e) {}
+
+    const apiKey = process.env.API_SPORTS_KEY || process.env.SPORTSDATA_API_KEY || process.env.APISPORTS_KEY || '';
+    if (!apiKey) return [];
+
+    const results: FinishedMatch[] = [];
+    const seenIds = new Set<string>();
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const todayStr = today.toISOString().split('T')[0];
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    const datesToCheck = [todayStr, yesterdayStr];
+
+    const sportsToFetch = neededSports
+      .filter(s => FREE_SPORTS_SETTLEMENT_CONFIG[s])
+      .map(s => [s, FREE_SPORTS_SETTLEMENT_CONFIG[s]] as const);
+
+    console.log(`🏀 SettlementWorker: Fetching results for ${sportsToFetch.map(([s]) => s).join(', ')} (${datesToCheck.join(', ')})...`);
+
+    for (const [sportSlug, config] of sportsToFetch) {
+      for (const dateStr of datesToCheck) {
+        try {
+          const response = await axios.get(config.endpoint, {
+            params: { date: dateStr, timezone: 'UTC' },
+            headers: {
+              'x-rapidapi-key': apiKey,
+              'x-rapidapi-host': config.apiHost
+            },
+            timeout: 10000
+          });
+
+          if (response.status === 429) {
+            console.warn(`⚠️ Rate limited on ${config.name} - skipping remaining dates`);
+            break;
+          }
+
+          const games = response.data?.response || [];
+
+          for (const game of games) {
+            const status = game.status?.long || game.status?.short || '';
+            const isFinished = status.toLowerCase().includes('finished') ||
+                              status.toLowerCase().includes('final') ||
+                              status === 'FT' || status === 'AET' || status === 'PEN';
+
+            if (!isFinished) continue;
+
+            const eventId = `${sportSlug}_${game.id}`;
+            if (seenIds.has(eventId)) continue;
+            seenIds.add(eventId);
+
+            let homeTeam = '';
+            let awayTeam = '';
+            let homeScore = 0;
+            let awayScore = 0;
+            let winner: 'home' | 'away' | 'draw' = 'draw';
+
+            if (sportSlug === 'mma') {
+              homeTeam = game.fighters?.home?.name || game.home?.name || 'Fighter 1';
+              awayTeam = game.fighters?.away?.name || game.away?.name || 'Fighter 2';
+              const winnerName = game.winner?.name || '';
+              if (winnerName && homeTeam && winnerName.toLowerCase().includes(homeTeam.toLowerCase())) {
+                homeScore = 1; awayScore = 0; winner = 'home';
+              } else if (winnerName && awayTeam && winnerName.toLowerCase().includes(awayTeam.toLowerCase())) {
+                homeScore = 0; awayScore = 1; winner = 'away';
+              } else {
+                homeScore = 1; awayScore = 1; winner = 'draw';
+              }
+            } else if (sportSlug === 'formula-1') {
+              homeTeam = game.driver?.name || game.team?.name || game.winner?.name || 'Winner';
+              awayTeam = 'Race';
+              homeScore = 1; awayScore = 0; winner = 'home';
+            } else {
+              homeTeam = game.teams?.home?.name || game.home?.name || 'Home';
+              awayTeam = game.teams?.away?.name || game.away?.name || 'Away';
+              const rawHome = game.scores?.home?.total ?? game.scores?.home ?? 0;
+              const rawAway = game.scores?.away?.total ?? game.scores?.away ?? 0;
+              homeScore = typeof rawHome === 'number' ? rawHome : parseInt(rawHome) || 0;
+              awayScore = typeof rawAway === 'number' ? rawAway : parseInt(rawAway) || 0;
+              winner = homeScore > awayScore ? 'home' : awayScore > homeScore ? 'away' : 'draw';
+            }
+
+            results.push({
+              eventId, homeTeam, awayTeam, homeScore, awayScore, winner, status: 'finished'
+            });
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (error: any) {
+          if (error?.response?.status === 429) {
+            console.warn(`⚠️ Rate limited on ${config.name} - backing off`);
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            break;
+          }
+        }
+      }
+    }
+
+    console.log(`🏀 SettlementWorker: Found ${results.length} finished free sports matches`);
+
+    if (results.length > 0) {
+      this.freeSportsResultsCache = { data: results, timestamp: Date.now() };
+      this.saveFreeSportsResultsToFile(results);
+    }
+
+    return results;
+  }
+
+  private loadFreeSportsResultsFromFile(): { data: FinishedMatch[]; timestamp: number } | null {
+    try {
+      if (fs.existsSync(FREE_SPORTS_RESULTS_CACHE_FILE)) {
+        const raw = fs.readFileSync(FREE_SPORTS_RESULTS_CACHE_FILE, 'utf8');
+        const parsed = JSON.parse(raw);
+        if (parsed.timestamp && (Date.now() - parsed.timestamp) < this.freeSportsResultsCacheTTL) {
+          console.log(`📦 SettlementWorker: Loaded ${parsed.data.length} free sports results from file cache`);
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  private saveFreeSportsResultsToFile(results: FinishedMatch[]): void {
+    try {
+      fs.writeFileSync(FREE_SPORTS_RESULTS_CACHE_FILE, JSON.stringify({
+        data: results,
+        timestamp: Date.now()
+      }));
+    } catch (e) {}
   }
 
   private async fetchFinishedForSport(sport: string): Promise<FinishedMatch[]> {
