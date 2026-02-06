@@ -2077,7 +2077,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         // Continue with bet - don't block if check fails
       }
       
-      // ANTI-CHEAT: Block Over/Under bets when goals already exceed threshold (decided markets)
+      // ANTI-CHEAT: Block Over/Under bets after 20 minutes OR when goals already exceed threshold
       if (data.isLive && data.marketId) {
         const marketIdStr = String(data.marketId).toLowerCase();
         const outcomeIdStr = String(data.outcomeId || '').toLowerCase();
@@ -2090,6 +2090,16 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
                                    predictionStr.includes('over') || predictionStr.includes('under');
         
         if (isOverUnderMarket) {
+          // Block Over/Under markets after 20 minutes of live play
+          const liveMinute = data.matchMinute || parseInt(String(apiSportsService.lookupEventSync(data.eventId).minute || 0)) || 0;
+          if (liveMinute >= 20) {
+            console.warn(`[Anti-Cheat] Blocking Over/Under bet after 20 min: event ${data.eventId}, minute ${liveMinute}`);
+            return res.status(400).json({
+              success: false,
+              message: "MARKET_CLOSED_TIME",
+              details: "Over/Under markets are only available in the first 20 minutes of live matches."
+            });
+          }
           try {
             // Get current score from API
             const eventData = apiSportsService.lookupEventSync(data.eventId);

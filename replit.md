@@ -42,7 +42,7 @@ Preferred communication style: Simple, everyday language.
 - **Leaderboard System**: Weekly, monthly, and all-time rankings based on profit, tracking total bets, win rate, and profit/loss.
 - **User Betting Limits**: User-configurable daily, weekly, and monthly spending limits in USD, session timers, and self-exclusion options.
 - **Referral System**: Wallet-address generated referral codes with a bonus structure and tracking for pending, qualified, and rewarded referrals.
-- **Additional Betting Markets**: Includes BTTS, Double Chance, Half-Time Result, Over/Under Goals, and Correct Score.
+- **Additional Betting Markets**: Includes BTTS, Double Chance, Half-Time Result, Over/Under Goals, and Correct Score. Over/Under markets (Over 1.5, Over 2.5, etc.) restricted to first 20 minutes only during live matches.
 - **Social Network Effect Engine ("Predict Anything")**: Standalone /network page with 4 sub-tabs (Home, Predict, Challenge, Social). Features custom prediction markets (SBETS-only currency), viral challenges, public profiles with X/Twitter linking, live chat (polling-based), follow system, and leaderboard integration. 6 DB tables (social_predictions, social_prediction_bets, social_challenges, social_challenge_participants, social_follows, social_chat_messages), 12+ API endpoints under /api/social/*, and network.tsx page.
   - **On-Chain Prediction Bets**: Users sign real SBETS transfer to treasury wallet via wallet (Slush/Nightly). Backend verifies on-chain: sender, recipient=treasury, amount, SBETS coin type. No fake txIds - every bet is a real blockchain transaction.
   - **On-Chain Challenge Stakes**: Same pattern - joining a challenge requires signing SBETS transfer. Backend verifies before recording participation.

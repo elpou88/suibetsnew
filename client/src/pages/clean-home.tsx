@@ -859,6 +859,12 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
       
       if (isFirstHalf && minuteNum >= 45) return true;
       
+      // Over/Under markets close after 20 minutes of live play
+      const isOverUnder = marketStr.includes('over') || marketStr.includes('under') ||
+                          marketStr.includes('o/u') || marketStr.includes('goals') ||
+                          marketStr.includes('over_under');
+      if (isOverUnder && minuteNum >= 20) return true;
+      
       // Block all markets after minute 45 (live betting only in first half)
       if (minuteNum >= 45) return true;
     } catch (e) {
