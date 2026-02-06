@@ -2580,10 +2580,18 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const { userId, selections, betAmount, feeCurrency } = validation.data!;
       const userIdStr = String(userId);
       
-      // Determine currency (default to SUI)
+      const eventIds = selections.map((s: any) => s.eventId);
+      const uniqueEventIds = new Set(eventIds);
+      if (uniqueEventIds.size < eventIds.length) {
+        console.log(`🚫 EXPLOIT BLOCKED: Parlay with duplicate events from ${userIdStr} - ${eventIds.join(', ')}`);
+        return res.status(400).json({
+          message: "Cannot place parlay with multiple selections from the same match",
+          code: "DUPLICATE_EVENT_IN_PARLAY"
+        });
+      }
+      
       const currency: 'SUI' | 'SBETS' = feeCurrency === 'SBETS' ? 'SBETS' : 'SUI';
       
-      // SUI BETTING PAUSE - Block SUI bets until treasury is funded
       if (SUI_BETTING_PAUSED && currency !== 'SBETS') {
         console.log(`❌ SUI parlay blocked - betting paused until treasury funded`);
         return res.status(400).json({
@@ -2712,6 +2720,19 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       } = req.body;
 
       const currency: 'SUI' | 'SBETS' = feeCurrency === 'SBETS' ? 'SBETS' : 'SUI';
+      
+      if (legs && Array.isArray(legs) && legs.length > 1) {
+        const legEventIds = legs.map((l: any) => l.eventId);
+        const uniqueLegEventIds = new Set(legEventIds);
+        if (uniqueLegEventIds.size < legEventIds.length) {
+          console.log(`🚫 EXPLOIT BLOCKED: On-chain parlay with duplicate events from ${walletAddress} - ${legEventIds.join(', ')}`);
+          return res.status(400).json({
+            message: "Cannot place parlay with multiple selections from the same match",
+            code: "DUPLICATE_EVENT_IN_PARLAY"
+          });
+        }
+      }
+      
       const parlayId = onChainBetId || `parlay-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
       console.log(`📦 ON-CHAIN PARLAY: ${parlayId} from ${walletAddress}`);

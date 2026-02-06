@@ -65,10 +65,7 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
       return;
     }
     
-    // Ensure we have the current state by using a callback with setSelectedBets
     setSelectedBets(prevBets => {
-      // First, check if this is a duplicate bet with the same selection
-      // but allow duplicates if there's a uniqueId (which is used to prevent auto-duplication)
       const isDuplicate = !bet.uniqueId && prevBets.some(
         (existing) => 
           existing.eventId === bet.eventId && 
@@ -78,40 +75,45 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
       
       if (isDuplicate) {
         console.log("BettingContext: Potential duplicate bet detected", bet.id);
-        
-        // Show a toast to inform user this bet is already in the slip
         toast({
           title: "Bet Already in Slip",
           description: `${bet.selectionName} is already in your bet slip`,
         });
-        
-        return prevBets; // Don't change the bet array
+        return prevBets;
       }
       
-      // Check if we already have this specific bet by ID (for updates)
+      const sameEventIndex = prevBets.findIndex(
+        (existing) => existing.eventId === bet.eventId
+      );
+      
+      if (sameEventIndex >= 0) {
+        console.log("BettingContext: Replacing bet from same event", prevBets[sameEventIndex].selectionName, "->", bet.selectionName);
+        const updatedBets = [...prevBets];
+        updatedBets[sameEventIndex] = bet;
+        toast({
+          title: "Selection Changed",
+          description: `Switched to ${bet.selectionName} for this match`,
+        });
+        return updatedBets;
+      }
+      
       const existingBetIndex = prevBets.findIndex(
         (existing) => existing.id === bet.id
       );
   
       if (existingBetIndex >= 0) {
         console.log("BettingContext: Updating existing bet", existingBetIndex);
-        // Replace the existing bet in a new array
         const updatedBets = [...prevBets];
         updatedBets[existingBetIndex] = bet;
-        
         toast({
           title: "Bet Updated",
           description: `Updated ${bet.selectionName} in your bet slip`,
         });
-        
         return updatedBets;
       } else {
         console.log("BettingContext: Adding new bet to slip", prevBets.length);
-        // Add a new bet to the array
         const newBets = [...prevBets, bet];
         console.log("BettingContext: New bets array length:", newBets.length);
-        
-        // Always show a toast for successful bet addition
         toast({
           title: "Bet Added",
           description: `Added ${bet.selectionName} to your bet slip`,
@@ -476,12 +478,21 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
         }
       }
 
-      // For parlay bets - ON-CHAIN
       if (betOptions.betType === 'parlay' && selectedBets.length > 1) {
+        const parlayEventIds = selectedBets.map(b => b.eventId);
+        const uniqueParlayEventIds = new Set(parlayEventIds);
+        if (uniqueParlayEventIds.size < parlayEventIds.length) {
+          toast({
+            title: "Invalid Parlay",
+            description: "Cannot have multiple selections from the same match in a parlay",
+            variant: "destructive",
+          });
+          return false;
+        }
+        
         const parlayOdds = calculateParlayOdds(selectedBets);
         const potentialPayout = calculatePotentialWinnings(betAmount, parlayOdds);
 
-        // Check if wallet is connected for on-chain parlay
         if (!currentAccount?.address) {
           toast({
             title: "Wallet Required",
