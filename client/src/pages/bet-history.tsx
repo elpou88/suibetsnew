@@ -361,7 +361,8 @@ export default function BetHistoryPage() {
       {shareBet && (
         <ShareableBetCard
           bet={{
-            id: parseInt(shareBet.id) || 0,
+            id: shareBet.id,
+            numericId: shareBet.numericId,
             eventName: getBetDisplayName(shareBet),
             prediction: getSelectionDisplay(shareBet),
             odds: shareBet.odds || 1,

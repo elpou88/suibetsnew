@@ -220,60 +220,47 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
   };
 
   const handleShare = async () => {
-    if (!cardRef.current) return;
-    
+    const shareId = bet.numericId ?? bet.id;
+    const shareUrl = `https://suibets.com/bet/${shareId}`;
+
     try {
-      const canvas = await html2canvas(cardRef.current, {
-        backgroundColor: '#0a1214',
-        scale: 2,
-        logging: false,
-        useCORS: true,
-      });
-      
-      canvas.toBlob(async (blob) => {
-        if (!blob) return;
-        
-        const file = new File([blob], `suibets-bet-${bet.id}.png`, { type: 'image/png' });
-        
-        if (navigator.share && navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            title: 'My SuiBets Bet',
-            text: `Check out my bet on SuiBets! ${isParlay ? 'Parlay' : 'Single'} @ ${bet.odds.toFixed(2)} odds`,
-            files: [file],
-          });
-        } else {
-          const url = canvas.toDataURL('image/png');
-          await navigator.clipboard.write([
-            new ClipboardItem({
-              'image/png': blob
-            })
-          ]);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-          toast({
-            title: 'Copied to clipboard!',
-            description: 'Image copied, paste it anywhere to share',
-          });
+      if (cardRef.current) {
+        const canvas = await html2canvas(cardRef.current, {
+          backgroundColor: '#0a1214',
+          scale: 2,
+          logging: false,
+          useCORS: true,
+        });
+
+        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+        if (blob) {
+          const file = new File([blob], `suibets-bet-${shareId}.png`, { type: 'image/png' });
+          if (navigator.share && navigator.canShare?.({ files: [file] })) {
+            await navigator.share({
+              title: 'My SuiBets Bet',
+              text: `Check out my bet on SuiBets! ${isParlay ? 'Parlay' : 'Single'} @ ${bet.odds.toFixed(2)} odds\n${shareUrl}`,
+              files: [file],
+            });
+            return;
+          }
+          try {
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+            toast({ title: 'Copied to clipboard!', description: 'Image copied, paste it anywhere to share' });
+            return;
+          } catch {}
         }
-      }, 'image/png');
-    } catch (error) {
-      const shareId = bet.numericId ?? bet.id;
-      const shareUrl = `https://suibets.com/bet/${shareId}`;
-      try {
-        await navigator.clipboard.writeText(shareUrl);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-        toast({
-          title: 'Link copied!',
-          description: 'Share this link so friends can copy your bet',
-        });
-      } catch {
-        toast({
-          title: 'Share failed',
-          description: 'Could not share or copy link',
-          variant: 'destructive',
-        });
       }
+    } catch {}
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast({ title: 'Link copied!', description: 'Share this link so friends can copy your bet' });
+    } catch {
+      toast({ title: 'Share failed', description: 'Could not share or copy link', variant: 'destructive' });
     }
   };
 
@@ -380,8 +367,8 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
                   <span className="text-gray-400 text-sm font-medium">
                     {isParlay ? `Parlay (${displayLegs.length} Legs)` : 'Single Bet'}
                   </span>
-                  {bet.id > 0 && (
-                    <span className="text-gray-600 text-xs" data-testid="text-bet-id">#{bet.id}</span>
+                  {bet.numericId && (
+                    <span className="text-gray-600 text-xs" data-testid="text-bet-id">#{bet.numericId}</span>
                   )}
                 </div>
                 <span className="text-white font-bold text-xl" data-testid="text-combined-odds">{bet.odds.toFixed(2)}</span>
