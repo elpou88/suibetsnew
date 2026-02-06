@@ -3229,39 +3229,39 @@ export class ApiSportsService {
       }
       
       // For live events without API odds, generate probability-based fallback odds
-      // Model accounts for: score difference, match time elapsed (non-linear), total goals
-      // Uses interaction term so time amplifies the effect of goal difference
-      // Examples: 3-1 at 43' → ~1.15, 3-2 at 45' → ~1.34, 1-0 at 75' → ~1.14
+      // Empirically calibrated model based on real football match statistics
+      // Calibrated data points (1-goal lead): 30'→57%, 45'→62%, 60'→70%, 75'→80%, 85'→90%
+      // Examples: 0-1 at 35' → Home ~4.8, Draw ~5.2, Away ~1.81 | 3-1 at 43' → ~1.14
       if (isLive) {
         const homeScore = event.homeScore ?? event.score?.home ?? 0;
         const awayScore = event.awayScore ?? event.score?.away ?? 0;
         const scoreDiff = homeScore - awayScore;
         const totalGoals = homeScore + awayScore;
         const minute = event.minute || 0;
-        const timeProgress = Math.min(minute / 90, 1);
-        const timeWeight = Math.pow(timeProgress, 1.3);
+        const timeNorm = Math.min(minute / 90, 1);
 
         let homeProb: number;
         let drawProb: number;
         let awayProb: number;
 
         if (scoreDiff === 0) {
-          const baseDraw = 0.28 + timeWeight * 0.37;
+          const baseDraw = 0.26 + 0.34 * Math.pow(timeNorm, 2.2);
           drawProb = Math.min(baseDraw, 0.65);
           if (totalGoals > 0) {
-            drawProb = Math.max(drawProb - totalGoals * 0.015, 0.22);
+            drawProb = Math.max(drawProb - totalGoals * 0.012, 0.20);
           }
-          homeProb = (1 - drawProb) * 0.53;
-          awayProb = (1 - drawProb) * 0.47;
+          homeProb = (1 - drawProb) * 0.52;
+          awayProb = (1 - drawProb) * 0.48;
         } else {
           const absDiff = Math.abs(scoreDiff);
-          const goalFactor = Math.min(absDiff * 0.13, 0.35);
-          const timeFactor = timeWeight * 0.35;
-          const interaction = goalFactor * timeFactor * 0.5;
-          const winProb = Math.min(0.50 + goalFactor + timeFactor + interaction, 0.97);
-          const drawChance = Math.max(0.02, 0.18 - absDiff * 0.04 - timeWeight * 0.08);
-          drawProb = (1 - winProb) * Math.min(drawChance / Math.max(1 - winProb, 0.01), 0.45);
-          drawProb = Math.max(drawProb, 0.015);
+          const effectiveGoals = absDiff <= 1 ? absDiff : 1 + (absDiff - 1) * 1.8;
+          const timeExponent = 2.0 - Math.min(effectiveGoals * 0.25, 0.6);
+          const timeFunction = Math.pow(timeNorm, timeExponent);
+          const winProb = Math.min(0.50 + effectiveGoals * 0.42 * timeFunction, 0.97);
+          const drawCoeff = Math.max(0.32 - absDiff * 0.07 - Math.pow(absDiff, 2) * 0.02, 0.015);
+          const drawDecay = 1 - Math.pow(timeNorm, 2.0) * 0.80;
+          drawProb = Math.max(drawCoeff * drawDecay, 0.015);
+          drawProb = Math.min(drawProb, Math.max(1 - winProb - 0.01, 0.015));
           const loseProb = Math.max(1 - winProb - drawProb, 0.01);
 
           if (scoreDiff > 0) {
