@@ -2983,7 +2983,11 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
   app.get("/api/bets/:id", async (req: Request, res: Response) => {
     try {
       const betId = req.params.id;
-      const bet = await storage.getBet(betId);
+      let bet = await storage.getBet(betId);
+      
+      if (!bet && /^\d+$/.test(betId)) {
+        bet = await storage.getBet(parseInt(betId));
+      }
       
       if (!bet) {
         return res.status(404).json({ message: "Bet not found" });

@@ -257,17 +257,26 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
       }, 'image/png');
     } catch (error) {
       const shareUrl = `https://suibets.com/bet/${bet.id}`;
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-      toast({
-        title: 'Link copied!',
-        description: 'Share this link with friends',
-      });
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+        toast({
+          title: 'Link copied!',
+          description: 'Share this link so friends can copy your bet',
+        });
+      } catch {
+        toast({
+          title: 'Share failed',
+          description: 'Could not share or copy link',
+          variant: 'destructive',
+        });
+      }
     }
   };
 
   const handleCopyBet = async () => {
+    const shareUrl = `https://suibets.com/bet/${bet.id}`;
     const legs = isParlay && parlayLegs.length > 0
       ? parlayLegs
       : (isParlay && bet.prediction?.includes(' | '))
@@ -282,21 +291,21 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
     });
 
     const text = [
-      `SuiBets - Copy Bet`,
+      `SuiBets - Copy This Bet`,
       isParlay ? `Parlay (${legs.length} Legs)` : 'Single Bet',
       ...lines,
       `Combined Odds: ${bet.odds.toFixed(2)}`,
       `Stake: ${bet.betAmount.toLocaleString()} ${bet.currency}`,
       `Potential Win: ${bet.potentialPayout.toLocaleString()} ${bet.currency}`,
       ``,
-      `Place this bet at suibets.com`,
+      `Copy this bet: ${shareUrl}`,
     ].join('\n');
 
     try {
       await navigator.clipboard.writeText(text);
       setBetCopied(true);
       setTimeout(() => setBetCopied(false), 2000);
-      toast({ title: 'Bet Copied!', description: 'Bet details copied to clipboard. Share it with friends!' });
+      toast({ title: 'Bet Copied!', description: 'Bet link and details copied. Share with friends so they can copy your bet!' });
     } catch {
       toast({ title: 'Copy failed', description: 'Could not copy to clipboard', variant: 'destructive' });
     }

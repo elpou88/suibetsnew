@@ -52,6 +52,7 @@ import DepositsWithdrawalsPage from "@/pages/deposits-withdrawals";
 import WhitepaperPage from "@/pages/whitepaper";
 import NetworkPage from "@/pages/network";
 import AdminPanel from "@/pages/admin-panel";
+import SharedBetPage from "@/pages/shared-bet";
 
 // Informational Pages
 import PrivacyPolicy from "@/pages/privacy";
@@ -195,6 +196,9 @@ function App() {
                           <Route path="/goto-live" component={LiveEventsPage} />
                           <Route path="/home-real" component={CleanHome} />
                           <Route path="/live-real" component={LiveEventsPage} />
+                          
+                          {/* Shared Bet Page */}
+                          <Route path="/bet/:id" component={SharedBetPage} />
                           
                           {/* Admin Panel - Password Protected */}
                           <Route path="/admin" component={AdminPanel} />
