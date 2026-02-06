@@ -1262,7 +1262,7 @@ function ChallengeTab({ wallet }: { wallet?: string }) {
                       <Button
                         size="sm"
                         className="flex-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/30 font-bold"
-                        onClick={() => handleJoin(c.id, 'back')}
+                        onClick={() => handleJoin(c.id, 'for')}
                         disabled={joinMutation.isPending}
                         data-testid={`button-back-${c.id}`}
                       >
@@ -1272,7 +1272,7 @@ function ChallengeTab({ wallet }: { wallet?: string }) {
                       <Button
                         size="sm"
                         className="flex-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 font-bold"
-                        onClick={() => handleJoin(c.id, 'fade')}
+                        onClick={() => handleJoin(c.id, 'against')}
                         disabled={joinMutation.isPending}
                         data-testid={`button-fade-${c.id}`}
                       >
