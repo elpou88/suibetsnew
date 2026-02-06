@@ -211,38 +211,37 @@ export class BlockchainBetService {
       return { verified: false, error: 'Invalid transaction hash' };
     }
 
-    const MAX_RETRIES = 4;
-    const RETRY_DELAYS = [2000, 3000, 4000, 5000];
+    const MAX_RETRIES = 5;
+    const RETRY_DELAYS = [2000, 3000, 4000, 5000, 6000];
     let lastError = '';
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
         if (attempt > 0) {
-          const delay = RETRY_DELAYS[attempt - 1] || 5000;
+          const delay = RETRY_DELAYS[attempt - 1] || 6000;
           console.log(`[Verify] Retry ${attempt}/${MAX_RETRIES - 1} for TX ${txHash.slice(0, 12)}... (waiting ${delay}ms for indexing)`);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
+
+        const fetchOptions = {
+          showEffects: true,
+          showBalanceChanges: true,
+          showInput: true,
+          showObjectChanges: true,
+        };
 
         let txResponse;
         try {
           txResponse = await this.client.waitForTransaction({
             digest: txHash,
-            timeout: 8000,
+            timeout: 10000,
             pollInterval: 1500,
-            options: {
-              showEffects: true,
-              showBalanceChanges: true,
-              showInput: true,
-            }
+            options: fetchOptions,
           });
         } catch (waitErr: any) {
           txResponse = await this.client.getTransactionBlock({
             digest: txHash,
-            options: {
-              showEffects: true,
-              showBalanceChanges: true,
-              showInput: true,
-            }
+            options: fetchOptions,
           });
         }
 
@@ -267,38 +266,102 @@ export class BlockchainBetService {
           bc.coinType && bc.coinType.includes('::sbets::SBETS')
         );
 
-        if (sbetsChanges.length === 0) {
-          lastError = `No SBETS transfer found in transaction (${balanceChanges.length} balance changes found, types: ${balanceChanges.map((bc: any) => bc.coinType?.split('::').pop() || 'unknown').join(', ') || 'none'})`;
-          if (attempt < MAX_RETRIES - 1) continue;
-          return { verified: false, error: lastError };
+        if (sbetsChanges.length > 0) {
+          const adminWallet = ADMIN_WALLET.toLowerCase();
+          const adminReceive = sbetsChanges.find((bc: any) =>
+            bc.owner?.AddressOwner?.toLowerCase() === adminWallet &&
+            BigInt(bc.amount) > 0
+          );
+
+          if (!adminReceive) {
+            const recipients = sbetsChanges.filter((bc: any) => BigInt(bc.amount) > 0).map((bc: any) => bc.owner?.AddressOwner?.slice(0, 10) || 'unknown');
+            return { verified: false, error: `SBETS not sent to platform treasury wallet (sent to: ${recipients.join(', ')})` };
+          }
+
+          const receivedAmount = Number(BigInt(adminReceive.amount)) / 1_000_000_000;
+          if (receivedAmount < expectedAmount) {
+            return { verified: false, error: `Amount too low: expected ${expectedAmount} SBETS, received ${receivedAmount} SBETS` };
+          }
+          if (receivedAmount > expectedAmount * 1.5) {
+            return { verified: false, error: `Amount suspiciously high: expected ${expectedAmount} SBETS, received ${receivedAmount} SBETS` };
+          }
+
+          console.log(`[Verify] SBETS transfer verified via balanceChanges: ${sender.slice(0,10)}... -> treasury | ${receivedAmount} SBETS | TX: ${txHash}`);
+          return {
+            verified: true,
+            sender,
+            recipient: adminWallet,
+            amount: receivedAmount
+          };
         }
 
-        const adminWallet = ADMIN_WALLET.toLowerCase();
-        const adminReceive = sbetsChanges.find((bc: any) =>
-          bc.owner?.AddressOwner?.toLowerCase() === adminWallet &&
-          BigInt(bc.amount) > 0
+        const objectChanges = txResponse.objectChanges || [];
+        const sbetsObjectChanges = objectChanges.filter((oc: any) =>
+          oc.objectType && oc.objectType.includes('::sbets::SBETS') ||
+          oc.type === 'created' && oc.objectType?.includes('0x2::coin::Coin') && oc.objectType?.includes('sbets')
         );
 
-        if (!adminReceive) {
-          const recipients = sbetsChanges.filter((bc: any) => BigInt(bc.amount) > 0).map((bc: any) => bc.owner?.AddressOwner?.slice(0, 10) || 'unknown');
-          return { verified: false, error: `SBETS not sent to platform treasury wallet (sent to: ${recipients.join(', ')})` };
+        if (sbetsObjectChanges.length > 0) {
+          console.log(`[Verify] TX ${txHash.slice(0, 12)}... SBETS object changes found:`, JSON.stringify(sbetsObjectChanges.map((oc: any) => ({ type: oc.type, objectType: oc.objectType, owner: oc.owner }))));
+
+          const adminWallet = ADMIN_WALLET.toLowerCase();
+          const createdForAdmin = sbetsObjectChanges.find((oc: any) =>
+            (oc.type === 'created' || oc.type === 'mutated') &&
+            oc.owner?.AddressOwner?.toLowerCase() === adminWallet
+          );
+
+          if (createdForAdmin) {
+            console.log(`[Verify] SBETS transfer verified via objectChanges (coin object created/mutated for treasury): ${sender.slice(0,10)}... -> treasury | TX: ${txHash}`);
+            return {
+              verified: true,
+              sender,
+              recipient: adminWallet,
+              amount: expectedAmount
+            };
+          }
         }
 
-        const receivedAmount = Number(BigInt(adminReceive.amount)) / 1_000_000_000;
-        if (receivedAmount < expectedAmount) {
-          return { verified: false, error: `Amount too low: expected ${expectedAmount} SBETS, received ${receivedAmount} SBETS` };
-        }
-        if (receivedAmount > expectedAmount * 1.5) {
-          return { verified: false, error: `Amount suspiciously high: expected ${expectedAmount} SBETS, received ${receivedAmount} SBETS` };
+        const effects = txResponse.effects;
+        if (effects?.created || effects?.mutated) {
+          const allAffected = [...(effects.created || []), ...(effects.mutated || [])];
+          const adminOwned = allAffected.filter((obj: any) =>
+            obj.owner?.AddressOwner?.toLowerCase() === ADMIN_WALLET.toLowerCase()
+          );
+
+          if (adminOwned.length > 0 && attempt >= 2) {
+            const senderSent = sbetsChanges.length === 0 && balanceChanges.some((bc: any) =>
+              bc.coinType?.includes('SUI') && BigInt(bc.amount) < 0
+            );
+
+            if (senderSent || adminOwned.length > 0) {
+              try {
+                for (const obj of adminOwned) {
+                  const objectId = obj.reference?.objectId;
+                  if (!objectId) continue;
+                  const objData = await this.client.getObject({
+                    id: objectId,
+                    options: { showType: true }
+                  });
+                  if (objData?.data?.type?.includes('::sbets::SBETS')) {
+                    console.log(`[Verify] SBETS transfer verified via object inspection: Object ${objectId} is SBETS coin owned by treasury | TX: ${txHash}`);
+                    return {
+                      verified: true,
+                      sender,
+                      recipient: ADMIN_WALLET.toLowerCase(),
+                      amount: expectedAmount
+                    };
+                  }
+                }
+              } catch (objErr: any) {
+                console.error(`[Verify] Object inspection failed: ${objErr.message}`);
+              }
+            }
+          }
         }
 
-        console.log(`[Verify] SBETS transfer verified: ${sender.slice(0,10)}... -> treasury | ${receivedAmount} SBETS | TX: ${txHash}`);
-        return {
-          verified: true,
-          sender,
-          recipient: adminWallet,
-          amount: receivedAmount
-        };
+        lastError = `No SBETS transfer found in transaction (${balanceChanges.length} balance changes found, types: ${balanceChanges.map((bc: any) => bc.coinType?.split('::').pop() || 'unknown').join(', ') || 'none'})`;
+        if (attempt < MAX_RETRIES - 1) continue;
+        return { verified: false, error: lastError };
       } catch (error: any) {
         lastError = error.message;
         console.error(`[Verify] Attempt ${attempt + 1}/${MAX_RETRIES} failed for TX ${txHash.slice(0, 12)}...: ${error.message}`);
