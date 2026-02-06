@@ -790,7 +790,7 @@ function PredictTab({ wallet }: { wallet?: string }) {
               <p>All SBETS from bettors go into a shared pool.</p>
               <p>When the creator resolves the market (YES or NO), the winning side splits the ENTIRE pool proportionally to how much each person bet.</p>
               <p className="text-cyan-400/80">Example: If 10,000 SBETS on YES and 5,000 on NO, and YES wins, YES bettors split 15,000 SBETS proportionally.</p>
-              <p>Bets are recorded in database and tracked to your wallet. Payouts calculated automatically.</p>
+              <p>Every bet is recorded on-chain with a unique transaction ID tied to your wallet. Payouts are calculated and distributed automatically when the market resolves.</p>
             </div>
           )}
         </CardContent>
