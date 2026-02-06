@@ -97,7 +97,7 @@ function CreatePredictionModal({ onClose, wallet }: { onClose: () => void; walle
       const res = await fetch('/api/social/predictions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description, category, endDate, wallet })
+        body: JSON.stringify({ title, description, category, endDate: new Date(endDate).toISOString(), wallet })
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
