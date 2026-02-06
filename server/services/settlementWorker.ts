@@ -244,24 +244,12 @@ class SettlementWorkerService {
         return;
       }
 
-      // PRIORITY: Process already-won bets first (they need payout retry, not match lookup)
       const wonBetsNeedingPayout = unsettledBets.filter(bet => bet.status === 'won');
       if (wonBetsNeedingPayout.length > 0) {
         console.log(`💰 PAYOUT RETRY: ${wonBetsNeedingPayout.length} won bets need payout processing`);
-        // Create a dummy match for processing - these bets are already confirmed winners
-        const dummyMatch: FinishedMatch = {
-          eventId: 'payout_retry',
-          homeTeam: 'Winner',
-          awayTeam: 'Payout',
-          homeScore: 1,
-          awayScore: 0,
-          winner: 'home',
-          status: 'finished'
-        };
-        await this.settleBetsForMatch(dummyMatch, wonBetsNeedingPayout);
+        await this.retryPendingPayouts(wonBetsNeedingPayout);
       }
 
-      // Filter out already-won bets from main processing (they're already handled above)
       const pendingBets = unsettledBets.filter(bet => bet.status !== 'won');
       
       if (pendingBets.length === 0) {
@@ -647,9 +635,9 @@ class SettlementWorkerService {
       // PRE-CHECK: Verify bet isn't already settled on-chain
       const onChainInfo = await blockchainBetService.getOnChainBetInfo(bet.betObjectId!);
       if (onChainInfo?.settled) {
-        console.log(`⚠️ PARLAY ALREADY SETTLED ON-CHAIN: ${bet.betObjectId} - updating database only`);
+        console.log(`⚠️ PARLAY ALREADY SETTLED ON-CHAIN: ${bet.betObjectId} - contract handled payout, updating database`);
         const finalStatus = isWinner ? 'paid_out' : 'lost';
-        await storage.updateBetStatus(bet.id, finalStatus, grossPayout, `on-chain-pre-settled-parlay-${bet.betObjectId?.slice(0,12)}`);
+        await storage.updateBetStatus(bet.id, finalStatus, grossPayout, `contract-settled-parlay-${bet.betObjectId?.slice(0,16)}`);
         this.settledBetIds.add(bet.id);
         return;
       }
@@ -679,8 +667,12 @@ class SettlementWorkerService {
         return;
       } else {
         console.error(`❌ ON-CHAIN PARLAY SETTLEMENT FAILED: ${settlementResult.error}`);
-        // Mark as lost in DB for retry later
-        await storage.updateBetStatus(bet.id, 'lost', 0);
+        if (isWinner) {
+          console.warn(`⚠️ PARLAY WINNER PAYOUT DEFERRED: Bet ${bet.id} - keeping as 'won' for retry (do NOT mark as lost)`);
+          await storage.updateBetStatus(bet.id, 'won', grossPayout);
+        } else {
+          await storage.updateBetStatus(bet.id, 'lost', 0);
+        }
         this.settledBetIds.add(bet.id);
         return;
       }
@@ -978,6 +970,101 @@ class SettlementWorkerService {
     }
   }
 
+  private payoutRetryCount = new Map<string, number>();
+  private static MAX_PAYOUT_RETRIES = 20;
+
+  private async retryPendingPayouts(wonBets: UnsettledBet[]) {
+    for (const bet of wonBets) {
+      if (this.settledBetIds.has(bet.id)) continue;
+
+      const retries = this.payoutRetryCount.get(bet.id) || 0;
+      if (retries >= SettlementWorkerService.MAX_PAYOUT_RETRIES) {
+        console.warn(`🛑 PAYOUT RETRY LIMIT REACHED: Bet ${bet.id} failed ${retries} times - requires manual admin resolution`);
+        this.settledBetIds.add(bet.id);
+        continue;
+      }
+      this.payoutRetryCount.set(bet.id, retries + 1);
+
+      try {
+        const currentBet = await storage.getBet(bet.id);
+        if (!currentBet || currentBet.status !== 'won') {
+          console.log(`⚠️ PAYOUT SKIP: Bet ${bet.id} no longer in 'won' state (status=${currentBet?.status}) - skipping`);
+          this.settledBetIds.add(bet.id);
+          continue;
+        }
+        const txHash = currentBet.settlementTxHash;
+        if (txHash) {
+          const isContractSettled = txHash.startsWith('contract-settled-') || txHash.startsWith('verified-on-chain-');
+          const isRealTxHash = !txHash.startsWith('on-chain-') && !isContractSettled;
+          if (isRealTxHash) {
+            console.log(`⚠️ PAYOUT SKIP: Bet ${bet.id} already has real TX hash ${txHash.slice(0,16)}... - skipping`);
+            this.settledBetIds.add(bet.id);
+            continue;
+          }
+          if (isContractSettled) {
+            console.log(`⚠️ PAYOUT SKIP: Bet ${bet.id} already settled by smart contract (${txHash.slice(0,30)}...) - skipping`);
+            this.settledBetIds.add(bet.id);
+            continue;
+          }
+        }
+
+        const grossPayout = bet.potentialWin;
+        const profit = grossPayout - bet.stake;
+        const platformFee = profit > 0 ? profit * 0.01 : 0;
+        const netPayout = grossPayout - platformFee;
+        const userWallet = bet.userId;
+
+        if (!userWallet || !userWallet.startsWith('0x') || userWallet.length < 64) {
+          console.log(`ℹ️ PAYOUT SKIP: Bet ${bet.id} has no valid wallet address - internal balance only`);
+          this.settledBetIds.add(bet.id);
+          continue;
+        }
+
+        if (bet.betObjectId && blockchainBetService.isAdminKeyConfigured()) {
+          const onChainInfo = await blockchainBetService.getOnChainBetInfo(bet.betObjectId);
+          if (onChainInfo && !onChainInfo.settled) {
+            console.log(`🔗 PAYOUT RETRY ON-CHAIN: Bet ${bet.id} - attempting smart contract settlement`);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            const settlementResult = bet.currency === 'SBETS' 
+              ? await blockchainBetService.executeSettleBetSbetsOnChain(bet.betObjectId, true)
+              : await blockchainBetService.executeSettleBetOnChain(bet.betObjectId, true);
+            
+            if (settlementResult.success) {
+              await storage.updateBetStatus(bet.id, 'paid_out', grossPayout, settlementResult.txHash);
+              console.log(`✅ PAYOUT RETRY ON-CHAIN SUCCESS: Bet ${bet.id} | TX: ${settlementResult.txHash}`);
+              this.settledBetIds.add(bet.id);
+              continue;
+            }
+            console.warn(`⚠️ PAYOUT RETRY ON-CHAIN FAILED: ${settlementResult.error} - falling back to direct transfer`);
+          } else if (onChainInfo?.settled) {
+            console.log(`✅ PAYOUT RETRY: Bet ${bet.id} already settled on-chain - marking paid_out`);
+            await storage.updateBetStatus(bet.id, 'paid_out', grossPayout, `verified-on-chain-${bet.betObjectId?.slice(0,16)}`);
+            this.settledBetIds.add(bet.id);
+            continue;
+          }
+        }
+
+        console.log(`🔄 PAYOUT RETRY DIRECT: Bet ${bet.id} - sending ${netPayout} ${bet.currency} to ${userWallet.slice(0,10)}... (attempt ${retries + 1})`);
+        let payoutResult;
+        if (bet.currency === 'SUI') {
+          payoutResult = await blockchainBetService.sendSuiToUser(userWallet, netPayout);
+        } else if (bet.currency === 'SBETS') {
+          payoutResult = await blockchainBetService.sendSbetsToUser(userWallet, netPayout);
+        }
+
+        if (payoutResult?.success && payoutResult?.txHash) {
+          await storage.updateBetStatus(bet.id, 'paid_out', grossPayout, payoutResult.txHash);
+          console.log(`✅ PAYOUT RETRY SUCCESS: Bet ${bet.id} paid_out | TX: ${payoutResult.txHash}`);
+          this.settledBetIds.add(bet.id);
+        } else {
+          console.warn(`⚠️ PAYOUT RETRY FAILED: Bet ${bet.id} (attempt ${retries + 1}/${SettlementWorkerService.MAX_PAYOUT_RETRIES}) - ${payoutResult?.error || 'Unknown error'}`);
+        }
+      } catch (error: any) {
+        console.error(`❌ PAYOUT RETRY ERROR: Bet ${bet.id} - ${error.message}`);
+      }
+    }
+  }
+
   private async settleBetsForMatch(match: FinishedMatch, bets: UnsettledBet[]) {
     for (const bet of bets) {
       // DUPLICATE SETTLEMENT PREVENTION: Skip if already settled this session
@@ -1047,9 +1134,9 @@ class SettlementWorkerService {
           // PRE-CHECK 2: Verify bet isn't already settled on-chain (prevents error 6)
           const onChainInfo = await blockchainBetService.getOnChainBetInfo(bet.betObjectId!);
           if (onChainInfo?.settled) {
-            console.log(`⚠️ BET ALREADY SETTLED ON-CHAIN: ${bet.betObjectId} - updating database only`);
+            console.log(`⚠️ BET ALREADY SETTLED ON-CHAIN: ${bet.betObjectId} - contract handled payout, updating database`);
             const finalStatus = isWinner ? 'paid_out' : 'lost';
-            await storage.updateBetStatus(bet.id, finalStatus, grossPayout, `on-chain-pre-settled-sui-${bet.betObjectId?.slice(0,12)}`);
+            await storage.updateBetStatus(bet.id, finalStatus, grossPayout, `contract-settled-sui-${bet.betObjectId?.slice(0,16)}`);
             this.settledBetIds.add(bet.id);
             continue;
           }
@@ -1087,9 +1174,9 @@ class SettlementWorkerService {
                 
                 if (reCheckInfo?.settled) {
                   // Bet was already settled on-chain - safe to mark in DB
-                  console.log(`⚠️ BET CONFIRMED SETTLED ON-CHAIN: ${bet.id} - updating database`);
+                  console.log(`⚠️ BET CONFIRMED SETTLED ON-CHAIN: ${bet.id} - contract handled payout, updating database`);
                   const finalStatus = isWinner ? 'paid_out' : 'lost';
-                  await storage.updateBetStatus(bet.id, finalStatus, grossPayout, `on-chain-confirmed-sui-${bet.betObjectId?.slice(0,12)}`);
+                  await storage.updateBetStatus(bet.id, finalStatus, grossPayout, `contract-settled-sui-${bet.betObjectId?.slice(0,16)}`);
                   this.settledBetIds.add(bet.id);
                   continue;
                 } else if (isWinner) {
@@ -1146,9 +1233,9 @@ class SettlementWorkerService {
           // PRE-CHECK 2: Verify bet isn't already settled on-chain (prevents error 6)
           const onChainInfo = await blockchainBetService.getOnChainBetInfo(bet.betObjectId!);
           if (onChainInfo?.settled) {
-            console.log(`⚠️ SBETS BET ALREADY SETTLED ON-CHAIN: ${bet.betObjectId} - updating database only`);
+            console.log(`⚠️ SBETS BET ALREADY SETTLED ON-CHAIN: ${bet.betObjectId} - contract handled payout, updating database`);
             const finalStatus = isWinner ? 'paid_out' : 'lost';
-            await storage.updateBetStatus(bet.id, finalStatus, grossPayout, `on-chain-pre-settled-sbets-${bet.betObjectId?.slice(0,12)}`);
+            await storage.updateBetStatus(bet.id, finalStatus, grossPayout, `contract-settled-sbets-${bet.betObjectId?.slice(0,16)}`);
             this.settledBetIds.add(bet.id);
             continue;
           }
@@ -1185,9 +1272,9 @@ class SettlementWorkerService {
                 
                 if (reCheckInfo?.settled) {
                   // Bet was already settled on-chain - safe to mark in DB
-                  console.log(`⚠️ SBETS BET CONFIRMED SETTLED ON-CHAIN: ${bet.id} - updating database`);
+                  console.log(`⚠️ SBETS BET CONFIRMED SETTLED ON-CHAIN: ${bet.id} - contract handled payout, updating database`);
                   const finalStatus = isWinner ? 'paid_out' : 'lost';
-                  await storage.updateBetStatus(bet.id, finalStatus, grossPayout, `on-chain-confirmed-sbets-${bet.betObjectId?.slice(0,12)}`);
+                  await storage.updateBetStatus(bet.id, finalStatus, grossPayout, `contract-settled-sbets-${bet.betObjectId?.slice(0,16)}`);
                   this.settledBetIds.add(bet.id);
                   continue;
                 } else if (isWinner) {
@@ -1238,10 +1325,8 @@ class SettlementWorkerService {
             if (isWinner && netPayout > 0) {
               const winningsAdded = await balanceService.addWinnings(bet.userId, netPayout, bet.currency as 'SUI' | 'SBETS');
               if (!winningsAdded) {
-                // CRITICAL: Revert bet status if balance credit failed - allows retry next cycle
-                await storage.updateBetStatus(bet.id, 'pending');
-                console.error(`❌ SETTLEMENT REVERTED: Failed to credit winnings for bet ${bet.id} - will retry`);
-                continue; // Don't mark as settled, allow retry
+                console.error(`❌ BALANCE CREDIT FAILED: Bet ${bet.id} - keeping as 'won' for payout retry (NOT reverting to pending)`);
+                continue;
               }
               // CRITICAL: Record 1% platform fee as revenue
               await balanceService.addRevenue(platformFee, bet.currency as 'SUI' | 'SBETS');
@@ -1294,38 +1379,7 @@ class SettlementWorkerService {
             // ONLY mark as settled after successful payout processing
             this.settledBetIds.add(bet.id);
           } else {
-            // statusUpdated returned false - bet is already in a terminal state
-            // SAFE PAYOUT RETRY: Only for bets in 'won' status (NOT 'paid_out' or 'lost')
-            // Re-fetch current status from DB to avoid double-payout
-            if (isAlreadyWon && isWinner && netPayout > 0) {
-              const currentBet = await storage.getBet(bet.id);
-              if (currentBet && currentBet.status === 'won' && !currentBet.settlementTxHash) {
-                const userWallet = bet.userId;
-                if (userWallet && userWallet.startsWith('0x') && userWallet.length >= 64) {
-                  try {
-                    console.log(`🔄 SAFE PAYOUT RETRY: Bet ${bet.id} status=won, no txHash - sending ${netPayout} ${bet.currency} to ${userWallet.slice(0,10)}...`);
-                    let payoutResult;
-                    if (bet.currency === 'SUI') {
-                      payoutResult = await blockchainBetService.sendSuiToUser(userWallet, netPayout);
-                    } else if (bet.currency === 'SBETS') {
-                      payoutResult = await blockchainBetService.sendSbetsToUser(userWallet, netPayout);
-                    }
-                    if (payoutResult?.success && payoutResult?.txHash) {
-                      await storage.updateBetStatus(bet.id, 'paid_out', grossPayout, payoutResult.txHash);
-                      console.log(`✅ SAFE PAYOUT RETRY SUCCESS: Bet ${bet.id} paid_out | TX: ${payoutResult.txHash}`);
-                    } else {
-                      console.warn(`⚠️ SAFE PAYOUT RETRY FAILED: ${payoutResult?.error || 'Unknown error'} - will retry next cycle`);
-                    }
-                  } catch (payoutError: any) {
-                    console.warn(`⚠️ SAFE PAYOUT RETRY ERROR: ${payoutError.message}`);
-                  }
-                }
-              } else {
-                console.log(`⚠️ DUPLICATE PAYOUT BLOCKED: Bet ${bet.id} status=${currentBet?.status}, txHash=${currentBet?.settlementTxHash ? 'present' : 'none'} - skipping`);
-              }
-            } else {
-              console.log(`⚠️ DUPLICATE SETTLEMENT PREVENTED: Bet ${bet.id} already settled - skipping`);
-            }
+            console.log(`⚠️ SETTLEMENT SKIPPED: Bet ${bet.id} already in terminal state - payout retries handled by dedicated retryPendingPayouts`);
             this.settledBetIds.add(bet.id);
           }
         }

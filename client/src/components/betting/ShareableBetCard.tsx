@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Share2, Download, X, Copy, Check } from 'lucide-react';
+import { Share2, Download, X, Copy, Check, CheckCircle2, XCircle, Clock, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -10,6 +10,11 @@ interface BetLeg {
   selection: string;
   prediction?: string;
   odds: number;
+  eventId?: string;
+  marketId?: string;
+  homeTeam?: string;
+  awayTeam?: string;
+  legResult?: 'won' | 'lost' | 'pending' | 'void';
 }
 
 interface ShareableBetCardProps {
@@ -24,11 +29,61 @@ interface ShareableBetCardProps {
     status: string;
     createdAt: string;
     txHash?: string;
+    walletAddress?: string;
   };
   isParlay?: boolean;
   parlayLegs?: BetLeg[];
   isOpen: boolean;
   onClose: () => void;
+}
+
+const SPORT_FROM_EVENT_ID: Record<string, string> = {
+  basketball: 'Basketball',
+  'ice-hockey': 'Ice Hockey',
+  baseball: 'Baseball',
+  rugby: 'Rugby',
+  handball: 'Handball',
+  volleyball: 'Volleyball',
+  mma: 'MMA',
+  'american-football': 'Am. Football',
+  afl: 'AFL',
+  'formula-1': 'Formula 1',
+  nba: 'NBA',
+  nfl: 'NFL',
+};
+
+const MARKET_LABELS: Record<string, string> = {
+  'match-winner': 'Winner',
+  'match_winner': 'Winner',
+  '1': 'Winner',
+  '2': 'BTTS',
+  '3': 'Double Chance',
+  '4': 'Half-Time',
+  '5': 'Over/Under',
+  '6': 'Correct Score',
+  'btts': 'BTTS',
+  'double-chance': 'Double Chance',
+  'over-under': 'Over/Under',
+};
+
+function getSportFromEventId(eventId?: string): string | null {
+  if (!eventId) return null;
+  for (const [prefix, label] of Object.entries(SPORT_FROM_EVENT_ID)) {
+    if (eventId.startsWith(prefix + '_')) return label;
+  }
+  if (/^\d+$/.test(eventId)) return 'Football';
+  return null;
+}
+
+function getMarketLabel(marketId?: string): string | null {
+  if (!marketId) return null;
+  return MARKET_LABELS[marketId] || null;
+}
+
+function shortenWallet(address?: string): string {
+  if (!address) return '';
+  if (address.length <= 14) return address;
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
 export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpen, onClose }: ShareableBetCardProps) {
@@ -51,33 +106,29 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusBadge = (status: string) => {
     switch (status) {
       case 'won':
       case 'paid_out':
-        return 'text-green-400';
+        return { text: status === 'paid_out' ? 'PAID OUT' : 'WON', bg: 'bg-green-500/20', text_color: 'text-green-400', border: 'border-green-500/30' };
       case 'lost':
-        return 'text-red-400';
+        return { text: 'LOST', bg: 'bg-red-500/20', text_color: 'text-red-400', border: 'border-red-500/30' };
       case 'pending':
-        return 'text-yellow-400';
+      case 'confirmed':
+        return { text: 'PENDING', bg: 'bg-yellow-500/20', text_color: 'text-yellow-400', border: 'border-yellow-500/30' };
+      case 'void':
+        return { text: 'VOID', bg: 'bg-gray-500/20', text_color: 'text-gray-400', border: 'border-gray-500/30' };
       default:
-        return 'text-gray-400';
+        return { text: status.toUpperCase(), bg: 'bg-gray-500/20', text_color: 'text-gray-400', border: 'border-gray-500/30' };
     }
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'won':
-        return 'WON';
-      case 'paid_out':
-        return 'PAID OUT';
-      case 'lost':
-        return 'LOST';
-      case 'pending':
-        return 'PENDING';
-      default:
-        return status.toUpperCase();
-    }
+  const getLegIcon = (legResult?: string, betStatus?: string) => {
+    if (legResult === 'won') return <CheckCircle2 className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />;
+    if (legResult === 'lost') return <XCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />;
+    if (betStatus === 'won' || betStatus === 'paid_out') return <CheckCircle2 className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />;
+    if (betStatus === 'lost') return <XCircle className="w-3.5 h-3.5 text-red-400/50 flex-shrink-0" />;
+    return <Clock className="w-3.5 h-3.5 text-yellow-400/60 flex-shrink-0" />;
   };
 
   const handleDownload = async () => {
@@ -91,12 +142,10 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
         useCORS: true,
       });
       
-      // Check if on mobile/touch device
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || 
                        ('ontouchstart' in window);
       
       if (isMobile) {
-        // Mobile: Use Web Share API if available, otherwise open in new tab
         canvas.toBlob(async (blob) => {
           if (!blob) {
             toast({
@@ -109,7 +158,6 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
           
           const file = new File([blob], `suibets-bet-${bet.id}.png`, { type: 'image/png' });
           
-          // Try native share with download option
           if (navigator.share && navigator.canShare({ files: [file] })) {
             try {
               await navigator.share({
@@ -122,11 +170,9 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
               });
               return;
             } catch (shareError) {
-              // User cancelled or share failed, continue to fallback
             }
           }
           
-          // Fallback: Open image in new tab for long-press save
           const dataUrl = canvas.toDataURL('image/png');
           const newWindow = window.open();
           if (newWindow) {
@@ -149,7 +195,6 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
           }
         }, 'image/png');
       } else {
-        // Desktop: Use traditional download link
         const link = document.createElement('a');
         link.download = `suibets-bet-${bet.id}.png`;
         link.href = canvas.toDataURL('image/png');
@@ -221,7 +266,6 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
     }
   };
 
-  // Parse pipe-separated predictions into legs if parlayLegs is empty but prediction contains pipes
   const parsePipeSeparatedLegs = (): BetLeg[] => {
     if (typeof bet.prediction === 'string' && bet.prediction.includes(' | ')) {
       const legs = bet.prediction.split(' | ');
@@ -248,6 +292,9 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
           odds: bet.odds
         }];
 
+  const statusBadge = getStatusBadge(bet.status);
+  const isSettled = ['won', 'paid_out', 'lost', 'void'].includes(bet.status);
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="bg-[#0a1214] border-[#1e3a3f] text-white max-w-md p-0 overflow-hidden">
@@ -267,7 +314,7 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
             <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-cyan-500/10 to-transparent" />
             
             <div className="relative p-5">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <img 
                     src="/images/suibets-logo.png" 
@@ -275,65 +322,123 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
                     className="h-10 w-auto"
                   />
                 </div>
-                <div className={`px-3 py-1 rounded-full text-xs font-bold ${
-                  bet.status === 'won' || bet.status === 'paid_out' 
-                    ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
-                    : bet.status === 'lost' 
-                    ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                    : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
-                }`}>
-                  {getStatusText(bet.status)}
+                <div className={`px-3 py-1 rounded-full text-xs font-bold ${statusBadge.bg} ${statusBadge.text_color} border ${statusBadge.border}`}>
+                  {statusBadge.text}
                 </div>
               </div>
 
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-gray-400 text-sm font-medium">
-                  {isParlay ? `Parlay (${displayLegs.length} Legs)` : 'Single'}
-                </span>
-                <span className="text-white font-bold text-xl">{bet.odds.toFixed(2)}</span>
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-400 text-sm font-medium">
+                    {isParlay ? `Parlay (${displayLegs.length} Legs)` : 'Single Bet'}
+                  </span>
+                  {bet.id > 0 && (
+                    <span className="text-gray-600 text-xs" data-testid="text-bet-id">#{bet.id}</span>
+                  )}
+                </div>
+                <span className="text-white font-bold text-xl" data-testid="text-combined-odds">{bet.odds.toFixed(2)}</span>
               </div>
 
-              <div className="border-l-2 border-cyan-500/50 pl-4 space-y-3 mb-4">
+              {bet.walletAddress && (
+                <div className="mb-3">
+                  <span className="text-gray-600 text-xs font-mono" data-testid="text-wallet-address">
+                    {shortenWallet(bet.walletAddress)}
+                  </span>
+                </div>
+              )}
+
+              <div className="space-y-2.5 mb-4">
                 {displayLegs.map((leg, idx) => {
                   const selection = leg.selection || leg.prediction || '';
                   const eventName = leg.eventName && leg.eventName !== 'Unknown Event' && leg.eventName !== 'Match' && !leg.eventName.match(/^\d+$/)
                     ? leg.eventName 
                     : '';
                   
-                  // For over/under and other markets, show team names with selection
                   const displayText = eventName && !selection.includes(' vs ') && !selection.includes(':')
                     ? `${eventName}: ${selection}`
                     : selection;
+
+                  const sport = getSportFromEventId(leg.eventId);
+                  const market = getMarketLabel(leg.marketId);
+                  const dotColor = leg.legResult === 'won' ? 'bg-green-400' 
+                    : leg.legResult === 'lost' ? 'bg-red-400'
+                    : isSettled && bet.status === 'won' ? 'bg-green-400'
+                    : isSettled && bet.status === 'lost' ? 'bg-red-400/50'
+                    : 'bg-cyan-400';
                   
                   return (
-                    <div key={idx} className="relative">
-                      <div className="absolute -left-[18px] top-1.5 w-2.5 h-2.5 rounded-full bg-cyan-400 border-2 border-[#112225]" />
-                      <div className="text-cyan-300 font-semibold text-sm">{displayText}</div>
-                      {displayLegs.length > 1 && leg.odds > 1 && (
-                        <div className="text-gray-600 text-xs mt-0.5">@ {leg.odds.toFixed(2)}</div>
+                    <div key={idx} className="relative pl-5" data-testid={`bet-leg-${idx}`}>
+                      <div className={`absolute left-0 top-1.5 w-2.5 h-2.5 rounded-full ${dotColor} border-2 border-[#112225]`} />
+                      {idx < displayLegs.length - 1 && (
+                        <div className="absolute left-[4px] top-4 w-0.5 h-[calc(100%+2px)] bg-gray-700/50" />
                       )}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          {(sport || market) && (
+                            <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                              {sport && (
+                                <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium" data-testid={`text-leg-sport-${idx}`}>
+                                  {sport}
+                                </span>
+                              )}
+                              {sport && market && <span className="text-gray-700 text-[10px]">/</span>}
+                              {market && (
+                                <span className="text-[10px] text-gray-500 uppercase tracking-wider" data-testid={`text-leg-market-${idx}`}>
+                                  {market}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          <div className="text-cyan-300 font-semibold text-sm leading-tight">{displayText}</div>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-shrink-0 mt-0.5">
+                          {displayLegs.length > 1 && leg.odds > 1 && (
+                            <span className="text-gray-500 text-xs">@ {leg.odds.toFixed(2)}</span>
+                          )}
+                          {isSettled && getLegIcon(leg.legResult, bet.status)}
+                        </div>
+                      </div>
                     </div>
                   );
                 })}
               </div>
 
               <div className="bg-black/30 rounded-lg p-3 space-y-2">
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between gap-2 text-sm">
                   <span className="text-gray-500">Stake</span>
-                  <span className="text-white font-medium">
+                  <span className="text-white font-medium" data-testid="text-stake">
                     {bet.betAmount.toLocaleString(undefined, { maximumFractionDigits: 4 })} {bet.currency}
                   </span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">To Win</span>
-                  <span className={`font-bold ${bet.status === 'won' || bet.status === 'paid_out' ? 'text-green-400' : 'text-cyan-400'}`}>
-                    {bet.potentialPayout.toLocaleString(undefined, { maximumFractionDigits: 4 })} {bet.currency}
+                <div className="flex justify-between gap-2 text-sm">
+                  <span className="text-gray-500">{bet.status === 'won' || bet.status === 'paid_out' ? 'Won' : 'To Win'}</span>
+                  <span className={`font-bold ${
+                    bet.status === 'won' || bet.status === 'paid_out' ? 'text-green-400' 
+                    : bet.status === 'lost' ? 'text-red-400 line-through' 
+                    : 'text-cyan-400'
+                  }`} data-testid="text-potential-payout">
+                    {bet.status === 'lost' ? '-' : ''}{bet.potentialPayout.toLocaleString(undefined, { maximumFractionDigits: 4 })} {bet.currency}
                   </span>
                 </div>
+                {bet.status === 'lost' && (
+                  <div className="flex justify-between gap-2 text-sm">
+                    <span className="text-gray-500">Result</span>
+                    <span className="text-red-400 font-medium" data-testid="text-result">
+                      -{bet.betAmount.toLocaleString(undefined, { maximumFractionDigits: 4 })} {bet.currency}
+                    </span>
+                  </div>
+                )}
               </div>
 
-              <div className="mt-3 flex items-center justify-between text-xs text-gray-600">
-                <span>{formatDate(bet.createdAt)}</span>
+              {bet.txHash && isSettled && (
+                <div className="mt-2 flex items-center gap-1 text-[10px] text-gray-600">
+                  <span>TX:</span>
+                  <span className="font-mono truncate" data-testid="text-tx-hash">{bet.txHash.slice(0, 16)}...</span>
+                </div>
+              )}
+
+              <div className="mt-2 flex items-center justify-between text-xs text-gray-600">
+                <span data-testid="text-bet-date">{formatDate(bet.createdAt)}</span>
                 <span>suibets.com</span>
               </div>
             </div>

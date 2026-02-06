@@ -144,15 +144,12 @@ export function BetHistory() {
     return false;
   };
 
-  // Parse parlay selections from JSON or pipe-separated format
-  const getParlaySelections = (bet: any): { eventName: string; selection: string; odds: number }[] => {
+  const getParlaySelections = (bet: any): { eventName: string; selection: string; odds: number; eventId?: string; marketId?: string; homeTeam?: string; awayTeam?: string }[] => {
     try {
-      // Handle JSON array format
       const jsonStr = bet.eventName?.startsWith('[') ? bet.eventName : bet.prediction;
       if (jsonStr && jsonStr.startsWith('[')) {
         const parsed = JSON.parse(jsonStr);
         return parsed.map((leg: any) => {
-          // Try to build eventName from homeTeam vs awayTeam, or use stored eventName
           let eventName = leg.eventName || '';
           if (leg.homeTeam && leg.awayTeam) {
             eventName = `${leg.homeTeam} vs ${leg.awayTeam}`;
@@ -163,7 +160,11 @@ export function BetHistory() {
           return {
             eventName: eventName || 'Match',
             selection: leg.selection || leg.prediction || 'Pick',
-            odds: leg.odds || 1
+            odds: leg.odds || 1,
+            eventId: leg.eventId,
+            marketId: leg.marketId,
+            homeTeam: leg.homeTeam,
+            awayTeam: leg.awayTeam,
           };
         });
       }
