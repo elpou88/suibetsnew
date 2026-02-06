@@ -1894,13 +1894,44 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         });
       }
       
-      // ANTI-EXPLOIT: Validate teams are provided
-      if (!homeTeam || !awayTeam || homeTeam === "Unknown" || awayTeam === "Unknown") {
-        console.log(`❌ Blocked bet with unknown teams from ${(walletAddress || userId).slice(0, 12)}...`);
-        return res.status(400).json({
-          message: "Invalid match data. Please select a valid match to bet on.",
-          code: "INVALID_TEAMS"
-        });
+      // TEAM DATA ENRICHMENT: If homeTeam/awayTeam missing, try to look them up from event cache
+      let resolvedHomeTeam = homeTeam;
+      let resolvedAwayTeam = awayTeam;
+      if (!resolvedHomeTeam || !resolvedAwayTeam || resolvedHomeTeam === "Unknown" || resolvedAwayTeam === "Unknown") {
+        try {
+          const eventLookup = apiSportsService.lookupEventSync(eventId);
+          if (eventLookup.found && eventLookup.homeTeam && eventLookup.awayTeam) {
+            resolvedHomeTeam = eventLookup.homeTeam;
+            resolvedAwayTeam = eventLookup.awayTeam;
+            console.log(`✅ Enriched missing team data from cache: ${resolvedHomeTeam} vs ${resolvedAwayTeam}`);
+          } else {
+            const freeLookup2 = freeSportsService.lookupEvent(eventId);
+            if (freeLookup2.found && freeLookup2.event) {
+              resolvedHomeTeam = freeLookup2.event.homeTeam || resolvedHomeTeam;
+              resolvedAwayTeam = freeLookup2.event.awayTeam || resolvedAwayTeam;
+              console.log(`✅ Enriched missing team data from free sports: ${resolvedHomeTeam} vs ${resolvedAwayTeam}`);
+            }
+          }
+        } catch (enrichError) {
+          console.warn('[Team Enrichment] Failed to lookup teams, continuing with provided data:', enrichError);
+        }
+      }
+      
+      // ANTI-EXPLOIT: Validate teams are provided (after enrichment attempt)
+      if (!resolvedHomeTeam || !resolvedAwayTeam || resolvedHomeTeam === "Unknown" || resolvedAwayTeam === "Unknown") {
+        // For on-chain bets with valid txHash, allow through even without team data
+        // The on-chain transaction already happened, blocking here would lose user money
+        if (txHash && txHash.startsWith('0x')) {
+          console.warn(`⚠️ On-chain bet ${txHash.slice(0, 12)}... missing team data, allowing through to prevent fund loss`);
+          resolvedHomeTeam = resolvedHomeTeam || eventName?.split(' vs ')?.[0]?.trim() || 'Team A';
+          resolvedAwayTeam = resolvedAwayTeam || eventName?.split(' vs ')?.[1]?.trim() || 'Team B';
+        } else {
+          console.log(`❌ Blocked bet with unknown teams from ${(walletAddress || userId).slice(0, 12)}...`);
+          return res.status(400).json({
+            message: "Invalid match data. Please select a valid match to bet on.",
+            code: "INVALID_TEAMS"
+          });
+        }
       }
       
       // SERVER-SIDE: Block betting on free sports events that have already started
@@ -2359,8 +2390,8 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         userId,
         eventId,
         eventName: eventName || 'Sports Event',
-        homeTeam: homeTeam || '', // Store for settlement matching
-        awayTeam: awayTeam || '', // Store for settlement matching
+        homeTeam: resolvedHomeTeam || '', // Store for settlement matching
+        awayTeam: resolvedAwayTeam || '', // Store for settlement matching
         marketId,
         outcomeId,
         odds,
@@ -2446,8 +2477,8 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       // Notify user of bet placement
       notificationService.notifyBetPlaced(userId, {
         ...bet,
-        homeTeam: homeTeam || 'Home Team',
-        awayTeam: awayTeam || 'Away Team'
+        homeTeam: resolvedHomeTeam || 'Home Team',
+        awayTeam: resolvedAwayTeam || 'Away Team'
       });
 
 

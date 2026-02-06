@@ -403,6 +403,8 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
               walletAddress: currentAccount.address,
               eventId: String(selectedBets[0].eventId),
               eventName: selectedBets[0].eventName,
+              homeTeam: selectedBets[0].homeTeam,
+              awayTeam: selectedBets[0].awayTeam,
               marketId: String(selectedBets[0].marketId || 'match_winner'),
               outcomeId: String(selectedBets[0].outcomeId || selectedBets[0].selectionName || 'selection'),
               odds: selectedBets[0].odds,
