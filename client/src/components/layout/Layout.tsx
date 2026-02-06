@@ -6,7 +6,7 @@ import { useCurrentAccount } from '@mysten/dapp-kit';
 import { 
   Home, TrendingUp, Megaphone, Bell, Settings, 
   Clock, Wallet, ChevronLeft, Landmark, 
-  TrendingDown, Trophy, MenuIcon, MessageCircle, Gift, Star
+  TrendingDown, Trophy, MenuIcon, MessageCircle, Gift, Star, Target
 } from 'lucide-react';
 import { ConnectWalletModal } from '@/components/modals/ConnectWalletModal';
 import suibetsBackground from '@/assets/images/suibets-background.png';
@@ -96,6 +96,7 @@ const Layout: React.FC<LayoutProps> = ({
   const bottomNavItems = [
     { label: 'Home', i18nKey: 'home', icon: <Home />, href: '/' },
     { label: 'Live', i18nKey: 'live', icon: <TrendingUp />, href: '/live-events' },
+    { label: 'Predict', i18nKey: 'predict', icon: <Target />, href: '/network' },
     { label: 'History', i18nKey: 'bet_history', icon: <Clock />, href: '/bet-history' },
     { label: 'Wallet', i18nKey: 'wallet', icon: <Wallet />, href: '/wallet-dashboard' },
   ];

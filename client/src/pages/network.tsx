@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import { useCurrentAccount } from '@mysten/dapp-kit';
+import { useToast } from '@/hooks/use-toast';
 import {
   TrendingUp, Users, Zap, Trophy, Copy, UserPlus,
   ArrowLeft, Clock, Target, ThumbsUp, ThumbsDown,
   Plus, Search, Filter, Flame, Crown, Award,
-  BarChart3, Wallet, ExternalLink, RefreshCw, ChevronRight
+  BarChart3, Wallet, ExternalLink, RefreshCw, ChevronRight,
+  Share2, CheckCircle, XCircle, DollarSign, Star, X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,6 +30,8 @@ const CATEGORIES = [
   { value: 'entertainment', label: 'Entertainment' },
   { value: 'other', label: 'Other' },
 ];
+
+const BET_AMOUNTS = [0.5, 1, 2, 5, 10];
 
 function formatWallet(wallet: string) {
   if (!wallet) return 'Anonymous';
@@ -52,7 +56,12 @@ function timeLeft(date: string | Date) {
   return `${hours}h ${mins}m left`;
 }
 
+function copyToClipboard(text: string) {
+  navigator.clipboard.writeText(text).catch(() => {});
+}
+
 function CreatePredictionModal({ onClose, wallet }: { onClose: () => void; wallet: string }) {
+  const { toast } = useToast();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('other');
@@ -65,19 +74,29 @@ function CreatePredictionModal({ onClose, wallet }: { onClose: () => void; walle
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, description, category, endDate, wallet })
       });
-      if (!res.ok) throw new Error('Failed to create');
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to create prediction');
+      }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/social/predictions'] });
+      toast({ title: 'Prediction Created', description: 'Your prediction market is now live!' });
       onClose();
+    },
+    onError: (err: Error) => {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
     }
   });
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose} data-testid="modal-create-prediction">
       <div className="bg-[#111111] border border-cyan-900/30 rounded-2xl p-6 w-full max-w-lg" onClick={e => e.stopPropagation()}>
-        <h3 className="text-xl font-bold text-white mb-4">Create Prediction</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-bold text-white">Create Prediction Market</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-white p-1"><X size={20} /></button>
+        </div>
         <div className="space-y-4">
           <div>
             <label className="text-gray-400 text-sm mb-1 block">Question</label>
@@ -144,6 +163,7 @@ function CreatePredictionModal({ onClose, wallet }: { onClose: () => void; walle
 }
 
 function CreateChallengeModal({ onClose, wallet }: { onClose: () => void; wallet: string }) {
+  const { toast } = useToast();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [stakeAmount, setStakeAmount] = useState('1');
@@ -158,19 +178,29 @@ function CreateChallengeModal({ onClose, wallet }: { onClose: () => void; wallet
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, description, stakeAmount, currency, maxParticipants: parseInt(maxParticipants), expiresAt, wallet })
       });
-      if (!res.ok) throw new Error('Failed to create');
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to create challenge');
+      }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/social/challenges'] });
+      toast({ title: 'Challenge Created', description: `Your ${stakeAmount} ${currency} challenge is live!` });
       onClose();
+    },
+    onError: (err: Error) => {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
     }
   });
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose} data-testid="modal-create-challenge">
       <div className="bg-[#111111] border border-cyan-900/30 rounded-2xl p-6 w-full max-w-lg" onClick={e => e.stopPropagation()}>
-        <h3 className="text-xl font-bold text-white mb-4">Create Challenge</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-bold text-white">Create Challenge</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-white p-1"><X size={20} /></button>
+        </div>
         <div className="space-y-4">
           <div>
             <label className="text-gray-400 text-sm mb-1 block">Your Bet</label>
@@ -201,6 +231,8 @@ function CreateChallengeModal({ onClose, wallet }: { onClose: () => void; wallet
                 type="number"
                 value={stakeAmount}
                 onChange={e => setStakeAmount(e.target.value)}
+                min="0.1"
+                step="0.1"
                 className="w-full bg-black/50 border border-cyan-900/30 rounded-lg px-4 py-3 text-white focus:border-cyan-500/50 focus:outline-none"
                 data-testid="input-challenge-stake"
               />
@@ -223,6 +255,8 @@ function CreateChallengeModal({ onClose, wallet }: { onClose: () => void; wallet
                 type="number"
                 value={maxParticipants}
                 onChange={e => setMaxParticipants(e.target.value)}
+                min="2"
+                max="100"
                 className="w-full bg-black/50 border border-cyan-900/30 rounded-lg px-4 py-3 text-white focus:border-cyan-500/50 focus:outline-none"
                 data-testid="input-challenge-max"
               />
@@ -256,6 +290,7 @@ function CreateChallengeModal({ onClose, wallet }: { onClose: () => void; wallet
 }
 
 function ProfileModal({ wallet, onClose, myWallet }: { wallet: string; onClose: () => void; myWallet?: string }) {
+  const { toast } = useToast();
   const { data: profile, isLoading } = useQuery<any>({
     queryKey: ['/api/social/profile', wallet],
     queryFn: async () => {
@@ -288,11 +323,17 @@ function ProfileModal({ wallet, onClose, myWallet }: { wallet: string; onClose: 
       if (!res.ok) throw new Error('Failed');
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/social/following'] });
       queryClient.invalidateQueries({ queryKey: ['/api/social/profile', wallet] });
+      toast({ title: data.action === 'followed' ? 'Following' : 'Unfollowed', description: data.action === 'followed' ? `You are now following ${formatWallet(wallet)}` : `Unfollowed ${formatWallet(wallet)}` });
     }
   });
+
+  const handleCopyWallet = () => {
+    copyToClipboard(wallet);
+    toast({ title: 'Copied', description: 'Wallet address copied to clipboard' });
+  };
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose} data-testid="modal-profile">
@@ -301,27 +342,46 @@ function ProfileModal({ wallet, onClose, myWallet }: { wallet: string; onClose: 
           <div className="space-y-4">
             <Skeleton className="h-8 w-48 bg-gray-800" />
             <Skeleton className="h-20 w-full bg-gray-800" />
+            <Skeleton className="h-32 w-full bg-gray-800" />
           </div>
         ) : profile ? (
           <>
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-xl font-bold text-white">{formatWallet(profile.wallet)}</h3>
-                <p className="text-gray-500 text-sm">{profile.followers} followers / {profile.following} following</p>
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-purple-500 rounded-full flex items-center justify-center">
+                    <Users className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">{formatWallet(profile.wallet)}</h3>
+                    <p className="text-gray-500 text-xs">{profile.followers} followers / {profile.following} following</p>
+                  </div>
+                </div>
               </div>
-              {myWallet && myWallet.toLowerCase() !== wallet.toLowerCase() && (
+              <div className="flex items-center gap-2">
                 <Button
-                  variant={isFollowing ? 'outline' : 'default'}
-                  size="sm"
-                  className={isFollowing ? 'border-cyan-500/30 text-cyan-400' : 'bg-cyan-500 text-black'}
-                  onClick={() => followMutation.mutate()}
-                  disabled={followMutation.isPending}
-                  data-testid="button-follow-profile"
+                  variant="outline"
+                  size="icon"
+                  className="border-cyan-900/30 text-gray-400"
+                  onClick={handleCopyWallet}
+                  data-testid="button-copy-wallet"
                 >
-                  <UserPlus className="h-4 w-4 mr-1" />
-                  {isFollowing ? 'Unfollow' : 'Follow'}
+                  <Copy className="h-4 w-4" />
                 </Button>
-              )}
+                {myWallet && myWallet.toLowerCase() !== wallet.toLowerCase() && (
+                  <Button
+                    variant={isFollowing ? 'outline' : 'default'}
+                    size="sm"
+                    className={isFollowing ? 'border-cyan-500/30 text-cyan-400' : 'bg-cyan-500 text-black'}
+                    onClick={() => followMutation.mutate()}
+                    disabled={followMutation.isPending}
+                    data-testid="button-follow-profile"
+                  >
+                    <UserPlus className="h-4 w-4 mr-1" />
+                    {isFollowing ? 'Unfollow' : 'Follow'}
+                  </Button>
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
               <div className="bg-black/50 border border-cyan-900/20 rounded-xl p-3 text-center">
@@ -333,7 +393,7 @@ function ProfileModal({ wallet, onClose, myWallet }: { wallet: string; onClose: 
                 <p className="text-gray-500 text-xs">Win Rate</p>
               </div>
               <div className="bg-black/50 border border-cyan-900/20 rounded-xl p-3 text-center">
-                <p className="text-lg font-bold text-yellow-400">{profile.biggestWin}</p>
+                <p className="text-lg font-bold text-yellow-400">{profile.biggestWin} SUI</p>
                 <p className="text-gray-500 text-xs">Biggest Win</p>
               </div>
               <div className="bg-black/50 border border-cyan-900/20 rounded-xl p-3 text-center">
@@ -341,15 +401,27 @@ function ProfileModal({ wallet, onClose, myWallet }: { wallet: string; onClose: 
                 <p className="text-gray-500 text-xs">Total Bets</p>
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              <div className="bg-black/50 border border-cyan-900/20 rounded-xl p-3 text-center">
+                <p className={`text-lg font-bold ${profile.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {profile.profit >= 0 ? '+' : ''}{profile.profit} SUI
+                </p>
+                <p className="text-gray-500 text-xs">Total Profit</p>
+              </div>
+              <div className="bg-black/50 border border-cyan-900/20 rounded-xl p-3 text-center">
+                <p className="text-lg font-bold text-purple-400">{profile.totalStaked} SUI</p>
+                <p className="text-gray-500 text-xs">Total Staked</p>
+              </div>
+            </div>
             {profile.recentBets && profile.recentBets.length > 0 && (
               <div>
                 <h4 className="text-sm font-semibold text-gray-400 mb-3">Recent Bets</h4>
-                <div className="space-y-2">
+                <div className="space-y-2 max-h-60 overflow-y-auto">
                   {profile.recentBets.map((bet: any) => (
-                    <div key={bet.id} className="flex items-center justify-between p-3 bg-black/30 border border-cyan-900/10 rounded-lg">
+                    <div key={bet.id} className="flex items-center justify-between p-3 bg-black/30 border border-cyan-900/10 rounded-lg gap-2">
                       <div className="flex-1 min-w-0">
                         <p className="text-white text-sm truncate">{bet.event}</p>
-                        <p className="text-gray-500 text-xs">{bet.prediction} @ {bet.odds?.toFixed(2)}</p>
+                        <p className="text-gray-500 text-xs">{bet.prediction} @ {bet.odds?.toFixed(2)} | {bet.stake} SUI</p>
                       </div>
                       <Badge className={
                         bet.status === 'won' || bet.status === 'paid_out' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
@@ -361,9 +433,17 @@ function ProfileModal({ wallet, onClose, myWallet }: { wallet: string; onClose: 
                 </div>
               </div>
             )}
+            {(!profile.recentBets || profile.recentBets.length === 0) && (
+              <div className="text-center py-4">
+                <p className="text-gray-500 text-sm">No betting history yet</p>
+              </div>
+            )}
           </>
         ) : (
-          <p className="text-gray-400">Profile not found</p>
+          <div className="text-center py-8">
+            <Users className="h-12 w-12 text-gray-600 mx-auto mb-3" />
+            <p className="text-gray-400">Profile not found</p>
+          </div>
         )}
         <Button variant="outline" className="w-full mt-4 border-cyan-900/30 text-gray-400" onClick={onClose} data-testid="button-close-profile">Close</Button>
       </div>
@@ -386,30 +466,30 @@ function HomeTab({ onViewProfile }: { onViewProfile: (w: string) => void }) {
 
   const trending = [...(predictions || [])].sort((a, b) => (b.totalParticipants || 0) - (a.totalParticipants || 0)).slice(0, 5);
   const hotChallenges = [...(challenges || [])].filter(c => c.status === 'open').slice(0, 5);
-  const topBettors = leaderboard?.leaderboard?.slice(0, 5) || [];
+  const topBettors = leaderboard?.leaderboard?.slice(0, 6) || [];
 
   return (
     <div className="space-y-6" data-testid="tab-home">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-3">
         <Card className="bg-gradient-to-br from-cyan-900/30 to-blue-900/20 border-cyan-500/30">
           <CardContent className="p-4 text-center">
-            <Target className="h-8 w-8 text-cyan-400 mx-auto mb-2" />
+            <Target className="h-7 w-7 text-cyan-400 mx-auto mb-2" />
             <p className="text-2xl font-bold text-white">{predictions?.length || 0}</p>
-            <p className="text-gray-400 text-sm">Active Markets</p>
+            <p className="text-gray-400 text-xs">Active Markets</p>
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-br from-orange-900/30 to-red-900/20 border-orange-500/30">
           <CardContent className="p-4 text-center">
-            <Zap className="h-8 w-8 text-orange-400 mx-auto mb-2" />
+            <Zap className="h-7 w-7 text-orange-400 mx-auto mb-2" />
             <p className="text-2xl font-bold text-white">{challenges?.filter(c => c.status === 'open').length || 0}</p>
-            <p className="text-gray-400 text-sm">Open Challenges</p>
+            <p className="text-gray-400 text-xs">Open Challenges</p>
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-br from-purple-900/30 to-pink-900/20 border-purple-500/30">
           <CardContent className="p-4 text-center">
-            <Users className="h-8 w-8 text-purple-400 mx-auto mb-2" />
+            <Users className="h-7 w-7 text-purple-400 mx-auto mb-2" />
             <p className="text-2xl font-bold text-white">{topBettors.length}</p>
-            <p className="text-gray-400 text-sm">Top Bettors</p>
+            <p className="text-gray-400 text-xs">Top Bettors</p>
           </CardContent>
         </Card>
       </div>
@@ -421,12 +501,12 @@ function HomeTab({ onViewProfile }: { onViewProfile: (w: string) => void }) {
             <h3 className="text-lg font-bold text-white">Trending Predictions</h3>
           </div>
           {loadingPredictions ? (
-            <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-16 bg-gray-800 rounded-xl" />)}</div>
+            <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-20 bg-gray-800 rounded-xl" />)}</div>
           ) : trending.length === 0 ? (
             <Card className="bg-[#111111] border-cyan-900/20">
               <CardContent className="p-6 text-center">
                 <Target className="h-10 w-10 text-gray-600 mx-auto mb-2" />
-                <p className="text-gray-400">No predictions yet. Be the first to create one!</p>
+                <p className="text-gray-400 text-sm">No predictions yet. Switch to the Predict tab to create one!</p>
               </CardContent>
             </Card>
           ) : (
@@ -442,14 +522,21 @@ function HomeTab({ onViewProfile }: { onViewProfile: (w: string) => void }) {
                         <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/30 text-xs shrink-0">{p.category}</Badge>
                       </div>
                       <div className="flex items-center gap-2 mb-2">
-                        <div className="flex-1 h-2 bg-black/50 rounded-full overflow-hidden">
-                          <div className="h-full bg-green-500 rounded-full" style={{ width: `${yesPct}%` }} />
+                        <div className="flex-1 h-2.5 bg-black/50 rounded-full overflow-hidden flex">
+                          <div className="h-full bg-green-500 rounded-l-full" style={{ width: `${yesPct}%` }} />
+                          <div className="h-full bg-red-500 rounded-r-full" style={{ width: `${100 - yesPct}%` }} />
                         </div>
-                        <span className="text-green-400 text-xs font-bold">{yesPct.toFixed(0)}%</span>
                       </div>
-                      <div className="flex items-center justify-between text-xs text-gray-500">
-                        <span>{p.totalParticipants || 0} participants</span>
-                        <span>{timeLeft(p.endDate)}</span>
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-3">
+                          <span className="text-green-400 font-bold">YES {yesPct.toFixed(0)}%</span>
+                          <span className="text-red-400 font-bold">NO {(100 - yesPct).toFixed(0)}%</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-gray-500">
+                          <span>{p.totalParticipants || 0} bets</span>
+                          <span>{total > 0 ? total.toFixed(1) : '0'} SUI pool</span>
+                          <span>{timeLeft(p.endDate)}</span>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -465,31 +552,41 @@ function HomeTab({ onViewProfile }: { onViewProfile: (w: string) => void }) {
             <h3 className="text-lg font-bold text-white">Hot Challenges</h3>
           </div>
           {loadingChallenges ? (
-            <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-16 bg-gray-800 rounded-xl" />)}</div>
+            <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-20 bg-gray-800 rounded-xl" />)}</div>
           ) : hotChallenges.length === 0 ? (
             <Card className="bg-[#111111] border-cyan-900/20">
               <CardContent className="p-6 text-center">
                 <Zap className="h-10 w-10 text-gray-600 mx-auto mb-2" />
-                <p className="text-gray-400">No challenges yet. Create a viral bet!</p>
+                <p className="text-gray-400 text-sm">No challenges yet. Switch to the Challenge tab to create one!</p>
               </CardContent>
             </Card>
           ) : (
             <div className="space-y-3">
-              {hotChallenges.map((c: any) => (
-                <Card key={c.id} className="bg-[#111111] border-orange-900/20 hover:border-orange-500/30 transition-colors" data-testid={`challenge-card-${c.id}`}>
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <p className="text-white font-medium text-sm flex-1">{c.title}</p>
-                      <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 text-xs shrink-0">{c.stakeAmount} {c.currency}</Badge>
-                    </div>
-                    <div className="flex items-center justify-between text-xs text-gray-500">
-                      <span>by {formatWallet(c.creatorWallet)}</span>
-                      <span>{c.currentParticipants || 1}/{c.maxParticipants || 10} joined</span>
-                      <span>{timeLeft(c.expiresAt)}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+              {hotChallenges.map((c: any) => {
+                const fillPct = ((c.currentParticipants || 1) / (c.maxParticipants || 10)) * 100;
+                return (
+                  <Card key={c.id} className="bg-[#111111] border-orange-900/20 hover:border-orange-500/30 transition-colors" data-testid={`challenge-card-${c.id}`}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <p className="text-white font-medium text-sm flex-1">{c.title}</p>
+                        <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 text-xs shrink-0">{c.stakeAmount} {c.currency}</Badge>
+                      </div>
+                      <div className="mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-1.5 bg-black/50 rounded-full overflow-hidden">
+                            <div className="h-full bg-orange-500 rounded-full" style={{ width: `${fillPct}%` }} />
+                          </div>
+                          <span className="text-orange-400 text-xs font-bold">{c.currentParticipants || 1}/{c.maxParticipants || 10}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span>by {formatWallet(c.creatorWallet)}</span>
+                        <span>{timeLeft(c.expiresAt)}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </div>
@@ -509,34 +606,36 @@ function HomeTab({ onViewProfile }: { onViewProfile: (w: string) => void }) {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {topBettors.map((user: any, idx: number) => (
-              <Card
-                key={user.wallet || idx}
-                className="bg-[#111111] border-cyan-900/20 hover:border-cyan-500/30 transition-colors cursor-pointer"
-                onClick={() => user.wallet && onViewProfile(user.wallet)}
-                data-testid={`bettor-card-${idx}`}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="relative">
-                      <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+            {topBettors.map((user: any, idx: number) => {
+              const rankColors = idx === 0 ? 'from-yellow-500 to-amber-500' : idx === 1 ? 'from-gray-300 to-gray-400' : idx === 2 ? 'from-amber-600 to-amber-700' : 'from-cyan-600 to-cyan-700';
+              return (
+                <Card
+                  key={user.wallet || idx}
+                  className="bg-[#111111] border-cyan-900/20 hover:border-cyan-500/30 transition-colors cursor-pointer"
+                  onClick={() => user.wallet && onViewProfile(user.wallet)}
+                  data-testid={`bettor-card-${idx}`}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 bg-gradient-to-br ${rankColors} rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0`}>
                         #{idx + 1}
                       </div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white font-medium text-sm">{formatWallet(user.wallet)}</p>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`text-xs font-bold ${(user.totalProfitUsd || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {(user.totalProfitUsd || 0) >= 0 ? '+' : ''}{(user.totalProfitUsd || 0).toFixed(2)} USD
-                        </span>
-                        <span className="text-gray-500 text-xs">{user.winRate?.toFixed(0)}% WR</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-medium text-sm">{formatWallet(user.wallet)}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`text-xs font-bold ${(user.totalProfitUsd || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            {(user.totalProfitUsd || 0) >= 0 ? '+' : ''}${(user.totalProfitUsd || 0).toFixed(2)}
+                          </span>
+                          <span className="text-gray-500 text-xs">{user.winRate?.toFixed(0)}% WR</span>
+                          <span className="text-gray-600 text-xs">{user.totalBets} bets</span>
+                        </div>
                       </div>
+                      <ChevronRight className="h-4 w-4 text-gray-600 shrink-0" />
                     </div>
-                    <ChevronRight className="h-4 w-4 text-gray-600" />
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
@@ -545,8 +644,10 @@ function HomeTab({ onViewProfile }: { onViewProfile: (w: string) => void }) {
 }
 
 function PredictTab({ wallet }: { wallet?: string }) {
+  const { toast } = useToast();
   const [showCreate, setShowCreate] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [betAmounts, setBetAmounts] = useState<Record<number, number>>({});
 
   const { data: predictions = [], isLoading } = useQuery<any[]>({
     queryKey: ['/api/social/predictions', selectedCategory],
@@ -558,24 +659,42 @@ function PredictTab({ wallet }: { wallet?: string }) {
   });
 
   const betMutation = useMutation({
-    mutationFn: async ({ predictionId, side }: { predictionId: number; side: string }) => {
+    mutationFn: async ({ predictionId, side, amount }: { predictionId: number; side: string; amount: number }) => {
       const res = await fetch(`/api/social/predictions/${predictionId}/bet`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet, side, amount: 1, currency: 'SUI' })
+        body: JSON.stringify({ wallet, side, amount, currency: 'SUI' })
       });
-      if (!res.ok) throw new Error('Failed');
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to place bet');
+      }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['/api/social/predictions'] });
+      toast({ title: 'Bet Placed', description: `${vars.amount} SUI on ${vars.side.toUpperCase()} - recorded on-chain!` });
+    },
+    onError: (err: Error) => {
+      toast({ title: 'Bet Failed', description: err.message, variant: 'destructive' });
     }
   });
+
+  const handleBet = (predictionId: number, side: string) => {
+    if (!wallet) {
+      window.dispatchEvent(new CustomEvent('suibets:connect-wallet-required'));
+      return;
+    }
+    const amount = betAmounts[predictionId] || 1;
+    betMutation.mutate({ predictionId, side, amount });
+  };
+
+  const getBetAmount = (id: number) => betAmounts[id] || 1;
 
   return (
     <div className="space-y-4" data-testid="tab-predict">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-2 overflow-x-auto">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
           {CATEGORIES.map(c => (
             <Button
               key={c.value}
@@ -589,37 +708,43 @@ function PredictTab({ wallet }: { wallet?: string }) {
             </Button>
           ))}
         </div>
-        {wallet && (
-          <Button className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold" onClick={() => setShowCreate(true)} data-testid="button-create-prediction">
-            <Plus className="h-4 w-4 mr-1" />
-            Create Market
-          </Button>
-        )}
+        <Button className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold" onClick={() => {
+          if (!wallet) {
+            window.dispatchEvent(new CustomEvent('suibets:connect-wallet-required'));
+            return;
+          }
+          setShowCreate(true);
+        }} data-testid="button-create-prediction">
+          <Plus className="h-4 w-4 mr-1" />
+          Create Market
+        </Button>
       </div>
 
       {isLoading ? (
-        <div className="space-y-3">{[1,2,3,4].map(i => <Skeleton key={i} className="h-24 bg-gray-800 rounded-xl" />)}</div>
+        <div className="space-y-3">{[1,2,3,4].map(i => <Skeleton key={i} className="h-32 bg-gray-800 rounded-xl" />)}</div>
       ) : predictions.length === 0 ? (
         <Card className="bg-[#111111] border-cyan-900/20">
           <CardContent className="p-8 text-center">
             <Target className="h-12 w-12 text-gray-600 mx-auto mb-3" />
             <h3 className="text-white font-bold mb-1">No predictions yet</h3>
             <p className="text-gray-400 text-sm mb-4">Create the first prediction market and let the community decide!</p>
-            {wallet && (
-              <Button className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold" onClick={() => setShowCreate(true)} data-testid="button-create-first-prediction">
-                <Plus className="h-4 w-4 mr-1" />
-                Create First Market
-              </Button>
-            )}
+            <Button className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold" onClick={() => {
+              if (!wallet) { window.dispatchEvent(new CustomEvent('suibets:connect-wallet-required')); return; }
+              setShowCreate(true);
+            }} data-testid="button-create-first-prediction">
+              <Plus className="h-4 w-4 mr-1" />
+              Create First Market
+            </Button>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {predictions.map((p: any) => {
             const total = (p.totalYesAmount || 0) + (p.totalNoAmount || 0);
             const yesPct = total > 0 ? ((p.totalYesAmount || 0) / total) * 100 : 50;
             const noPct = 100 - yesPct;
             const isActive = p.status === 'active' && new Date(p.endDate) > new Date();
+            const currentBetAmount = getBetAmount(p.id);
             return (
               <Card key={p.id} className="bg-[#111111] border-cyan-900/20" data-testid={`prediction-${p.id}`}>
                 <CardContent className="p-4">
@@ -628,14 +753,21 @@ function PredictTab({ wallet }: { wallet?: string }) {
                       <p className="text-white font-medium">{p.title}</p>
                       {p.description && <p className="text-gray-500 text-sm mt-1">{p.description}</p>}
                     </div>
-                    <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/30 text-xs shrink-0">{p.category}</Badge>
-                  </div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="flex-1 h-3 bg-black/50 rounded-full overflow-hidden flex">
-                      <div className="h-full bg-green-500" style={{ width: `${yesPct}%` }} />
-                      <div className="h-full bg-red-500" style={{ width: `${noPct}%` }} />
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/30 text-xs">{p.category}</Badge>
+                      <button onClick={() => { copyToClipboard(`${window.location.origin}/network?p=${p.id}`); toast({ title: 'Link Copied', description: 'Share link copied!' }); }} className="text-gray-500 hover:text-cyan-400" data-testid={`share-prediction-${p.id}`}>
+                        <Share2 className="h-4 w-4" />
+                      </button>
                     </div>
                   </div>
+
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="flex-1 h-3 bg-black/50 rounded-full overflow-hidden flex">
+                      <div className="h-full bg-green-500 rounded-l-full transition-all" style={{ width: `${yesPct}%` }} />
+                      <div className="h-full bg-red-500 rounded-r-full transition-all" style={{ width: `${noPct}%` }} />
+                    </div>
+                  </div>
+
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-4">
                       <span className="text-green-400 text-sm font-bold">YES {yesPct.toFixed(0)}%</span>
@@ -643,33 +775,60 @@ function PredictTab({ wallet }: { wallet?: string }) {
                     </div>
                     <div className="flex items-center gap-3 text-xs text-gray-500">
                       <span>{p.totalParticipants || 0} bets</span>
-                      <span>{total.toFixed(2)} SUI pool</span>
+                      <span>{total > 0 ? total.toFixed(2) : '0'} SUI pool</span>
                       <span>{timeLeft(p.endDate)}</span>
                     </div>
                   </div>
-                  {isActive && wallet && (
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        className="flex-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/30"
-                        onClick={() => betMutation.mutate({ predictionId: p.id, side: 'yes' })}
-                        disabled={betMutation.isPending}
-                        data-testid={`button-yes-${p.id}`}
-                      >
-                        <ThumbsUp className="h-4 w-4 mr-1" />
-                        YES (1 SUI)
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="flex-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30"
-                        onClick={() => betMutation.mutate({ predictionId: p.id, side: 'no' })}
-                        disabled={betMutation.isPending}
-                        data-testid={`button-no-${p.id}`}
-                      >
-                        <ThumbsDown className="h-4 w-4 mr-1" />
-                        NO (1 SUI)
-                      </Button>
+
+                  {isActive && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500 text-xs">Bet amount:</span>
+                        <div className="flex items-center gap-1">
+                          {BET_AMOUNTS.map(amt => (
+                            <button
+                              key={amt}
+                              onClick={() => setBetAmounts(prev => ({ ...prev, [p.id]: amt }))}
+                              className={`px-2 py-1 rounded text-xs font-bold transition-colors ${
+                                currentBetAmount === amt
+                                  ? 'bg-cyan-500/30 text-cyan-400 border border-cyan-500/50'
+                                  : 'bg-black/30 text-gray-500 border border-gray-800 hover:border-gray-600'
+                              }`}
+                              data-testid={`bet-amount-${amt}-${p.id}`}
+                            >
+                              {amt} SUI
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          className="flex-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/30 font-bold"
+                          onClick={() => handleBet(p.id, 'yes')}
+                          disabled={betMutation.isPending}
+                          data-testid={`button-yes-${p.id}`}
+                        >
+                          <ThumbsUp className="h-4 w-4 mr-1" />
+                          YES ({currentBetAmount} SUI)
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="flex-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 font-bold"
+                          onClick={() => handleBet(p.id, 'no')}
+                          disabled={betMutation.isPending}
+                          data-testid={`button-no-${p.id}`}
+                        >
+                          <ThumbsDown className="h-4 w-4 mr-1" />
+                          NO ({currentBetAmount} SUI)
+                        </Button>
+                      </div>
                     </div>
+                  )}
+                  {!isActive && (
+                    <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30">
+                      {p.status === 'resolved_yes' ? 'Resolved: YES' : p.status === 'resolved_no' ? 'Resolved: NO' : 'Market Ended'}
+                    </Badge>
                   )}
                   <div className="flex items-center justify-between mt-2 text-xs text-gray-600">
                     <span>by {formatWallet(p.creatorWallet)}</span>
@@ -688,6 +847,7 @@ function PredictTab({ wallet }: { wallet?: string }) {
 }
 
 function ChallengeTab({ wallet }: { wallet?: string }) {
+  const { toast } = useToast();
   const [showCreate, setShowCreate] = useState(false);
 
   const { data: challenges = [], isLoading } = useQuery<any[]>({
@@ -695,19 +855,34 @@ function ChallengeTab({ wallet }: { wallet?: string }) {
   });
 
   const joinMutation = useMutation({
-    mutationFn: async ({ challengeId }: { challengeId: number }) => {
+    mutationFn: async ({ challengeId, side }: { challengeId: number; side: string }) => {
       const res = await fetch(`/api/social/challenges/${challengeId}/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet, side: 'against' })
+        body: JSON.stringify({ wallet, side })
       });
-      if (!res.ok) throw new Error('Failed');
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to join challenge');
+      }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/social/challenges'] });
+      toast({ title: 'Challenge Joined', description: 'You faded this bet! Good luck!' });
+    },
+    onError: (err: Error) => {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
     }
   });
+
+  const handleJoin = (challengeId: number, side: string) => {
+    if (!wallet) {
+      window.dispatchEvent(new CustomEvent('suibets:connect-wallet-required'));
+      return;
+    }
+    joinMutation.mutate({ challengeId, side });
+  };
 
   const openChallenges = challenges.filter(c => c.status === 'open');
   const closedChallenges = challenges.filter(c => c.status !== 'open');
@@ -719,35 +894,41 @@ function ChallengeTab({ wallet }: { wallet?: string }) {
           <Zap className="h-5 w-5 text-orange-400" />
           One-Tap Challenges
         </h3>
-        {wallet && (
-          <Button className="bg-orange-500 hover:bg-orange-600 text-black font-bold" onClick={() => setShowCreate(true)} data-testid="button-create-challenge">
-            <Plus className="h-4 w-4 mr-1" />
-            Create Challenge
-          </Button>
-        )}
+        <Button className="bg-orange-500 hover:bg-orange-600 text-black font-bold" onClick={() => {
+          if (!wallet) { window.dispatchEvent(new CustomEvent('suibets:connect-wallet-required')); return; }
+          setShowCreate(true);
+        }} data-testid="button-create-challenge">
+          <Plus className="h-4 w-4 mr-1" />
+          Create Challenge
+        </Button>
       </div>
 
       <Card className="bg-gradient-to-r from-orange-900/20 to-red-900/10 border-orange-500/20">
         <CardContent className="p-4">
           <p className="text-white font-medium mb-1">How it works</p>
-          <p className="text-gray-400 text-sm">Create a bet, set the stake, and challenge others. Friends join, followers copy, and feeds form. It's betting meets social media.</p>
+          <div className="flex items-start gap-6 text-gray-400 text-sm">
+            <div className="flex items-center gap-2"><span className="text-orange-400 font-bold">1.</span> Create a bet</div>
+            <div className="flex items-center gap-2"><span className="text-orange-400 font-bold">2.</span> Set your stake</div>
+            <div className="flex items-center gap-2"><span className="text-orange-400 font-bold">3.</span> Others fade or back you</div>
+          </div>
         </CardContent>
       </Card>
 
       {isLoading ? (
-        <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-24 bg-gray-800 rounded-xl" />)}</div>
+        <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-28 bg-gray-800 rounded-xl" />)}</div>
       ) : openChallenges.length === 0 ? (
         <Card className="bg-[#111111] border-cyan-900/20">
           <CardContent className="p-8 text-center">
             <Zap className="h-12 w-12 text-gray-600 mx-auto mb-3" />
             <h3 className="text-white font-bold mb-1">No open challenges</h3>
             <p className="text-gray-400 text-sm mb-4">Be the first to throw down a challenge!</p>
-            {wallet && (
-              <Button className="bg-orange-500 hover:bg-orange-600 text-black font-bold" onClick={() => setShowCreate(true)} data-testid="button-create-first-challenge">
-                <Plus className="h-4 w-4 mr-1" />
-                Create First Challenge
-              </Button>
-            )}
+            <Button className="bg-orange-500 hover:bg-orange-600 text-black font-bold" onClick={() => {
+              if (!wallet) { window.dispatchEvent(new CustomEvent('suibets:connect-wallet-required')); return; }
+              setShowCreate(true);
+            }} data-testid="button-create-first-challenge">
+              <Plus className="h-4 w-4 mr-1" />
+              Create First Challenge
+            </Button>
           </CardContent>
         </Card>
       ) : (
@@ -756,6 +937,8 @@ function ChallengeTab({ wallet }: { wallet?: string }) {
             const isFull = (c.currentParticipants || 1) >= (c.maxParticipants || 10);
             const isExpired = new Date(c.expiresAt) <= new Date();
             const isCreator = wallet && wallet.toLowerCase() === c.creatorWallet?.toLowerCase();
+            const fillPct = ((c.currentParticipants || 1) / (c.maxParticipants || 10)) * 100;
+            const totalPool = (c.stakeAmount || 0) * (c.currentParticipants || 1);
             return (
               <Card key={c.id} className="bg-[#111111] border-orange-900/20 hover:border-orange-500/30 transition-colors" data-testid={`challenge-${c.id}`}>
                 <CardContent className="p-4">
@@ -765,31 +948,55 @@ function ChallengeTab({ wallet }: { wallet?: string }) {
                       {c.description && <p className="text-gray-500 text-sm mt-1">{c.description}</p>}
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-orange-400 font-bold">{c.stakeAmount} {c.currency}</p>
+                      <p className="text-orange-400 font-bold text-lg">{c.stakeAmount} {c.currency}</p>
                       <p className="text-gray-500 text-xs">per player</p>
                     </div>
                   </div>
+
+                  <div className="mb-3">
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="text-gray-400">{c.currentParticipants || 1}/{c.maxParticipants || 10} players</span>
+                      <span className="text-orange-400 font-bold">{totalPool.toFixed(1)} {c.currency} pool</span>
+                    </div>
+                    <div className="h-2 bg-black/50 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-orange-500 to-red-500 rounded-full transition-all" style={{ width: `${fillPct}%` }} />
+                    </div>
+                  </div>
+
                   <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3 text-sm">
-                      <span className="text-gray-400">
-                        <Users className="h-4 w-4 inline mr-1" />
-                        {c.currentParticipants || 1}/{c.maxParticipants || 10}
-                      </span>
+                    <span className="text-gray-600 text-xs">by {formatWallet(c.creatorWallet)}</span>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-3 w-3 text-gray-500" />
                       <span className="text-gray-500 text-xs">{timeLeft(c.expiresAt)}</span>
                     </div>
-                    <span className="text-gray-600 text-xs">by {formatWallet(c.creatorWallet)}</span>
                   </div>
-                  {wallet && !isCreator && !isFull && !isExpired && (
-                    <Button
-                      className="w-full bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 border border-orange-500/30 font-bold"
-                      onClick={() => joinMutation.mutate({ challengeId: c.id })}
-                      disabled={joinMutation.isPending}
-                      data-testid={`button-fade-${c.id}`}
-                    >
-                      FADE THIS BET
-                    </Button>
+
+                  {!isCreator && !isFull && !isExpired && (
+                    <div className="flex gap-2">
+                      <Button
+                        className="flex-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 font-bold"
+                        onClick={() => handleJoin(c.id, 'against')}
+                        disabled={joinMutation.isPending}
+                        data-testid={`button-fade-${c.id}`}
+                      >
+                        <XCircle className="h-4 w-4 mr-1" />
+                        FADE ({c.stakeAmount} {c.currency})
+                      </Button>
+                      <Button
+                        className="flex-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/30 font-bold"
+                        onClick={() => handleJoin(c.id, 'for')}
+                        disabled={joinMutation.isPending}
+                        data-testid={`button-back-${c.id}`}
+                      >
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        BACK ({c.stakeAmount} {c.currency})
+                      </Button>
+                    </div>
                   )}
-                  {(isFull || isExpired) && (
+                  {isCreator && (
+                    <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/30">Your Challenge</Badge>
+                  )}
+                  {(isFull || isExpired) && !isCreator && (
                     <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30">{isFull ? 'Full' : 'Expired'}</Badge>
                   )}
                 </CardContent>
@@ -805,9 +1012,12 @@ function ChallengeTab({ wallet }: { wallet?: string }) {
           <div className="space-y-2">
             {closedChallenges.slice(0, 5).map((c: any) => (
               <Card key={c.id} className="bg-[#0a0a0a] border-gray-800 opacity-60">
-                <CardContent className="p-3 flex items-center justify-between">
-                  <p className="text-gray-400 text-sm">{c.title}</p>
-                  <Badge className="bg-gray-700/50 text-gray-500 border-gray-700">{c.status}</Badge>
+                <CardContent className="p-3 flex items-center justify-between gap-2">
+                  <p className="text-gray-400 text-sm flex-1 truncate">{c.title}</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-600 text-xs">{c.stakeAmount} {c.currency}</span>
+                    <Badge className="bg-gray-700/50 text-gray-500 border-gray-700">{c.status}</Badge>
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -821,10 +1031,12 @@ function ChallengeTab({ wallet }: { wallet?: string }) {
 }
 
 function SocialTab({ onViewProfile, myWallet }: { onViewProfile: (w: string) => void; myWallet?: string }) {
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
+  const [period, setPeriod] = useState<'weekly' | 'monthly' | 'all-time'>('weekly');
 
   const { data: leaderboard, isLoading } = useQuery<{ leaderboard: any[] }>({
-    queryKey: ['/api/leaderboard', 'weekly'],
+    queryKey: ['/api/leaderboard', period],
   });
 
   const { data: followingList = [] } = useQuery<string[]>({
@@ -848,10 +1060,25 @@ function SocialTab({ onViewProfile, myWallet }: { onViewProfile: (w: string) => 
       if (!res.ok) throw new Error('Failed');
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/social/following'] });
+      toast({
+        title: data.action === 'followed' ? 'Following' : 'Unfollowed',
+        description: data.action === 'followed' ? 'You are now following this bettor' : 'Unfollowed successfully'
+      });
+    },
+    onError: () => {
+      toast({ title: 'Error', description: 'Failed to update follow status', variant: 'destructive' });
     }
   });
+
+  const handleFollow = (targetWallet: string) => {
+    if (!myWallet) {
+      window.dispatchEvent(new CustomEvent('suibets:connect-wallet-required'));
+      return;
+    }
+    followMutation.mutate(targetWallet);
+  };
 
   const allUsers = leaderboard?.leaderboard || [];
   const filtered = searchQuery
@@ -860,16 +1087,32 @@ function SocialTab({ onViewProfile, myWallet }: { onViewProfile: (w: string) => 
 
   return (
     <div className="space-y-4" data-testid="tab-social">
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          placeholder="Search wallets..."
-          className="w-full bg-[#111111] border border-cyan-900/30 rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
-          data-testid="input-search-social"
-        />
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search by wallet address..."
+            className="w-full bg-[#111111] border border-cyan-900/30 rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
+            data-testid="input-search-social"
+          />
+        </div>
+        <div className="flex items-center gap-1">
+          {(['weekly', 'monthly', 'all-time'] as const).map(p => (
+            <Button
+              key={p}
+              variant={period === p ? 'default' : 'outline'}
+              size="sm"
+              className={period === p ? 'bg-cyan-500 text-black' : 'border-cyan-900/30 text-gray-400'}
+              onClick={() => setPeriod(p)}
+              data-testid={`period-${p}`}
+            >
+              {p === 'weekly' ? 'Week' : p === 'monthly' ? 'Month' : 'All'}
+            </Button>
+          ))}
+        </div>
       </div>
 
       {myWallet && followingList.length > 0 && (
@@ -883,14 +1126,16 @@ function SocialTab({ onViewProfile, myWallet }: { onViewProfile: (w: string) => 
               <Card key={w} className="bg-[#111111] border-cyan-900/20 hover:border-cyan-500/30 transition-colors cursor-pointer" onClick={() => onViewProfile(w)}>
                 <CardContent className="p-3 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-purple-500 rounded-full" />
+                    <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-purple-500 rounded-full flex items-center justify-center">
+                      <Users className="h-4 w-4 text-white" />
+                    </div>
                     <span className="text-white text-sm">{formatWallet(w)}</span>
                   </div>
                   <Button
                     variant="outline"
                     size="sm"
                     className="border-cyan-500/30 text-cyan-400 text-xs"
-                    onClick={(e) => { e.stopPropagation(); followMutation.mutate(w); }}
+                    onClick={(e) => { e.stopPropagation(); handleFollow(w); }}
                     data-testid={`button-unfollow-${w.slice(0,8)}`}
                   >
                     Unfollow
@@ -905,7 +1150,7 @@ function SocialTab({ onViewProfile, myWallet }: { onViewProfile: (w: string) => 
       <div>
         <h3 className="text-sm font-semibold text-gray-400 mb-3 flex items-center gap-2">
           <Trophy className="h-4 w-4" />
-          Leaderboard - Top Bettors
+          Leaderboard - Top Bettors ({period === 'weekly' ? 'This Week' : period === 'monthly' ? 'This Month' : 'All Time'})
         </h3>
         {isLoading ? (
           <div className="space-y-3">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-14 bg-gray-800 rounded-xl" />)}</div>
@@ -913,7 +1158,7 @@ function SocialTab({ onViewProfile, myWallet }: { onViewProfile: (w: string) => 
           <Card className="bg-[#111111] border-cyan-900/20">
             <CardContent className="p-6 text-center">
               <Users className="h-10 w-10 text-gray-600 mx-auto mb-2" />
-              <p className="text-gray-400">No users found</p>
+              <p className="text-gray-400">{searchQuery ? 'No wallets found matching your search' : 'No bettors in this period yet'}</p>
             </CardContent>
           </Card>
         ) : (
@@ -953,7 +1198,7 @@ function SocialTab({ onViewProfile, myWallet }: { onViewProfile: (w: string) => 
                           variant={isFollowing ? 'outline' : 'default'}
                           size="sm"
                           className={isFollowing ? 'border-cyan-500/30 text-cyan-400 text-xs' : 'bg-cyan-500 text-black text-xs'}
-                          onClick={(e) => { e.stopPropagation(); followMutation.mutate(user.wallet); }}
+                          onClick={(e) => { e.stopPropagation(); handleFollow(user.wallet); }}
                           data-testid={`button-follow-${idx}`}
                         >
                           {isFollowing ? 'Following' : 'Follow'}
@@ -1034,7 +1279,7 @@ export default function NetworkPage() {
               <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
             </button>
             {myWallet ? (
-              <span className="text-cyan-400 text-sm">{formatWallet(myWallet)}</span>
+              <span className="text-cyan-400 text-sm font-medium">{formatWallet(myWallet)}</span>
             ) : (
               <button onClick={handleConnectWallet} className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold px-4 py-2 rounded-lg text-sm flex items-center gap-2" data-testid="btn-connect">
                 <Wallet size={16} />
@@ -1063,7 +1308,7 @@ export default function NetworkPage() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
                 activeTab === tab.key
                   ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
                   : 'text-gray-400 hover:text-white hover:bg-white/5'
@@ -1071,7 +1316,7 @@ export default function NetworkPage() {
               data-testid={`tab-button-${tab.key}`}
             >
               {tab.icon}
-              <span className="hidden sm:inline">{tab.label}</span>
+              <span>{tab.label}</span>
             </button>
           ))}
         </div>
