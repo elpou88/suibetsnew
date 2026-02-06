@@ -359,6 +359,11 @@ export class BlockchainBetService {
     recipientAddress: string,
     amountSui: number
   ): Promise<{ success: boolean; txHash?: string; error?: string }> {
+    if (!amountSui || amountSui <= 0) {
+      console.warn(`⚠️ PAYOUT SKIPPED: Zero or negative amount (${amountSui} SUI) to ${recipientAddress}`);
+      return { success: false, error: 'Amount must be positive - skipping zero-value transaction' };
+    }
+
     const keypair = this.getAdminKeypair();
     if (!keypair) {
       const error = 'Admin private key not configured or invalid format';
@@ -403,6 +408,11 @@ export class BlockchainBetService {
     recipientAddress: string,
     amountSbets: number
   ): Promise<{ success: boolean; txHash?: string; error?: string }> {
+    if (!amountSbets || amountSbets <= 0) {
+      console.warn(`⚠️ SBETS PAYOUT SKIPPED: Zero or negative amount (${amountSbets} SBETS) to ${recipientAddress}`);
+      return { success: false, error: 'Amount must be positive - skipping zero-value transaction' };
+    }
+
     const keypair = this.getAdminKeypair();
     if (!keypair) {
       const error = 'Admin private key not configured or invalid format';
@@ -606,6 +616,11 @@ export class BlockchainBetService {
     amountSui: number,
     recipientAddress?: string
   ): Promise<{ success: boolean; txHash?: string; error?: string }> {
+    if (!amountSui || amountSui <= 0) {
+      console.warn(`⚠️ FEE WITHDRAW SKIPPED: Zero or negative amount (${amountSui} SUI)`);
+      return { success: false, error: 'Amount must be positive - skipping zero-value withdrawal' };
+    }
+
     const keypair = this.getAdminKeypair();
     if (!keypair) {
       return { success: false, error: 'Admin private key not configured' };
@@ -777,6 +792,11 @@ export class BlockchainBetService {
     amount: number,
     recipientAddress?: string
   ): Promise<{ success: boolean; txHash?: string; error?: string }> {
+    if (!amount || amount <= 0) {
+      console.warn(`⚠️ SBETS FEE WITHDRAW SKIPPED: Zero or negative amount (${amount} SBETS)`);
+      return { success: false, error: 'Amount must be positive - skipping zero-value withdrawal' };
+    }
+
     const keypair = this.getAdminKeypair();
     if (!keypair) {
       return { success: false, error: 'Admin private key not configured' };

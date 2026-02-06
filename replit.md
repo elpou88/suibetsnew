@@ -37,7 +37,7 @@ Preferred communication style: Simple, everyday language.
 - **Revenue Sharing**: SBETS token holders can claim 30% of weekly platform revenue proportionally. Revenue is split 30% to holders, 40% to treasury buffer, 30% for liquidity/buybacks.
 - **Liability Tracking**: Explicit `currency` column for bets, reconciliation endpoint, maximum stake limits (100 SUI / 10,000 SBETS), treasury pre-checks before settlement.
 - **On-Chain Bet Synchronization**: Automatic and manual sync of on-chain bets, with detailed status tracking and prediction extraction.
-- **Treasury Auto-Withdraw System**: Automated withdrawal of accrued fees from on-chain treasury to admin wallet every 10 minutes, with configurable thresholds.
+- **Treasury Auto-Withdraw System**: MANUAL ONLY (disabled auto-run). Trigger via /api/admin/treasury/withdraw endpoint. Zero-amount guards prevent empty transactions.
 - **Automatic On-Chain Payouts**: Direct token transfers to user wallets for winners from DB-only settlements, funded from the admin wallet.
 - **Leaderboard System**: Weekly, monthly, and all-time rankings based on profit, tracking total bets, win rate, and profit/loss.
 - **User Betting Limits**: User-configurable daily, weekly, and monthly spending limits in USD, session timers, and self-exclusion options.

@@ -90,9 +90,9 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
   settlementWorker.start();
   console.log('🔄 Settlement worker started - will automatically settle bets when matches finish');
   
-  // Start treasury auto-withdraw to keep admin wallet funded for fallback payouts
-  treasuryAutoWithdrawService.start();
-  console.log('💰 Treasury auto-withdraw started - will move fees to admin wallet every 10 minutes');
+  // Treasury auto-withdraw is DISABLED by default - must be triggered manually via /api/admin/treasury/withdraw
+  // treasuryAutoWithdrawService.start(); // DISABLED: Auto-withdraw causes unwanted transactions
+  console.log('💰 Treasury auto-withdraw is MANUAL ONLY - use /api/admin/treasury/withdraw to trigger');
   
   // Start background odds prefetcher for 100% real odds coverage
   apiSportsService.startOddsPrefetcher();
@@ -3880,10 +3880,10 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const userSbets = userBalance.sbets;
       
       // CRITICAL: Get all known holders to calculate fair share
-      // User's share = their SBETS / total SBETS held by ALL known holders
+      // User's share = their SBETS / circulating SBETS held by ALL non-platform holders
       const holdersData = await fetchSbetsHolders();
-      const totalCirculating = holdersData.totalSupply; // This is now circulating among known holders
-      const sharePercentage = totalCirculating > 0 ? (userSbets / totalCirculating) * 100 : 0;
+      const totalCirculating = holdersData.circulatingSupply > 0 ? holdersData.circulatingSupply : holdersData.totalSupply;
+      const sharePercentage = totalCirculating > 0 ? Math.min((userSbets / totalCirculating) * 100, 100) : 0;
       
       console.log(`[Revenue] User ${walletAddress.slice(0,10)}... has ${userSbets} SBETS = ${sharePercentage.toFixed(4)}% share`);
       
@@ -3933,8 +3933,8 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const holderPoolSui = weeklyRevenueSui * REVENUE_SHARE_PERCENTAGE;
       const holderPoolSbets = weeklyRevenueSbets * REVENUE_SHARE_PERCENTAGE;
       
-      // Calculate user's share based on their SBETS holdings
-      const userShareRatio = totalCirculating > 0 ? (userSbets / totalCirculating) : 0;
+      // Calculate user's share based on their SBETS holdings (capped at 100%)
+      const userShareRatio = totalCirculating > 0 ? Math.min(userSbets / totalCirculating, 1.0) : 0;
       const userClaimableSui = holderPoolSui * userShareRatio;
       const userClaimableSbets = holderPoolSbets * userShareRatio;
       
@@ -4004,7 +4004,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       }
       
       const holdersData = await fetchSbetsHolders();
-      const totalSupply = holdersData.totalSupply;
+      const totalCirculating = holdersData.circulatingSupply > 0 ? holdersData.circulatingSupply : holdersData.totalSupply;
       
       const settledBets = await getSettledBetsForRevenue();
       const weeklyBets = settledBets.filter((bet: any) => {
@@ -4037,7 +4037,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       
       const holderPoolSui = weeklyRevenueSui * REVENUE_SHARE_PERCENTAGE;
       const holderPoolSbets = weeklyRevenueSbets * REVENUE_SHARE_PERCENTAGE;
-      const userShareRatio = totalSupply > 0 ? (userSbets / totalSupply) : 0;
+      const userShareRatio = totalCirculating > 0 ? Math.min(userSbets / totalCirculating, 1.0) : 0;
       const claimSui = holderPoolSui * userShareRatio;
       const claimSbets = holderPoolSbets * userShareRatio;
       
@@ -4086,7 +4086,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       }
       
       // Save claim to database for persistence across server restarts
-      const sharePercentage = totalSupply > 0 ? (userSbets / totalSupply) * 100 : 0;
+      const sharePercentage = totalCirculating > 0 ? Math.min((userSbets / totalCirculating) * 100, 100) : 0;
       const saved = await saveRevenueClaim(walletAddress, startOfWeek, userSbets, sharePercentage, claimSui, claimSbets, suiTxHash || '', sbetsTxHash || null);
       
       if (!saved) {
