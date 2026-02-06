@@ -841,9 +841,8 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
   }, [event?.minute]);
 
   const isBettingClosed = useMemo(() => {
-    if (!event?.isLive) return false;
-    return true;
-  }, [event?.isLive]);
+    return !!(event?.isLive && minuteNum >= 45);
+  }, [event?.isLive, minuteNum]);
 
   // Helper to check if a market is closed based on match minute
   const isMarketClosed = useCallback((marketId: any) => {
@@ -860,24 +859,11 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
       
       if (isFirstHalf && minuteNum >= 45) return true;
       
-      // BTTS and Double Chance markets close after 10 minutes of live play
-      const isBtts = marketStr.includes('btts') || marketStr.includes('both_teams') || 
-                     marketStr.includes('both-teams') || marketStr.includes('both teams');
-      const isDoubleChance = marketStr.includes('double_chance') || marketStr.includes('double-chance') || 
-                              marketStr.includes('double chance');
-      if ((isBtts || isDoubleChance) && minuteNum >= 10) return true;
-
-      // Over/Under markets close after 10 minutes of live play
-      const isOverUnder = marketStr.includes('over') || marketStr.includes('under') ||
-                          marketStr.includes('o/u') || marketStr.includes('goals') ||
-                          marketStr.includes('over_under');
-      if (isOverUnder && minuteNum >= 10) return true;
-
-      // Match Winner not available in live betting at all
+      // In live matches: only Match Winner (win/draw/lose) is allowed, block everything else
       const isMatchWinner = marketStr.includes('match_winner') || marketStr.includes('match-winner') ||
                             marketStr.includes('match_result') || marketStr.includes('match-result') ||
                             marketStr === 'match winner' || marketStr === 'match result';
-      if (isMatchWinner) return true;
+      if (!isMatchWinner) return true;
       
       // Block all markets after minute 45 (live betting only in first half)
       if (minuteNum >= 45) return true;
@@ -887,9 +873,10 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
     return false;
   }, [event?.isLive, minuteNum]);
 
-  // Get secondary markets for this event (BTTS, Double Chance, etc.)
+  // Get secondary markets for this event (BTTS, Double Chance, etc.) - NOT available for live matches
   const secondaryMarkets = useMemo(() => {
-    if (!event || event.sportId !== 1) return []; // Only soccer has secondary markets
+    if (!event || event.sportId !== 1) return [];
+    if (event.isLive) return [];
     try {
       // Get current total goals for filtering decided Over/Under markets
       const homeGoals = parseInt(String(event.homeScore ?? (event.score?.split('-')[0]?.trim() || '0'))) || 0;
@@ -1301,7 +1288,7 @@ function EventCard({ event }: EventCardProps) {
   const matchMinute = getMatchMinute();
   const isLiveMatch = event.isLive || event.status?.toLowerCase().includes('live') || 
                       event.status?.includes('H') || event.status?.includes("'");
-  const isBettingClosed = !!isLiveMatch;
+  const isBettingClosed = isLiveMatch && matchMinute !== null && matchMinute >= 45;
 
   const getOddsFromMarkets = () => {
     const defaultOdds = { home: 2.05, draw: 3.40, away: 3.00 };

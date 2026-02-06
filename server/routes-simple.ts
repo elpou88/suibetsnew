@@ -2077,86 +2077,21 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         // Continue with bet - don't block if check fails
       }
       
-      // ANTI-CHEAT: Block time-restricted markets in live matches
+      // ANTI-CHEAT: In live matches, ONLY Match Winner (win/draw/lose) is allowed
+      // All other markets (Over/Under, BTTS, Double Chance, etc.) are blocked to prevent exploitation
       if (data.isLive && data.marketId) {
         const marketIdStr = String(data.marketId).toLowerCase();
-        const outcomeIdStr = String(data.outcomeId || '').toLowerCase();
-        const predictionStr = String(data.prediction || '').toLowerCase();
-        const allFields = marketIdStr + ' ' + outcomeIdStr + ' ' + predictionStr;
+        const isMatchWinner = marketIdStr.includes('match_winner') || marketIdStr.includes('match-winner') ||
+                               marketIdStr.includes('match_result') || marketIdStr.includes('match-result') ||
+                               marketIdStr === 'match winner' || marketIdStr === 'match result';
         
-        // Check if this is an Over/Under or Goals market (20-minute cutoff)
-        const isOverUnderMarket = marketIdStr.includes('over') || marketIdStr.includes('under') || 
-                                   marketIdStr.includes('o/u') || marketIdStr.includes('goals') ||
-                                   outcomeIdStr.includes('over') || outcomeIdStr.includes('under') ||
-                                   predictionStr.includes('over') || predictionStr.includes('under');
-        
-        // Check if this is a BTTS or Double Chance market (10-minute cutoff)
-        const isBttsMarket = allFields.includes('btts') || allFields.includes('both_teams') || 
-                              allFields.includes('both teams') || allFields.includes('both-teams');
-        const isDoubleChanceMarket = allFields.includes('double_chance') || allFields.includes('double chance') || 
-                                      allFields.includes('double-chance');
-        const isEarlyOnlyMarket = isBttsMarket || isDoubleChanceMarket;
-
-        const liveMinute = data.matchMinute || parseInt(String(apiSportsService.lookupEventSync(data.eventId).minute || 0)) || 0;
-
-        // Block Match Winner entirely in live betting
-        const isMatchWinnerMarket = marketIdStr.includes('match_winner') || marketIdStr.includes('match-winner') ||
-                                     marketIdStr.includes('match_result') || marketIdStr.includes('match-result');
-        if (isMatchWinnerMarket) {
-          console.warn(`[Anti-Cheat] Blocking Match Winner bet in live: event ${data.eventId}`);
+        if (!isMatchWinner) {
+          console.warn(`[Anti-Cheat] Blocking non-Match-Winner market in live: event ${data.eventId}, market ${data.marketId}`);
           return res.status(400).json({
             success: false,
-            message: "MARKET_CLOSED_TIME",
-            details: "Match Winner market is not available for live betting."
+            message: "MARKET_CLOSED_LIVE",
+            details: "Only Match Winner (win/draw/lose) is available for live betting. Other markets are available for upcoming matches."
           });
-        }
-
-        // Block BTTS and Double Chance after 10 minutes
-        if (isEarlyOnlyMarket && liveMinute >= 10) {
-          const marketLabel = isBttsMarket ? 'BTTS' : 'Double Chance';
-          console.warn(`[Anti-Cheat] Blocking ${marketLabel} bet after 10 min: event ${data.eventId}, minute ${liveMinute}`);
-          return res.status(400).json({
-            success: false,
-            message: "MARKET_CLOSED_TIME",
-            details: `${marketLabel} markets are only available in the first 10 minutes of live matches.`
-          });
-        }
-
-        if (isOverUnderMarket) {
-          // Block Over/Under markets after 10 minutes of live play
-          if (liveMinute >= 10) {
-            console.warn(`[Anti-Cheat] Blocking Over/Under bet after 10 min: event ${data.eventId}, minute ${liveMinute}`);
-            return res.status(400).json({
-              success: false,
-              message: "MARKET_CLOSED_TIME",
-              details: "Over/Under markets are only available in the first 10 minutes of live matches."
-            });
-          }
-          try {
-            // Get current score from API
-            const eventData = apiSportsService.lookupEventSync(data.eventId);
-            if (eventData) {
-              const homeScore = parseInt(String(eventData.homeScore || eventData.score?.home || 0)) || 0;
-              const awayScore = parseInt(String(eventData.awayScore || eventData.score?.away || 0)) || 0;
-              const totalGoals = homeScore + awayScore;
-              
-              // Extract threshold from market/outcome (e.g., "Over 2.5" -> 2.5)
-              const thresholdMatch = (marketIdStr + ' ' + outcomeIdStr + ' ' + predictionStr).match(/(\d+\.?\d*)/);
-              const threshold = thresholdMatch ? parseFloat(thresholdMatch[1]) : null;
-              
-              if (threshold !== null && totalGoals > threshold) {
-                console.warn(`[Anti-Cheat] Blocking decided Over/Under bet: ${data.eventId}, threshold=${threshold}, goals=${totalGoals}`);
-                return res.status(400).json({
-                  success: false,
-                  message: "MARKET_DECIDED",
-                  details: `This market is already decided (${totalGoals} goals scored, threshold was ${threshold}).`
-                });
-              }
-            }
-          } catch (ouCheckError) {
-            console.warn('[Over/Under Check] Failed to check market status, allowing bet:', ouCheckError);
-            // Continue with bet - don't block if check fails (fail open)
-          }
         }
       }
       
