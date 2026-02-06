@@ -917,7 +917,8 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
     }
   }, [event?.id, event?.homeTeam, event?.awayTeam, event?.sportId, event?.homeScore, event?.awayScore, event?.score, event?.isLive, minuteNum, isMarketClosed]);
   
-  const hasRealOdds = !!(event?.homeOdds !== null && event?.homeOdds !== undefined && event?.homeOdds > 0);
+  const hasRealOdds = !!(event?.homeOdds !== null && event?.homeOdds !== undefined && event?.homeOdds > 0)
+    || ((event as any).oddsSource === 'live-fallback');
   const odds = {
     home: event?.homeOdds || null,
     draw: event?.drawOdds || null,
@@ -1252,8 +1253,8 @@ function EventCard({ event }: EventCardProps) {
   const { addBet } = useBetting();
   const { toast } = useToast();
   
-  // Check if this event has real odds from API (betting enabled)
-  const hasRealOdds = (event as any).oddsSource === 'api-sports';
+  // Check if this event has real odds from API or live fallback odds (betting enabled)
+  const hasRealOdds = (event as any).oddsSource === 'api-sports' || (event as any).oddsSource === 'live-fallback';
   
   // Check if live match is past 45 minutes (betting closed)
   const getMatchMinute = (): number | null => {

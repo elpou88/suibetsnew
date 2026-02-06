@@ -3172,7 +3172,59 @@ export class ApiSportsService {
         };
       }
       
-      // Mark events without API odds
+      // For live events without API odds, generate score-based fallback odds
+      // so users can still bet on matches before 45 minutes
+      if (isLive) {
+        const homeScore = event.homeScore ?? event.score?.home ?? 0;
+        const awayScore = event.awayScore ?? event.score?.away ?? 0;
+        const scoreDiff = homeScore - awayScore;
+        let fallbackHome = 2.10;
+        let fallbackDraw = 3.30;
+        let fallbackAway = 3.20;
+        if (scoreDiff > 0) {
+          fallbackHome = Math.max(1.20, 2.10 - scoreDiff * 0.40);
+          fallbackDraw = 3.30 + scoreDiff * 0.50;
+          fallbackAway = 3.20 + scoreDiff * 0.80;
+        } else if (scoreDiff < 0) {
+          fallbackHome = 3.20 + Math.abs(scoreDiff) * 0.80;
+          fallbackDraw = 3.30 + Math.abs(scoreDiff) * 0.50;
+          fallbackAway = Math.max(1.20, 2.10 - Math.abs(scoreDiff) * 0.40);
+        }
+        fallbackHome = Math.round(fallbackHome * 100) / 100;
+        fallbackDraw = Math.round(fallbackDraw * 100) / 100;
+        fallbackAway = Math.round(fallbackAway * 100) / 100;
+
+        const fallbackMarkets = event.markets?.map(market => {
+          if (market.name === 'Match Result' || market.name === 'Match Winner') {
+            return {
+              ...market,
+              outcomes: market.outcomes?.map(outcome => {
+                if (outcome.name === event.homeTeam || outcome.id?.includes('home')) {
+                  return { ...outcome, odds: fallbackHome };
+                } else if (outcome.name === 'Draw' || outcome.id?.includes('draw')) {
+                  return { ...outcome, odds: fallbackDraw };
+                } else if (outcome.name === event.awayTeam || outcome.id?.includes('away')) {
+                  return { ...outcome, odds: fallbackAway };
+                }
+                return outcome;
+              })
+            };
+          }
+          return market;
+        });
+
+        enrichedCount++;
+        return {
+          ...event,
+          markets: fallbackMarkets,
+          homeOdds: fallbackHome,
+          drawOdds: fallbackDraw,
+          awayOdds: fallbackAway,
+          odds: { home: fallbackHome, draw: fallbackDraw, away: fallbackAway },
+          oddsSource: 'live-fallback'
+        };
+      }
+
       return {
         ...event,
         oddsSource: 'fallback'
