@@ -30,15 +30,15 @@ function saveFavorites(favorites: Set<string>) {
 const suibetsLogo = "/images/suibets-logo.png";
 const suibetsHeroBg = "/images/hero-bg.png";
 
-// Sport IDs MUST match database: 1=Soccer, 2=Basketball, 3=Tennis, 4=American Football, 5=Baseball, 6=Ice Hockey, 7=MMA, 8=Boxing, 9=Esports
+// Sport IDs MUST match database: 1=Soccer, 2=Basketball, 3=Tennis, 4=American Football, 5=Baseball, 6=Ice Hockey, 7=MMA/Boxing, 9=Esports
 // New sports: 10=AFL, 11=Formula 1, 12=Handball, 14=NFL, 15=Rugby, 16=Volleyball
-// Note: NBA games are included in Basketball (sportId 2)
+// Note: NBA games are included in Basketball (sportId 2). Boxing merged into MMA (sportId 7).
 const SPORTS_LIST = [
   { id: 1, name: "Football", icon: "⚽" },
   { id: 2, name: "Basketball", icon: "🏀" },
   { id: 14, name: "NFL", icon: "🏈" },
   { id: 6, name: "Hockey", icon: "🏒" },
-  { id: 7, name: "MMA", icon: "🥊" },
+  { id: 7, name: "MMA / Boxing", icon: "🥊" },
   { id: 5, name: "Baseball", icon: "⚾" },
   { id: 4, name: "American Football", icon: "🏈" },
   { id: 15, name: "Rugby", icon: "🏉" },
@@ -48,7 +48,6 @@ const SPORTS_LIST = [
   { id: 11, name: "Formula 1", icon: "🏎️" },
   { id: 3, name: "Tennis", icon: "🎾" },
   { id: 9, name: "Esports", icon: "🎮" },
-  { id: 8, name: "Boxing", icon: "🥊" },
 ];
 
 interface Outcome {

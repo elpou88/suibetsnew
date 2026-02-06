@@ -64,7 +64,7 @@ const SPORT_ICON_MAP: Record<string, string> = {
   'baseball': 'baseball',
   'hockey': 'hockey',
   'american_football': 'american-football',
-  'boxing': 'boxing',
+  'boxing': 'mma',
   'mma-ufc': 'mma',
   'volleyball': 'volleyball',
   'beach-volleyball': 'beach-volleyball',
@@ -114,7 +114,7 @@ const organizeSports = (apiSports: Sport[]) => {
     if (['soccer', 'football', 'basketball', 'tennis', 'baseball', 'hockey', 'american_football', 'esports'].includes(sport.slug)) {
       categorizedSports.popular.push(sportItem);
     } 
-    else if (['boxing', 'mma-ufc', 'mma'].includes(sport.slug)) {
+    else if (['mma-ufc', 'mma', 'boxing'].includes(sport.slug)) {
       categorizedSports.combat.push(sportItem);
     }
     else if (['volleyball', 'beach-volleyball', 'rugby', 'rugby-league', 'rugby-union', 'cricket', 'handball', 'netball', 'afl'].includes(sport.slug)) {

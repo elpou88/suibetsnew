@@ -1242,8 +1242,10 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
   // Events route with multi-source fallback logic
   app.get("/api/events", async (req: Request, res: Response) => {
     try {
-      const reqSportId = req.query.sportId ? Number(req.query.sportId) : undefined;
+      let reqSportId = req.query.sportId ? Number(req.query.sportId) : undefined;
       const isLive = req.query.isLive ? req.query.isLive === 'true' : undefined;
+      
+      if (reqSportId === 8) reqSportId = 7;
       
       console.log(`Fetching events for sportId: ${reqSportId}, isLive: ${isLive}`);
       

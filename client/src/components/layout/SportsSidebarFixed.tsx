@@ -88,7 +88,7 @@ export default function SportsSidebarFixed() {
           { id: 8, name: 'Rugby', slug: 'rugby', icon: '🏉', isActive: true },
           { id: 9, name: 'Cricket', slug: 'cricket', icon: '🏏', isActive: true },
           { id: 10, name: 'Golf', slug: 'golf', icon: '⛳', isActive: true },
-          { id: 11, name: 'Boxing', slug: 'boxing', icon: '🥊', isActive: true },
+          { id: 11, name: 'MMA / Boxing', slug: 'mma-ufc', icon: '🥊', isActive: true },
         ];
       }
     },
