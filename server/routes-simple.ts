@@ -29,8 +29,7 @@ const SUI_BETTING_PAUSED = true;
 const SUI_PAUSE_MESSAGE = "SUI betting is temporarily paused while we add funds to the treasury. Please bet with SBETS instead!";
 
 // ANTI-EXPLOIT: Blocked wallet addresses (known exploiters)
-const BLOCKED_WALLETS = new Set([
-  '0xaa7f49920b411adeaf6a79a16fc5e8cd0b2da25fdee3eda70fafb06bdba5abf1',
+const BLOCKED_WALLETS = new Set<string>([
 ]);
 
 function isWalletBlocked(wallet: string): boolean {

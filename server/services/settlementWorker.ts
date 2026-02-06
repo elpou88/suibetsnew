@@ -912,8 +912,7 @@ class SettlementWorkerService {
   private payoutRetryCount = new Map<string, number>();
   private static MAX_PAYOUT_RETRIES = 20;
 
-  private static BLOCKED_WALLETS = new Set([
-    '0xaa7f49920b411adeaf6a79a16fc5e8cd0b2da25fdee3eda70fafb06bdba5abf1',
+  private static BLOCKED_WALLETS = new Set<string>([
   ]);
 
   private async retryPendingPayouts(wonBets: UnsettledBet[]) {

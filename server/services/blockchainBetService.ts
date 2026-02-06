@@ -1135,8 +1135,7 @@ export class BlockchainBetService {
           }
 
           // ANTI-EXPLOIT: Blocked wallet check
-          const BLOCKED_WALLETS = new Set([
-            '0xaa7f49920b411adeaf6a79a16fc5e8cd0b2da25fdee3eda70fafb06bdba5abf1',
+          const BLOCKED_WALLETS = new Set<string>([
           ]);
           if (BLOCKED_WALLETS.has(bettor?.toLowerCase())) {
             console.warn(`🚫 EXPLOIT BLOCKED: Rejecting bet ${betObjectId.slice(0, 12)}... from blocked wallet ${bettor.slice(0, 12)}...`);
