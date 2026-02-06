@@ -43,6 +43,7 @@ Preferred communication style: Simple, everyday language.
 - **User Betting Limits**: User-configurable daily, weekly, and monthly spending limits in USD, session timers, and self-exclusion options.
 - **Referral System**: Wallet-address generated referral codes with a bonus structure and tracking for pending, qualified, and rewarded referrals.
 - **Additional Betting Markets**: Includes BTTS, Double Chance, Half-Time Result, Over/Under Goals, and Correct Score.
+- **Social Network Effect Engine ("Predict Anything")**: Standalone /network page with 4 sub-tabs (Home, Predict, Challenge, Social). Features custom prediction markets, viral challenges, public profiles with stats (ROI%, win rate, profit), follow system, and leaderboard integration. Fully additive implementation - 5 new DB tables (social_predictions, social_prediction_bets, social_challenges, social_challenge_participants, social_follows), 9 API endpoints under /api/social/*, and new network.tsx page.
 
 ### Architecture Model
 - **Full On-Chain Model**: Bets placed directly on smart contracts, tracked in PostgreSQL for UI, settlements automated on-chain.
