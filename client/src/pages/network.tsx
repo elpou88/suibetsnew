@@ -384,8 +384,12 @@ function ProfileModal({ wallet, onClose, myWallet }: { wallet: string; onClose: 
   };
 
   const handleShareOnX = () => {
-    const text = encodeURIComponent(`Check out my betting stats on @SuiBets! ${window.location.origin}/network`);
-    window.open(`https://x.com/intent/tweet?text=${text}`, '_blank');
+    const stats = profile ? `Win Rate: ${profile.winRate}% | ${profile.totalBets} bets | ${profile.profit >= 0 ? '+' : ''}${profile.profit} SUI profit` : '';
+    const handle = xHandle ? ` | ${xHandle}` : '';
+    const text = encodeURIComponent(`${stats}${handle}\n\nCheck my profile on @SuiBets \ud83c\udfb0\n${window.location.origin}/network`);
+    const url = `https://x.com/intent/tweet?text=${text}`;
+    const win = window.open(url, '_blank');
+    if (!win) window.location.href = url;
   };
 
   return (
@@ -1491,8 +1495,13 @@ function SocialTab({ onViewProfile, myWallet }: { onViewProfile: (w: string) => 
   };
 
   const handleShareOnX = () => {
-    const text = encodeURIComponent(`Check out my betting stats on @SuiBets! ${window.location.origin}/network`);
-    window.open(`https://x.com/intent/tweet?text=${text}`, '_blank');
+    const xTag = xInput ? ` | ${xInput}` : '';
+    const myStats = leaderboard?.leaderboard?.find((u: any) => u.wallet?.toLowerCase() === myWallet?.toLowerCase());
+    const statsLine = myStats ? `Win Rate: ${myStats.winRate?.toFixed(0)}% | ${myStats.totalBets} bets` : 'Join me on SuiBets';
+    const text = encodeURIComponent(`${statsLine}${xTag}\n\nPredict anything, challenge friends & win SBETS on @SuiBets\n${window.location.origin}/network`);
+    const url = `https://x.com/intent/tweet?text=${text}`;
+    const win = window.open(url, '_blank');
+    if (!win) window.location.href = url;
   };
 
   const allUsers = leaderboard?.leaderboard || [];
