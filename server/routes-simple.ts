@@ -2625,7 +2625,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         });
       }
 
-      // ANTI-EXPLOIT: Validate all parlay selections reference real events
+      // ANTI-EXPLOIT: Validate all parlay selections reference real events AND check free sports cutoff
       for (const sel of selections) {
         const selEventId = String(sel.eventId);
         const eventLookup = apiSportsService.lookupEventSync(selEventId);
@@ -2639,6 +2639,20 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
               code: "INVALID_PARLAY_EVENT"
             });
           }
+          if (freeLookup.shouldBeLive) {
+            console.log(`🚫 EXPLOIT BLOCKED: Parlay includes started free sport event ${selEventId} from ${userIdStr.slice(0, 12)}...`);
+            return res.status(400).json({
+              message: "One or more selections have already started. Betting is only available before the game begins.",
+              code: "MATCH_STARTED"
+            });
+          }
+        }
+        if (eventLookup.found && eventLookup.source === 'upcoming' && eventLookup.shouldBeLive) {
+          console.log(`🚫 EXPLOIT BLOCKED: Parlay includes started event ${selEventId} from ${userIdStr.slice(0, 12)}...`);
+          return res.status(400).json({
+            message: "One or more selections have already started. Please refresh and try again.",
+            code: "MATCH_STARTED"
+          });
         }
       }
       
@@ -2822,7 +2836,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         }
       }
 
-      // ANTI-EXPLOIT: Validate all parlay legs reference real events
+      // ANTI-EXPLOIT: Validate all parlay legs reference real events AND check free sports cutoff
       if (legs && Array.isArray(legs)) {
         for (const leg of legs) {
           const legEventId = String(leg.eventId || '');
@@ -2844,6 +2858,20 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
                 code: "INVALID_PARLAY_EVENT"
               });
             }
+            if (freeLookup.shouldBeLive) {
+              console.log(`🚫 EXPLOIT BLOCKED: On-chain parlay includes started free sport event ${legEventId} from ${walletAddress}`);
+              return res.status(400).json({
+                message: "One or more selections have already started. Betting is only available before the game begins.",
+                code: "MATCH_STARTED"
+              });
+            }
+          }
+          if (eventLookup.found && eventLookup.source === 'upcoming' && eventLookup.shouldBeLive) {
+            console.log(`🚫 EXPLOIT BLOCKED: On-chain parlay includes started event ${legEventId} from ${walletAddress}`);
+            return res.status(400).json({
+              message: "One or more selections have already started. Please refresh and try again.",
+              code: "MATCH_STARTED"
+            });
           }
         }
       }
