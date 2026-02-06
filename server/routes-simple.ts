@@ -2077,21 +2077,41 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         // Continue with bet - don't block if check fails
       }
       
-      // ANTI-CHEAT: Block Over/Under bets after 20 minutes OR when goals already exceed threshold
+      // ANTI-CHEAT: Block time-restricted markets in live matches
       if (data.isLive && data.marketId) {
         const marketIdStr = String(data.marketId).toLowerCase();
         const outcomeIdStr = String(data.outcomeId || '').toLowerCase();
         const predictionStr = String(data.prediction || '').toLowerCase();
+        const allFields = marketIdStr + ' ' + outcomeIdStr + ' ' + predictionStr;
         
-        // Check if this is an Over/Under or Goals market
+        // Check if this is an Over/Under or Goals market (20-minute cutoff)
         const isOverUnderMarket = marketIdStr.includes('over') || marketIdStr.includes('under') || 
                                    marketIdStr.includes('o/u') || marketIdStr.includes('goals') ||
                                    outcomeIdStr.includes('over') || outcomeIdStr.includes('under') ||
                                    predictionStr.includes('over') || predictionStr.includes('under');
         
+        // Check if this is a BTTS or Double Chance market (10-minute cutoff)
+        const isBttsMarket = allFields.includes('btts') || allFields.includes('both_teams') || 
+                              allFields.includes('both teams') || allFields.includes('both-teams');
+        const isDoubleChanceMarket = allFields.includes('double_chance') || allFields.includes('double chance') || 
+                                      allFields.includes('double-chance');
+        const isEarlyOnlyMarket = isBttsMarket || isDoubleChanceMarket;
+
+        const liveMinute = data.matchMinute || parseInt(String(apiSportsService.lookupEventSync(data.eventId).minute || 0)) || 0;
+
+        // Block BTTS and Double Chance after 10 minutes
+        if (isEarlyOnlyMarket && liveMinute >= 10) {
+          const marketLabel = isBttsMarket ? 'BTTS' : 'Double Chance';
+          console.warn(`[Anti-Cheat] Blocking ${marketLabel} bet after 10 min: event ${data.eventId}, minute ${liveMinute}`);
+          return res.status(400).json({
+            success: false,
+            message: "MARKET_CLOSED_TIME",
+            details: `${marketLabel} markets are only available in the first 10 minutes of live matches.`
+          });
+        }
+
         if (isOverUnderMarket) {
           // Block Over/Under markets after 20 minutes of live play
-          const liveMinute = data.matchMinute || parseInt(String(apiSportsService.lookupEventSync(data.eventId).minute || 0)) || 0;
           if (liveMinute >= 20) {
             console.warn(`[Anti-Cheat] Blocking Over/Under bet after 20 min: event ${data.eventId}, minute ${liveMinute}`);
             return res.status(400).json({

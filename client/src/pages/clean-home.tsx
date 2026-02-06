@@ -859,6 +859,13 @@ function CompactEventCard({ event, favorites, toggleFavorite }: CompactEventCard
       
       if (isFirstHalf && minuteNum >= 45) return true;
       
+      // BTTS and Double Chance markets close after 10 minutes of live play
+      const isBtts = marketStr.includes('btts') || marketStr.includes('both_teams') || 
+                     marketStr.includes('both-teams') || marketStr.includes('both teams');
+      const isDoubleChance = marketStr.includes('double_chance') || marketStr.includes('double-chance') || 
+                              marketStr.includes('double chance');
+      if ((isBtts || isDoubleChance) && minuteNum >= 10) return true;
+
       // Over/Under markets close after 20 minutes of live play
       const isOverUnder = marketStr.includes('over') || marketStr.includes('under') ||
                           marketStr.includes('o/u') || marketStr.includes('goals') ||
