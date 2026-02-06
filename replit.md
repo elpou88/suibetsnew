@@ -52,15 +52,23 @@ Preferred communication style: Simple, everyday language.
 
 ### Sports Data Providers
 - **API-Sports**: Primary data source for Football (paid tier with live betting).
-- **Free Sports API**: Basketball, Baseball, Ice Hockey, MMA, American Football (daily updates at 6 AM/11 PM UTC, no live betting).
+- **Free Sports API**: Basketball, Baseball, Ice Hockey, MMA, American Football, AFL, Formula 1, Handball, NBA, NFL, Rugby, Volleyball (daily updates at 6 AM/11 PM UTC, 7-day lookahead, no live betting).
 - **Sports Coverage**:
   - **Football (sportId 1)**: Live betting (first 45 min only) + Upcoming matches, paid API
-  - **Basketball (sportId 2)**: Upcoming only, free API
+  - **Basketball (sportId 2)**: Upcoming only, free API, 7-day lookahead
   - **Baseball (sportId 5)**: Upcoming only, free API
   - **Ice Hockey (sportId 6)**: Upcoming only, free API
-  - **MMA (sportId 7)**: Upcoming only, free API
-  - **American Football (sportId 4)**: Upcoming only, free API
-  - **Tennis, Esports, Boxing**: Placeholder (no API integration yet)
+  - **MMA (sportId 7)**: Upcoming only, free API, 7-day lookahead (events on fight nights)
+  - **American Football (sportId 4)**: Upcoming only, free API (seasonal)
+  - **AFL (sportId 10)**: Upcoming only, free API (seasonal, starts March)
+  - **Formula 1 (sportId 11)**: Upcoming only, free API (seasonal, starts March)
+  - **Handball (sportId 12)**: Upcoming only, free API
+  - **NFL (sportId 14)**: Upcoming only, free API (seasonal)
+  - **Rugby (sportId 15)**: Upcoming only, free API
+  - **Volleyball (sportId 16)**: Upcoming only, free API
+  - **Tennis, Esports, Boxing**: Placeholder (no API-Sports endpoint available)
+- **Pre-game Cutoff**: Server-side enforcement prevents betting on free sports events that have already started (no live betting for free sports).
+- **Odds Cache**: Football odds cache TTL extended to 4 hours with 30-minute prefetch interval for consistent coverage.
 
 ### Blockchain Services
 - **Sui Network**: Layer 1 blockchain.
