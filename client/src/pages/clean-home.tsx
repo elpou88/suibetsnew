@@ -264,6 +264,7 @@ export default function CleanHome() {
           {/* Center Navigation - Desktop Only */}
           <div className="hidden md:flex items-center gap-6">
             <Link href="/" className="text-cyan-400 hover:text-cyan-300 transition-colors text-sm font-medium" data-testid="nav-bets">Bets</Link>
+            <Link href="/network" className="text-yellow-400 hover:text-yellow-300 transition-colors text-sm font-bold flex items-center gap-1" data-testid="nav-predict">Predict<span className="inline-block w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" /></Link>
             <Link href="/dashboard" className="text-gray-400 hover:text-cyan-400 transition-colors text-sm font-medium" data-testid="nav-dashboard">Dashboard</Link>
             <Link href="/bet-history" className="text-gray-400 hover:text-cyan-400 transition-colors text-sm font-medium" data-testid="nav-my-bets">My Bets</Link>
             <Link href="/activity" className="text-gray-400 hover:text-cyan-400 transition-colors text-sm font-medium" data-testid="nav-activity">Activity</Link>

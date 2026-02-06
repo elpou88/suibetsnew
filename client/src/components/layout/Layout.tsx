@@ -81,16 +81,15 @@ const Layout: React.FC<LayoutProps> = ({
   
   const topNavItems = [
     { label: 'Bets', href: '/' },
+    { label: 'Predict', href: '/network', highlight: true },
     { label: 'Dashboard', href: '/wallet-dashboard' },
     { label: 'My Bets', href: '/bet-history' },
     { label: 'Activity', href: '/results' },
-    { label: 'Withdraw', href: '/wallet-dashboard' },
     { label: 'Parlays', href: '/parlays' },
     { label: 'Promotions', href: '/promotions' },
     { label: 'Revenue', href: '/revenue' },
     { label: 'Leaderboard', href: '/leaderboard' },
     { label: 'Whitepaper', href: '/whitepaper' },
-    { label: 'Predict', href: '/network' },
   ];
 
   const bottomNavItems = [
@@ -178,11 +177,17 @@ const Layout: React.FC<LayoutProps> = ({
               className={`px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
                 location === item.href 
                   ? 'text-cyan-400' 
-                  : 'text-gray-300 hover:text-white'
+                  : (item as any).highlight
+                    ? 'text-yellow-400 hover:text-yellow-300'
+                    : 'text-gray-300 hover:text-white'
               }`}
               onClick={() => setLocation(item.href)}
+              data-testid={`nav-${item.label.toLowerCase()}`}
             >
               {item.label}
+              {(item as any).highlight && location !== item.href && (
+                <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />
+              )}
             </button>
           ))}
         </div>
