@@ -1183,11 +1183,32 @@ class SettlementWorkerService {
   private static BLOCKED_WALLETS = new Set<string>([
   ]);
 
+  private ownedBetIds = new Set<string>();
+
   private async retryPendingPayouts(wonBets: UnsettledBet[]) {
+    if (!blockchainBetService.isAdminKeyConfigured()) {
+      return;
+    }
+    const keypair = blockchainBetService.getAdminKeypair();
+    if (!keypair) return;
+
+    let adminBalance: { sui: number; sbets: number } | null = null;
+    try {
+      adminBalance = await blockchainBetService.getWalletBalance(keypair.toSuiAddress());
+    } catch (e) {
+      console.warn(`⚠️ PAYOUT RETRY: Could not fetch admin balance - skipping cycle`);
+      return;
+    }
+    if (adminBalance.sui < 0.02) {
+      console.warn(`🛑 PAYOUT RETRY HALTED: Admin wallet too low (${adminBalance.sui.toFixed(4)} SUI) - all payouts deferred`);
+      return;
+    }
+
     for (const bet of wonBets) {
       if (this.settledBetIds.has(bet.id)) continue;
 
-      // ANTI-EXPLOIT: Skip payouts to blocked wallets
+      if (this.ownedBetIds.has(bet.id)) continue;
+
       if (SettlementWorkerService.BLOCKED_WALLETS.has(bet.userId?.toLowerCase())) {
         console.warn(`🚫 PAYOUT BLOCKED: Bet ${bet.id} belongs to blocked wallet ${bet.userId?.slice(0, 12)}... - skipping`);
         this.settledBetIds.add(bet.id);
@@ -1249,6 +1270,12 @@ class SettlementWorkerService {
             if (settlementResult.success) {
               await storage.updateBetStatus(bet.id, 'paid_out', grossPayout, settlementResult.txHash);
               console.log(`✅ PAYOUT RETRY ON-CHAIN SUCCESS: Bet ${bet.id} | TX: ${settlementResult.txHash}`);
+              this.settledBetIds.add(bet.id);
+              continue;
+            }
+            if (settlementResult.error?.includes('cannot settle owned objects')) {
+              console.warn(`🛑 PAYOUT PERMANENTLY SKIPPED: Bet ${bet.id} - ${settlementResult.error}`);
+              this.ownedBetIds.add(bet.id);
               this.settledBetIds.add(bet.id);
               continue;
             }

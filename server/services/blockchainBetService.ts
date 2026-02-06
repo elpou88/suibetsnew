@@ -293,9 +293,7 @@ export class BlockchainBetService {
     return !!ADMIN_PRIVATE_KEY && ADMIN_PRIVATE_KEY.length > 0;
   }
 
-  // Get admin keypair from private key (for on-chain transactions)
-  // Sui SDK's Ed25519Keypair.fromSecretKey expects the 32-byte secret seed
-  private getAdminKeypair(): Ed25519Keypair | null {
+  getAdminKeypair(): Ed25519Keypair | null {
     if (!ADMIN_PRIVATE_KEY) {
       console.warn('⚠️ ADMIN_PRIVATE_KEY not configured - on-chain payouts disabled');
       return null;
@@ -488,7 +486,6 @@ export class BlockchainBetService {
       return { success: false, error };
     }
 
-    // Signer safety fix: Always use admin keypair
     if (!ADMIN_CAP_ID) {
       const error = 'ADMIN_CAP_ID not configured - cannot execute on-chain settlement with capability pattern';
       console.error(`❌ SETTLEMENT BLOCKED: ${error}`);
@@ -496,16 +493,27 @@ export class BlockchainBetService {
     }
 
     try {
+      const betObj = await this.client.getObject({ id: betObjectId, options: { showOwner: true } });
+      const owner = betObj.data?.owner;
+      if (owner && typeof owner === 'object' && 'AddressOwner' in owner) {
+        return { success: false, error: `Bet object is owned by ${(owner as any).AddressOwner.slice(0,12)}... - cannot settle owned objects` };
+      }
+
+      const adminBalance = await this.getWalletBalance(keypair.toSuiAddress());
+      if (adminBalance.sui < 0.01) {
+        return { success: false, error: `Admin wallet too low for gas: ${adminBalance.sui.toFixed(4)} SUI` };
+      }
+
       const tx = new Transaction();
       
       tx.moveCall({
         target: `${BETTING_PACKAGE_ID}::betting::settle_bet_admin`,
         arguments: [
-          tx.object(ADMIN_CAP_ID),          // admin_cap: &AdminCap (owned by signer)
-          tx.object(BETTING_PLATFORM_ID),   // platform: &mut Platform
-          tx.object(betObjectId),           // bet: &mut Bet (shared object)
-          tx.pure.bool(won),                // won: bool
-          tx.object('0x6'),                 // clock: &Clock
+          tx.object(ADMIN_CAP_ID),
+          tx.object(BETTING_PLATFORM_ID),
+          tx.object(betObjectId),
+          tx.pure.bool(won),
+          tx.object('0x6'),
         ],
       });
 
@@ -658,7 +666,6 @@ export class BlockchainBetService {
       return { success: false, error };
     }
 
-    // Signer safety fix: Always use admin keypair
     if (!ADMIN_CAP_ID) {
       const error = 'ADMIN_CAP_ID not configured - cannot execute on-chain SBETS settlement';
       console.error(`❌ SBETS SETTLEMENT BLOCKED: ${error}`);
@@ -666,12 +673,23 @@ export class BlockchainBetService {
     }
 
     try {
+      const betObj = await this.client.getObject({ id: betObjectId, options: { showOwner: true } });
+      const owner = betObj.data?.owner;
+      if (owner && typeof owner === 'object' && 'AddressOwner' in owner) {
+        return { success: false, error: `Bet object is owned by ${(owner as any).AddressOwner.slice(0,12)}... - cannot settle owned objects` };
+      }
+
+      const adminBalance = await this.getWalletBalance(keypair.toSuiAddress());
+      if (adminBalance.sui < 0.01) {
+        return { success: false, error: `Admin wallet too low for gas: ${adminBalance.sui.toFixed(4)} SUI` };
+      }
+
       const tx = new Transaction();
       
       tx.moveCall({
         target: `${BETTING_PACKAGE_ID}::betting::settle_bet_sbets_admin`,
         arguments: [
-          tx.object(ADMIN_CAP_ID),          // admin_cap: &AdminCap
+          tx.object(ADMIN_CAP_ID),
           tx.object(BETTING_PLATFORM_ID),
           tx.object(betObjectId),
           tx.pure.bool(won),
@@ -820,6 +838,12 @@ export class BlockchainBetService {
         return { success: false, error: 'Amount must be positive' };
       }
 
+      const adminBalance = await this.getWalletBalance(keypair.toSuiAddress());
+      const minGas = 0.01;
+      if (adminBalance.sui < amount + minGas) {
+        return { success: false, error: `Insufficient admin balance: ${adminBalance.sui.toFixed(4)} SUI < ${amount} + ${minGas} gas` };
+      }
+
       const amountInMist = BigInt(Math.floor(amount * 1e9));
       const tx = new Transaction();
       
@@ -864,7 +888,12 @@ export class BlockchainBetService {
         return { success: false, error: 'Amount must be positive' };
       }
 
-      const amountInSmallest = BigInt(Math.floor(amount * 1_000_000_000)); // SBETS has 9 decimals (like SUI)
+      const adminBalance = await this.getWalletBalance(keypair.toSuiAddress());
+      if (adminBalance.sui < 0.01) {
+        return { success: false, error: `Insufficient gas for SBETS transfer: ${adminBalance.sui.toFixed(4)} SUI` };
+      }
+
+      const amountInSmallest = BigInt(Math.floor(amount * 1_000_000_000));
       const tx = new Transaction();
 
       // Get admin's SBETS coins (funded from treasury)
