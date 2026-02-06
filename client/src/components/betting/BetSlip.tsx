@@ -122,11 +122,10 @@ export function BetSlip() {
     clearBets(); // Clear bets after showing confirmation
   };
 
-  // Separate limits for SUI and SBETS (matching on-chain contract)
-  const MIN_STAKE_SUI = 0.05;       // 50,000,000 MIST
-  const MAX_STAKE_SUI = 20;         // 20,000,000,000 MIST
-  const MIN_STAKE_SBETS = 1000;     // 1,000,000,000,000 MIST
-  const MAX_STAKE_SBETS = 10000000; // 10,000,000,000,000,000 MIST
+  const MIN_STAKE_SUI = 0.05;
+  const MAX_STAKE_SUI = 100;
+  const MIN_STAKE_SBETS = 1000;
+  const MAX_STAKE_SBETS = 10000;
   
   const MIN_STAKE = betCurrency === 'SBETS' ? MIN_STAKE_SBETS : MIN_STAKE_SUI;
   const MAX_STAKE = betCurrency === 'SBETS' ? MAX_STAKE_SBETS : MAX_STAKE_SUI;
@@ -520,6 +519,9 @@ export function BetSlip() {
                         </button>
                       ))}
                     </div>
+                    <p className="text-[10px] text-gray-500 mt-1" data-testid="text-max-bet-single">
+                      Max bet: {MAX_STAKE.toLocaleString()} {betCurrency}
+                    </p>
                   </div>
                 )}
               </div>
@@ -566,6 +568,9 @@ export function BetSlip() {
                   </button>
                 ))}
               </div>
+              <p className="text-[10px] text-gray-500 mt-1" data-testid="text-max-bet-parlay">
+                Max bet: {MAX_STAKE.toLocaleString()} {betCurrency}
+              </p>
             </div>
           )}
 

@@ -123,7 +123,7 @@ export default function ParlayPage() {
     const stakeAmount = parseFloat(stake);
     // Validate stake against min/max limits per currency
     const minBet = betCurrency === 'SUI' ? 0.05 : 1000;
-    const maxBet = betCurrency === 'SUI' ? 400 : 50000000;
+    const maxBet = betCurrency === 'SUI' ? 100 : 10000;
     
     if (stakeAmount < minBet) {
       toast({ title: 'Stake Too Low', description: `Minimum bet is ${minBet} ${betCurrency}`, variant: 'destructive' });
@@ -496,7 +496,12 @@ export default function ParlayPage() {
               </div>
 
               <div className="border-t border-cyan-900/30 pt-6 mb-6">
-                <label className="text-gray-400 text-sm mb-2 block">Stake ({betCurrency})</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-gray-400 text-sm">Stake ({betCurrency})</label>
+                  <span className="text-gray-500 text-xs" data-testid="text-max-bet-parlay-page">
+                    Max: {(betCurrency === 'SUI' ? 100 : 10000).toLocaleString()} {betCurrency}
+                  </span>
+                </div>
                 <input
                   type="number"
                   value={stake}
