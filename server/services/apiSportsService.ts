@@ -67,6 +67,18 @@ export class ApiSportsService {
   private apiKey: string;
   private cache: Map<string, { data: any; timestamp: number }> = new Map();
   
+  // Rate limit tracking - pause API calls when rate limited
+  private rateLimitedUntil: number = 0;
+  
+  isRateLimited(): boolean {
+    return this.rateLimitedUntil > Date.now();
+  }
+  
+  getRateLimitMinutesRemaining(): number {
+    if (this.rateLimitedUntil <= Date.now()) return 0;
+    return Math.ceil((this.rateLimitedUntil - Date.now()) / 60000);
+  }
+  
   // Background prefetcher state
   private prefetcherRunning: boolean = false;
   private lastPrefetchTime: number = 0;
@@ -420,7 +432,12 @@ export class ApiSportsService {
           console.log(`[ApiSportsService] Subscription: ${subscription.plan}, expires: ${subscription.end}`);
         }
         if (requests) {
-          console.log(`[ApiSportsService] API usage: ${requests.current}/${requests.limit_day} requests today`);
+          const usagePercent = requests.limit_day ? Math.round((requests.current / requests.limit_day) * 100) : 0;
+          console.log(`[ApiSportsService] API usage: ${requests.current}/${requests.limit_day} requests today (${usagePercent}%)`);
+          if (requests.current >= requests.limit_day) {
+            this.rateLimitedUntil = Date.now() + 30 * 60 * 1000;
+            console.warn(`[ApiSportsService] 🚫 RATE LIMIT REACHED on startup - pausing API calls for 30 minutes`);
+          }
         }
         return true;
       } else {
@@ -621,6 +638,11 @@ export class ApiSportsService {
   async getLiveEvents(sport: string = 'football'): Promise<SportEvent[]> {
     if (!this.apiKey) {
       console.warn('No SPORTSDATA_API_KEY available, returning empty live events');
+      return [];
+    }
+    
+    // Skip if rate limited
+    if (this.rateLimitedUntil > Date.now()) {
       return [];
     }
 
@@ -827,6 +849,13 @@ export class ApiSportsService {
       console.warn('No SPORTSDATA_API_KEY available, returning empty upcoming events');
       return [];
     }
+    
+    // Skip if rate limited
+    if (this.rateLimitedUntil > Date.now()) {
+      const waitMinutes = Math.ceil((this.rateLimitedUntil - Date.now()) / 60000);
+      console.log(`[ApiSportsService] ⏸️ Upcoming events skipped - API rate limited (${waitMinutes}m remaining)`);
+      return [];
+    }
 
     const FREE_SPORTS = ['basketball', 'baseball', 'hockey', 'ice-hockey', 'rugby', 'handball', 'volleyball', 'mma', 'mma-ufc', 'american-football', 'american_football', 'afl', 'formula-1', 'formula_1', 'nba', 'nfl', 'tennis'];
     if (FREE_SPORTS.includes(sport)) {
@@ -877,12 +906,32 @@ export class ApiSportsService {
               const dayDates = [0, 1, 2, 3, 4].map(d => getDateStr(d));
               console.log(`[ApiSportsService] Fetching football events for dates: ${dayDates.join(', ')}`);
               
+              // Check if we're currently rate limited before making requests
+              if (this.rateLimitedUntil > Date.now()) {
+                const waitMinutes = Math.ceil((this.rateLimitedUntil - Date.now()) / 60000);
+                console.log(`[ApiSportsService] ⏸️ API rate limited - skipping date fetch (${waitMinutes}m remaining)`);
+                return [];
+              }
+              
               const requests = dayDates.map(date => 
                 axios.get(apiUrl, {
                   params: { date, timezone: 'UTC' },
                   headers: { 'x-apisports-key': this.apiKey, 'Accept': 'application/json' }
+                }).then(resp => {
+                  if (!resp.data?.response?.length) {
+                    const errors = resp.data?.errors;
+                    const remaining = resp.headers?.['x-ratelimit-requests-remaining'];
+                    console.log(`[ApiSportsService] Empty response for ${date} | errors: ${JSON.stringify(errors)} | remaining: ${remaining} | status: ${resp.status}`);
+                    
+                    // Detect rate limit error and stop wasting API calls
+                    if (errors?.requests && String(errors.requests).includes('request limit')) {
+                      this.rateLimitedUntil = Date.now() + 30 * 60 * 1000; // Pause for 30 minutes
+                      console.warn(`[ApiSportsService] 🚫 RATE LIMITED - pausing API calls for 30 minutes`);
+                    }
+                  }
+                  return resp;
                 }).catch(err => {
-                  console.log(`[ApiSportsService] Failed to fetch football for ${date}: ${err.message}`);
+                  console.log(`[ApiSportsService] Failed to fetch football for ${date}: ${err.message} | status: ${err.response?.status} | data: ${JSON.stringify(err.response?.data)?.substring(0, 300)}`);
                   return { data: { response: [] } }; // Tolerate individual day failures
                 })
               );
@@ -1061,6 +1110,13 @@ export class ApiSportsService {
               'Accept': 'application/json'
             }
           });
+          
+          // Log API response details for diagnostics
+          if (!response.data?.response?.length) {
+            const errors = response.data?.errors;
+            const remaining = response.headers?.['x-ratelimit-requests-remaining'];
+            console.log(`[ApiSportsService] ⚠️ Empty fallback response for ${sport} | errors: ${JSON.stringify(errors)} | remaining: ${remaining} | status: ${response.status} | keys: ${JSON.stringify(Object.keys(response.data || {}))}`);
+          }
           
           // Try to find response data
           if (response.data && response.data.response && Array.isArray(response.data.response)) {
@@ -3498,6 +3554,12 @@ export class ApiSportsService {
    */
   private async prefetchOdds(): Promise<void> {
     try {
+      // Skip if rate limited
+      if (this.rateLimitedUntil > Date.now()) {
+        const waitMinutes = Math.ceil((this.rateLimitedUntil - Date.now()) / 60000);
+        console.log(`[ApiSportsService] ⏸️ Odds prefetch skipped - API rate limited (${waitMinutes}m remaining)`);
+        return;
+      }
       console.log('[ApiSportsService] 🔄 Prefetching odds for today and tomorrow...');
       const startTime = Date.now();
       

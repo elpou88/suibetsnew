@@ -189,14 +189,14 @@ export class FreeSportsService {
     // STRICT DAILY SCHEDULE: Only fetch if not already done today
     const today = getUTCDateString();
     
-    // Initial fetch on startup ONLY if we haven't fetched today
-    if (lastUpcomingFetchDate !== today && cachedFreeSportsEvents.length === 0) {
-      console.log('[FreeSports] Initial fetch of upcoming matches (first fetch today)...');
+    // Initial fetch on startup if: haven't fetched today OR cache is empty (failed previous fetch)
+    if (lastUpcomingFetchDate !== today || cachedFreeSportsEvents.length === 0) {
+      console.log(`[FreeSports] Initial fetch of upcoming matches (date: ${lastUpcomingFetchDate}, cache: ${cachedFreeSportsEvents.length} events)...`);
       this.fetchAllUpcomingMatches().catch(err => {
         console.error('[FreeSports] Initial fetch failed:', err.message);
       });
     } else {
-      console.log(`[FreeSports] Skipping initial fetch - already fetched today (${lastUpcomingFetchDate})`);
+      console.log(`[FreeSports] Using cached data - ${cachedFreeSportsEvents.length} events (fetched: ${lastUpcomingFetchDate})`);
     }
 
     // Check every hour if we should fetch - STRICT: only at 6 AM UTC, once per day
@@ -255,13 +255,22 @@ export class FreeSportsService {
     console.log('[FreeSports] 📅 Fetching upcoming matches for all free sports...');
     
     const allEvents: SportEvent[] = [];
-    const DAYS_TO_FETCH = 3;
+    const DAYS_TO_FETCH = 2; // Only today + tomorrow (day+2 blocked on free plans)
+    let rateLimitHit = false;
 
     for (const [sportSlug, config] of Object.entries(FREE_SPORTS_CONFIG)) {
+      // If rate limited, skip remaining sports entirely
+      if (rateLimitHit) {
+        console.log(`[FreeSports] ${config.name}: Skipped (API rate limited)`);
+        continue;
+      }
+      
       try {
         let sportEvents: SportEvent[] = [];
         
         for (let dayOffset = 0; dayOffset < DAYS_TO_FETCH; dayOffset++) {
+          if (rateLimitHit) break;
+          
           const fetchDate = new Date();
           fetchDate.setUTCDate(fetchDate.getUTCDate() + dayOffset);
           
@@ -270,7 +279,8 @@ export class FreeSportsService {
             sportEvents.push(...dayEvents);
           } catch (dayErr: any) {
             if (dayErr.response?.status === 429) {
-              console.warn(`[FreeSports] Rate limited for ${config.name} day+${dayOffset}, stopping`);
+              console.warn(`[FreeSports] Rate limited for ${config.name} day+${dayOffset}, stopping all sports`);
+              rateLimitHit = true;
               break;
             }
           }
@@ -295,13 +305,15 @@ export class FreeSportsService {
       }
     }
 
-    cachedFreeSportsEvents = allEvents;
-    lastFetchTime = Date.now();
-    lastUpcomingFetchDate = getUTCDateString();
-    
-    saveCacheToFile();
-    
-    console.log(`[FreeSports] ✅ Total: ${allEvents.length} upcoming matches cached (locked until ${lastUpcomingFetchDate})`);
+    if (allEvents.length > 0) {
+      cachedFreeSportsEvents = allEvents;
+      lastFetchTime = Date.now();
+      lastUpcomingFetchDate = getUTCDateString();
+      saveCacheToFile();
+      console.log(`[FreeSports] ✅ Total: ${allEvents.length} upcoming matches cached (locked until ${lastUpcomingFetchDate})`);
+    } else {
+      console.warn(`[FreeSports] ⚠️ Got 0 events - likely API rate limit. NOT overwriting cache. Will retry on next restart.`);
+    }
     return allEvents;
   }
 
@@ -319,11 +331,25 @@ export class FreeSportsService {
           timezone: 'UTC'
         },
         headers: {
-          'x-rapidapi-key': API_KEY,
-          'x-rapidapi-host': config.apiHost
+          'x-apisports-key': API_KEY,
+          'Accept': 'application/json'
         },
         timeout: 10000
       });
+
+      // Check for API-Sports error responses (rate limit, subscription issues)
+      if (response.data?.errors && Object.keys(response.data.errors).length > 0) {
+        const errorMsg = JSON.stringify(response.data.errors);
+        console.warn(`[FreeSports] API error for ${config.name} (${dateStr}): ${errorMsg}`);
+        
+        // Signal rate limit by throwing with specific status code
+        if (response.data.errors.requests && String(response.data.errors.requests).includes('request limit')) {
+          const err: any = new Error('API rate limit reached');
+          err.response = { status: 429 };
+          throw err;
+        }
+        return [];
+      }
 
       const games = response.data?.response || [];
       
@@ -419,8 +445,8 @@ export class FreeSportsService {
             timezone: 'UTC'
           },
           headers: {
-            'x-rapidapi-key': API_KEY,
-            'x-rapidapi-host': config.apiHost
+            'x-apisports-key': API_KEY,
+            'Accept': 'application/json'
           },
           timeout: 10000
         });

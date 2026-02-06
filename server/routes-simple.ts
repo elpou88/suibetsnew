@@ -154,6 +154,20 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     res.status(statusCode).json(report);
   });
 
+  app.get("/api/sports-status", async (req: Request, res: Response) => {
+    const rateLimited = apiSportsService.isRateLimited();
+    const minutesRemaining = apiSportsService.getRateLimitMinutesRemaining();
+    const freeSportsCount = freeSportsService.getUpcomingEvents().length;
+    res.json({
+      rateLimited,
+      minutesRemaining,
+      freeSportsEventsCount: freeSportsCount,
+      message: rateLimited
+        ? `Sports data temporarily unavailable - API quota reached. Will auto-recover in ~${minutesRemaining} minutes.`
+        : 'Sports data available'
+    });
+  });
+
   // System stats endpoint
   app.get("/api/admin/stats", async (req: Request, res: Response) => {
     try {
