@@ -32,7 +32,7 @@ export const PlaceBetSchema = z.object({
   prediction: z.string().min(1, 'Prediction required'),
   potentialPayout: z.number().optional(),
   feeCurrency: z.enum(['SUI', 'SBETS']).optional().default('SUI'),
-  paymentMethod: z.enum(['platform', 'wallet']).optional().default('platform'),
+  paymentMethod: z.enum(['platform', 'wallet', 'free_bet']).optional().default('platform'),
   txHash: z.string().optional(), // For wallet/on-chain bets
   onChainBetId: z.string().optional(), // Sui bet object ID
   status: z.enum(['pending', 'confirmed', 'settled', 'cancelled']).optional().default('pending'),
