@@ -737,7 +737,7 @@ function PredictTab({ wallet }: { wallet?: string }) {
       const res = await fetch(`/api/social/predictions/${predictionId}/resolve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet, outcome })
+        body: JSON.stringify({ resolverWallet: wallet, resolution: outcome })
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -745,9 +745,16 @@ function PredictTab({ wallet }: { wallet?: string }) {
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/social/predictions'] });
-      toast({ title: 'Market Resolved', description: 'The prediction market has been resolved.' });
+      const payoutInfo = data?.payoutResults;
+      if (payoutInfo && payoutInfo.successful > 0) {
+        toast({ title: 'Market Resolved & Paid Out', description: `${payoutInfo.successful} winner(s) paid ${data.totalPool} SBETS from treasury` });
+      } else if (data?.winnersCount === 0) {
+        toast({ title: 'Market Resolved', description: 'No winners - no payouts needed' });
+      } else {
+        toast({ title: 'Market Resolved', description: `Pool: ${data?.totalPool || 0} SBETS | Winners: ${data?.winnersCount || 0}` });
+      }
     },
     onError: (err: Error) => {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });

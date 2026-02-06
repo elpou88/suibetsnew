@@ -5274,20 +5274,40 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     try {
       const { socialPredictions } = await import('@shared/schema');
       const { title, description, category, endDate, wallet } = req.body;
-      if (!wallet || !title || !endDate) {
-        return res.status(400).json({ error: 'Title, wallet, and end date required' });
+      if (!wallet || typeof wallet !== 'string' || !wallet.startsWith('0x') || wallet.length < 10) {
+        return res.status(400).json({ error: 'Valid wallet address required' });
       }
+      if (!title || typeof title !== 'string' || title.trim().length < 5 || title.trim().length > 200) {
+        return res.status(400).json({ error: 'Title must be 5-200 characters' });
+      }
+      if (!endDate) {
+        return res.status(400).json({ error: 'End date required' });
+      }
+      const end = new Date(endDate);
+      if (isNaN(end.getTime()) || end <= new Date()) {
+        return res.status(400).json({ error: 'End date must be in the future' });
+      }
+      const maxEnd = new Date();
+      maxEnd.setDate(maxEnd.getDate() + 90);
+      if (end > maxEnd) {
+        return res.status(400).json({ error: 'End date cannot be more than 90 days from now' });
+      }
+      const VALID_CATEGORIES = ['crypto', 'sports', 'politics', 'entertainment', 'gaming', 'tech', 'other'];
+      const safeCategory = VALID_CATEGORIES.includes(category) ? category : 'other';
+      const safeTitle = title.trim().slice(0, 200);
+      const safeDescription = (description || '').trim().slice(0, 1000);
       const [prediction] = await db.insert(socialPredictions).values({
         creatorWallet: wallet.toLowerCase(),
-        title,
-        description: description || '',
-        category: category || 'other',
-        endDate: new Date(endDate),
+        title: safeTitle,
+        description: safeDescription,
+        category: safeCategory,
+        endDate: end,
         status: 'active',
         totalYesAmount: 0,
         totalNoAmount: 0,
         totalParticipants: 0
       }).returning();
+      console.log(`[Social] Prediction created: #${prediction.id} "${safeTitle}" by ${wallet.slice(0,10)}... | Ends: ${end.toISOString()}`);
       res.json(prediction);
     } catch (error) {
       console.error('Create prediction error:', error);
@@ -5295,40 +5315,69 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
 
+  const socialBetRateLimits = new Map<string, { count: number; resetAt: number }>();
+  const SOCIAL_BET_LIMIT = 20;
+  const SOCIAL_BET_WINDOW = 60 * 60 * 1000;
+
   app.post("/api/social/predictions/:id/bet", async (req: Request, res: Response) => {
     try {
       const { socialPredictions, socialPredictionBets } = await import('@shared/schema');
       const { eq } = await import('drizzle-orm');
       const predictionId = parseInt(req.params.id);
-      const { wallet, side, amount, currency } = req.body;
-      if (!wallet || !side || !amount) {
-        return res.status(400).json({ error: 'Wallet, side, and amount required' });
+      if (isNaN(predictionId) || predictionId <= 0) {
+        return res.status(400).json({ error: 'Invalid prediction ID' });
       }
-      if (!['yes', 'no'].includes(side)) {
+      const { wallet, side, amount } = req.body;
+      if (!wallet || typeof wallet !== 'string' || !wallet.startsWith('0x') || wallet.length < 10) {
+        return res.status(400).json({ error: 'Valid wallet address required' });
+      }
+      if (!side || !['yes', 'no'].includes(side)) {
         return res.status(400).json({ error: 'Side must be "yes" or "no"' });
       }
       const parsedAmount = parseFloat(amount);
-      if (isNaN(parsedAmount) || parsedAmount < 0.1 || parsedAmount > 100) {
-        return res.status(400).json({ error: 'Amount must be between 0.1 and 100' });
+      if (isNaN(parsedAmount) || parsedAmount < 100 || parsedAmount > 10000) {
+        return res.status(400).json({ error: 'Amount must be between 100 and 10,000 SBETS' });
+      }
+      const VALID_AMOUNTS = [100, 500, 1000, 5000, 10000];
+      if (!VALID_AMOUNTS.includes(parsedAmount)) {
+        return res.status(400).json({ error: 'Amount must be 100, 500, 1000, 5000, or 10000 SBETS' });
+      }
+      const walletLower = wallet.toLowerCase();
+      const now = Date.now();
+      const rateKey = walletLower;
+      const rateData = socialBetRateLimits.get(rateKey);
+      if (rateData && rateData.resetAt > now) {
+        if (rateData.count >= SOCIAL_BET_LIMIT) {
+          return res.status(429).json({ error: `Rate limit: max ${SOCIAL_BET_LIMIT} prediction bets per hour` });
+        }
+        rateData.count++;
+      } else {
+        socialBetRateLimits.set(rateKey, { count: 1, resetAt: now + SOCIAL_BET_WINDOW });
       }
       const [prediction] = await db.select().from(socialPredictions).where(eq(socialPredictions.id, predictionId));
-      if (!prediction || prediction.status !== 'active') {
-        return res.status(400).json({ error: 'Prediction not found or not active' });
+      if (!prediction) {
+        return res.status(404).json({ error: 'Prediction not found' });
+      }
+      if (prediction.status !== 'active') {
+        return res.status(400).json({ error: 'Prediction is no longer active' });
       }
       if (prediction.endDate && new Date(prediction.endDate) < new Date()) {
-        return res.status(400).json({ error: 'Prediction has expired' });
+        return res.status(400).json({ error: 'Prediction has expired - betting is closed' });
+      }
+      if (walletLower === prediction.creatorWallet?.toLowerCase()) {
+        return res.status(403).json({ error: 'Creator cannot bet on their own prediction' });
       }
       const txId = `sp_${Date.now()}_${predictionId}_${Math.random().toString(36).slice(2, 10)}`;
       const [bet] = await db.insert(socialPredictionBets).values({
         predictionId,
-        wallet: wallet.toLowerCase(),
+        wallet: walletLower,
         side,
         amount: parsedAmount,
-        currency: currency || 'SBETS',
+        currency: 'SBETS',
         txId
       }).returning();
-      const yesInc = side === 'yes' ? parseFloat(amount) : 0;
-      const noInc = side === 'no' ? parseFloat(amount) : 0;
+      const yesInc = side === 'yes' ? parsedAmount : 0;
+      const noInc = side === 'no' ? parsedAmount : 0;
       await db.update(socialPredictions)
         .set({
           totalYesAmount: (prediction.totalYesAmount || 0) + yesInc,
@@ -5336,7 +5385,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           totalParticipants: (prediction.totalParticipants || 0) + 1
         })
         .where(eq(socialPredictions.id, predictionId));
-      console.log(`[Social] Prediction bet recorded: ${wallet.slice(0,10)}... | ${side.toUpperCase()} ${parsedAmount} SBETS on prediction #${predictionId} | TX: ${txId}`);
+      console.log(`[Social] Prediction bet: ${walletLower.slice(0,10)}... | ${side.toUpperCase()} ${parsedAmount} SBETS on #${predictionId} | TX: ${txId}`);
       res.json({ success: true, txId, betId: bet.id });
     } catch (error) {
       console.error('Prediction bet error:', error);
@@ -5359,21 +5408,42 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
   app.post("/api/social/challenges", async (req: Request, res: Response) => {
     try {
       const { socialChallenges } = await import('@shared/schema');
-      const { title, description, stakeAmount, currency, maxParticipants, expiresAt, wallet } = req.body;
-      if (!wallet || !title || !stakeAmount || !expiresAt) {
-        return res.status(400).json({ error: 'Title, wallet, stake amount, and expiry required' });
+      const { title, description, stakeAmount, maxParticipants, expiresAt, wallet } = req.body;
+      if (!wallet || typeof wallet !== 'string' || !wallet.startsWith('0x') || wallet.length < 10) {
+        return res.status(400).json({ error: 'Valid wallet address required' });
       }
+      if (!title || typeof title !== 'string' || title.trim().length < 5 || title.trim().length > 200) {
+        return res.status(400).json({ error: 'Title must be 5-200 characters' });
+      }
+      const parsedStake = parseFloat(stakeAmount);
+      if (isNaN(parsedStake) || parsedStake < 100 || parsedStake > 10000) {
+        return res.status(400).json({ error: 'Stake must be between 100 and 10,000 SBETS' });
+      }
+      if (!expiresAt) {
+        return res.status(400).json({ error: 'Expiry date required' });
+      }
+      const expiry = new Date(expiresAt);
+      if (isNaN(expiry.getTime()) || expiry <= new Date()) {
+        return res.status(400).json({ error: 'Expiry must be in the future' });
+      }
+      const maxExpiry = new Date();
+      maxExpiry.setDate(maxExpiry.getDate() + 30);
+      if (expiry > maxExpiry) {
+        return res.status(400).json({ error: 'Expiry cannot be more than 30 days from now' });
+      }
+      const safeParts = Math.min(Math.max(parseInt(maxParticipants) || 10, 2), 100);
       const [challenge] = await db.insert(socialChallenges).values({
         creatorWallet: wallet.toLowerCase(),
-        title,
-        description: description || '',
-        stakeAmount: parseFloat(stakeAmount),
+        title: title.trim().slice(0, 200),
+        description: (description || '').trim().slice(0, 1000),
+        stakeAmount: parsedStake,
         currency: 'SBETS',
-        maxParticipants: maxParticipants || 10,
+        maxParticipants: safeParts,
         currentParticipants: 1,
         status: 'open',
-        expiresAt: new Date(expiresAt)
+        expiresAt: expiry
       }).returning();
+      console.log(`[Social] Challenge created: #${challenge.id} "${title.trim().slice(0,50)}" by ${wallet.slice(0,10)}... | Stake: ${parsedStake} SBETS`);
       res.json(challenge);
     } catch (error) {
       console.error('Create challenge error:', error);
@@ -5386,8 +5456,13 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const { socialChallenges, socialChallengeParticipants } = await import('@shared/schema');
       const { eq } = await import('drizzle-orm');
       const challengeId = parseInt(req.params.id);
+      if (isNaN(challengeId) || challengeId <= 0) {
+        return res.status(400).json({ error: 'Invalid challenge ID' });
+      }
       const { wallet, side } = req.body;
-      if (!wallet) return res.status(400).json({ error: 'Wallet required' });
+      if (!wallet || typeof wallet !== 'string' || !wallet.startsWith('0x') || wallet.length < 10) {
+        return res.status(400).json({ error: 'Valid wallet address required' });
+      }
       if (side && !['for', 'against'].includes(side)) {
         return res.status(400).json({ error: 'Side must be "for" or "against"' });
       }
@@ -5401,7 +5476,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       if ((challenge.currentParticipants || 0) >= (challenge.maxParticipants || 10)) {
         return res.status(400).json({ error: 'Challenge is full' });
       }
-      if (challenge.endDate && new Date(challenge.endDate) < new Date()) {
+      if (challenge.expiresAt && new Date(challenge.expiresAt) < new Date()) {
         return res.status(400).json({ error: 'Challenge has expired' });
       }
       await db.insert(socialChallengeParticipants).values({
@@ -5548,93 +5623,196 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
 
+  const resolvingPredictions = new Set<number>();
+
   app.post("/api/social/predictions/:id/resolve", async (req: Request, res: Response) => {
     try {
       const { socialPredictions, socialPredictionBets } = await import('@shared/schema');
       const { eq } = await import('drizzle-orm');
       const predictionId = parseInt(req.params.id);
+      if (isNaN(predictionId) || predictionId <= 0) {
+        return res.status(400).json({ error: 'Invalid prediction ID' });
+      }
       const { resolution, resolverWallet } = req.body;
       if (!resolution || !['yes', 'no'].includes(resolution)) {
         return res.status(400).json({ error: 'Resolution must be "yes" or "no"' });
       }
-      const [prediction] = await db.select().from(socialPredictions).where(eq(socialPredictions.id, predictionId));
-      if (!prediction) {
-        return res.status(404).json({ error: 'Prediction not found' });
+      if (!resolverWallet || typeof resolverWallet !== 'string' || !resolverWallet.startsWith('0x')) {
+        return res.status(400).json({ error: 'Valid resolver wallet required' });
       }
-      if (prediction.status !== 'active') {
-        return res.status(400).json({ error: 'Prediction is not active' });
+      if (resolvingPredictions.has(predictionId)) {
+        return res.status(409).json({ error: 'Prediction is already being resolved' });
       }
-      if (resolverWallet?.toLowerCase() !== prediction.creatorWallet?.toLowerCase()) {
-        return res.status(403).json({ error: 'Only the creator can resolve this prediction' });
+      resolvingPredictions.add(predictionId);
+      try {
+        const [prediction] = await db.select().from(socialPredictions).where(eq(socialPredictions.id, predictionId));
+        if (!prediction) {
+          return res.status(404).json({ error: 'Prediction not found' });
+        }
+        if (prediction.status !== 'active') {
+          return res.status(400).json({ error: 'Prediction is not active - may already be resolved' });
+        }
+        if (resolverWallet.toLowerCase() !== prediction.creatorWallet?.toLowerCase()) {
+          return res.status(403).json({ error: 'Only the creator can resolve this prediction' });
+        }
+        if (prediction.endDate && new Date(prediction.endDate) > new Date()) {
+          return res.status(400).json({ error: 'Cannot resolve before end date' });
+        }
+        const newStatus = resolution === 'yes' ? 'resolved_yes' : 'resolved_no';
+        await db.update(socialPredictions)
+          .set({ status: newStatus, resolvedAt: new Date() })
+          .where(eq(socialPredictions.id, predictionId));
+        const allBets = await db.select().from(socialPredictionBets).where(eq(socialPredictionBets.predictionId, predictionId));
+        const winners = allBets.filter(b => b.side === resolution);
+        const losers = allBets.filter(b => b.side !== resolution);
+        const totalPool = allBets.reduce((sum, b) => sum + (b.amount || 0), 0);
+        const winnersTotal = winners.reduce((sum, b) => sum + (b.amount || 0), 0);
+        if (totalPool === 0 || winners.length === 0) {
+          console.log(`[Social] Prediction #${predictionId} resolved ${resolution.toUpperCase()} - no winners to pay (pool: ${totalPool} SBETS)`);
+          return res.json({
+            success: true,
+            resolution: newStatus,
+            totalPool,
+            winnersCount: 0,
+            losersCount: losers.length,
+            payouts: [],
+            payoutStatus: winners.length === 0 ? 'no_winners' : 'empty_pool'
+          });
+        }
+        const payouts = winners.map(w => ({
+          wallet: w.wallet,
+          betAmount: w.amount,
+          payout: winnersTotal > 0 ? ((w.amount || 0) / winnersTotal) * totalPool : 0
+        }));
+        console.log(`[Social] Prediction #${predictionId} resolved ${resolution.toUpperCase()} | Pool: ${totalPool} SBETS | Winners: ${winners.length} | Losers: ${losers.length}`);
+        const payoutResults: { wallet: string; amount: number; txHash?: string; error?: string }[] = [];
+        for (const payout of payouts) {
+          if (payout.payout <= 0) continue;
+          try {
+            const result = await blockchainBetService.sendSbetsToUser(payout.wallet, payout.payout);
+            if (result.success) {
+              console.log(`[Social] Payout sent: ${payout.payout} SBETS -> ${payout.wallet.slice(0,10)}... | TX: ${result.txHash}`);
+              payoutResults.push({ wallet: payout.wallet, amount: payout.payout, txHash: result.txHash });
+            } else {
+              console.error(`[Social] Payout failed for ${payout.wallet.slice(0,10)}...: ${result.error}`);
+              payoutResults.push({ wallet: payout.wallet, amount: payout.payout, error: result.error });
+            }
+          } catch (payoutError: any) {
+            console.error(`[Social] Payout error for ${payout.wallet.slice(0,10)}...:`, payoutError.message);
+            payoutResults.push({ wallet: payout.wallet, amount: payout.payout, error: payoutError.message });
+          }
+        }
+        const successfulPayouts = payoutResults.filter(p => p.txHash);
+        const failedPayouts = payoutResults.filter(p => p.error);
+        console.log(`[Social] Settlement complete: ${successfulPayouts.length}/${payoutResults.length} payouts successful`);
+        res.json({
+          success: true,
+          resolution: newStatus,
+          totalPool,
+          winnersCount: winners.length,
+          losersCount: losers.length,
+          payouts,
+          payoutResults: {
+            successful: successfulPayouts.length,
+            failed: failedPayouts.length,
+            details: payoutResults
+          }
+        });
+      } finally {
+        resolvingPredictions.delete(predictionId);
       }
-      const newStatus = resolution === 'yes' ? 'resolved_yes' : 'resolved_no';
-      await db.update(socialPredictions)
-        .set({ status: newStatus })
-        .where(eq(socialPredictions.id, predictionId));
-      const allBets = await db.select().from(socialPredictionBets).where(eq(socialPredictionBets.predictionId, predictionId));
-      const winners = allBets.filter(b => b.side === resolution);
-      const losers = allBets.filter(b => b.side !== resolution);
-      const totalPool = allBets.reduce((sum, b) => sum + (b.amount || 0), 0);
-      const winnersTotal = winners.reduce((sum, b) => sum + (b.amount || 0), 0);
-      const payouts = winners.map(w => ({
-        wallet: w.wallet,
-        betAmount: w.amount,
-        payout: winnersTotal > 0 ? ((w.amount || 0) / winnersTotal) * totalPool : 0
-      }));
-      res.json({
-        success: true,
-        resolution: newStatus,
-        totalPool,
-        winnersCount: winners.length,
-        losersCount: losers.length,
-        payouts
-      });
     } catch (error) {
       console.error('Resolve prediction error:', error);
+      resolvingPredictions.delete(predictionId);
       res.status(500).json({ error: 'Failed to resolve prediction' });
     }
   });
+
+  const settlingChallenges = new Set<number>();
 
   app.post("/api/social/challenges/:id/settle", async (req: Request, res: Response) => {
     try {
       const { socialChallenges, socialChallengeParticipants } = await import('@shared/schema');
       const { eq } = await import('drizzle-orm');
       const challengeId = parseInt(req.params.id);
+      if (isNaN(challengeId) || challengeId <= 0) {
+        return res.status(400).json({ error: 'Invalid challenge ID' });
+      }
       const { winner, settlerWallet } = req.body;
       if (!winner || !['creator', 'challengers'].includes(winner)) {
         return res.status(400).json({ error: 'Winner must be "creator" or "challengers"' });
       }
-      const [challenge] = await db.select().from(socialChallenges).where(eq(socialChallenges.id, challengeId));
-      if (!challenge) {
-        return res.status(404).json({ error: 'Challenge not found' });
+      if (!settlerWallet || typeof settlerWallet !== 'string' || !settlerWallet.startsWith('0x')) {
+        return res.status(400).json({ error: 'Valid settler wallet required' });
       }
-      if (challenge.status !== 'open') {
-        return res.status(400).json({ error: 'Challenge is not open' });
+      if (settlingChallenges.has(challengeId)) {
+        return res.status(409).json({ error: 'Challenge is already being settled' });
       }
-      if (settlerWallet?.toLowerCase() !== challenge.creatorWallet?.toLowerCase()) {
-        return res.status(403).json({ error: 'Only the creator can settle this challenge' });
+      settlingChallenges.add(challengeId);
+      try {
+        const [challenge] = await db.select().from(socialChallenges).where(eq(socialChallenges.id, challengeId));
+        if (!challenge) {
+          return res.status(404).json({ error: 'Challenge not found' });
+        }
+        if (challenge.status !== 'open') {
+          return res.status(400).json({ error: 'Challenge is not open - may already be settled' });
+        }
+        if (settlerWallet.toLowerCase() !== challenge.creatorWallet?.toLowerCase()) {
+          return res.status(403).json({ error: 'Only the creator can settle this challenge' });
+        }
+        if (challenge.expiresAt && new Date(challenge.expiresAt) > new Date()) {
+          return res.status(400).json({ error: 'Cannot settle before expiry date' });
+        }
+        await db.update(socialChallenges)
+          .set({ status: 'settled' })
+          .where(eq(socialChallenges.id, challengeId));
+        const participants = await db.select().from(socialChallengeParticipants).where(eq(socialChallengeParticipants.challengeId, challengeId));
+        const totalPool = (challenge.stakeAmount || 0) * ((challenge.currentParticipants || 1));
+        let payouts: { wallet: string; payout: number }[] = [];
+        if (winner === 'creator') {
+          payouts = [{ wallet: challenge.creatorWallet!, payout: totalPool }];
+        } else {
+          const challengers = participants.filter(p => p.side === 'against');
+          const perPerson = challengers.length > 0 ? totalPool / challengers.length : 0;
+          payouts = challengers.map(p => ({ wallet: p.wallet, payout: perPerson }));
+        }
+        console.log(`[Social] Challenge #${challengeId} settled: ${winner} wins | Pool: ${totalPool} SBETS | Payouts: ${payouts.length}`);
+        const payoutResults: { wallet: string; amount: number; txHash?: string; error?: string }[] = [];
+        for (const payout of payouts) {
+          if (payout.payout <= 0) continue;
+          try {
+            const result = await blockchainBetService.sendSbetsToUser(payout.wallet, payout.payout);
+            if (result.success) {
+              console.log(`[Social] Challenge payout: ${payout.payout} SBETS -> ${payout.wallet.slice(0,10)}... | TX: ${result.txHash}`);
+              payoutResults.push({ wallet: payout.wallet, amount: payout.payout, txHash: result.txHash });
+            } else {
+              console.error(`[Social] Challenge payout failed: ${payout.wallet.slice(0,10)}... | ${result.error}`);
+              payoutResults.push({ wallet: payout.wallet, amount: payout.payout, error: result.error });
+            }
+          } catch (payoutError: any) {
+            console.error(`[Social] Challenge payout error:`, payoutError.message);
+            payoutResults.push({ wallet: payout.wallet, amount: payout.payout, error: payoutError.message });
+          }
+        }
+        const successfulPayouts = payoutResults.filter(p => p.txHash);
+        console.log(`[Social] Challenge settlement complete: ${successfulPayouts.length}/${payoutResults.length} payouts successful`);
+        res.json({
+          success: true,
+          winner,
+          totalPool,
+          payouts,
+          payoutResults: {
+            successful: successfulPayouts.length,
+            failed: payoutResults.filter(p => p.error).length,
+            details: payoutResults
+          }
+        });
+      } finally {
+        settlingChallenges.delete(challengeId);
       }
-      await db.update(socialChallenges)
-        .set({ status: 'settled' })
-        .where(eq(socialChallenges.id, challengeId));
-      const participants = await db.select().from(socialChallengeParticipants).where(eq(socialChallengeParticipants.challengeId, challengeId));
-      const totalPool = (challenge.stakeAmount || 0) * ((challenge.currentParticipants || 1));
-      let payouts: any[] = [];
-      if (winner === 'creator') {
-        payouts = [{ wallet: challenge.creatorWallet, payout: totalPool }];
-      } else {
-        const challengers = participants.filter(p => p.side === 'against');
-        const perPerson = challengers.length > 0 ? totalPool / challengers.length : 0;
-        payouts = challengers.map(p => ({ wallet: p.wallet, payout: perPerson }));
-      }
-      res.json({
-        success: true,
-        winner,
-        totalPool,
-        payouts
-      });
     } catch (error) {
       console.error('Settle challenge error:', error);
+      settlingChallenges.delete(challengeId);
       res.status(500).json({ error: 'Failed to settle challenge' });
     }
   });
@@ -5651,19 +5829,37 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
 
+  const chatRateLimits = new Map<string, { count: number; resetAt: number }>();
+  const CHAT_LIMIT = 30;
+  const CHAT_WINDOW = 60 * 1000;
+
   app.post("/api/social/chat", async (req: Request, res: Response) => {
     try {
       const { socialChatMessages } = await import('@shared/schema');
       const { wallet, message } = req.body;
-      if (!wallet || !message) {
-        return res.status(400).json({ error: 'Wallet and message required' });
+      if (!wallet || typeof wallet !== 'string' || !wallet.startsWith('0x') || wallet.length < 10) {
+        return res.status(400).json({ error: 'Valid wallet address required' });
+      }
+      if (!message || typeof message !== 'string') {
+        return res.status(400).json({ error: 'Message required' });
       }
       const trimmed = message.trim().slice(0, 500);
-      if (!trimmed) {
+      if (!trimmed || trimmed.length < 1) {
         return res.status(400).json({ error: 'Message cannot be empty' });
       }
+      const walletLower = wallet.toLowerCase();
+      const now = Date.now();
+      const rateData = chatRateLimits.get(walletLower);
+      if (rateData && rateData.resetAt > now) {
+        if (rateData.count >= CHAT_LIMIT) {
+          return res.status(429).json({ error: 'Slow down - max 30 messages per minute' });
+        }
+        rateData.count++;
+      } else {
+        chatRateLimits.set(walletLower, { count: 1, resetAt: now + CHAT_WINDOW });
+      }
       const [chatMsg] = await db.insert(socialChatMessages).values({
-        wallet: wallet.toLowerCase(),
+        wallet: walletLower,
         message: trimmed
       }).returning();
       res.json(chatMsg);
