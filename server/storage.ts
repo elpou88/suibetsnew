@@ -248,11 +248,11 @@ export class DatabaseStorage implements IStorage {
       
       if (!bet) return undefined;
       
-      // Return with string ID for compatibility
       return {
         ...bet,
         id: bet.wurlusBetId || String(bet.id),
-        userId: bet.walletAddress, // Use walletAddress as userId for settlement
+        numericId: bet.id,
+        userId: bet.walletAddress,
         winningsWithdrawn: bet.status === 'winnings_withdrawn',
         amount: bet.betAmount
       };
@@ -438,17 +438,18 @@ export class DatabaseStorage implements IStorage {
       // Include both old and new field names for compatibility with all pages
       return allMatchedBets.map((bet: any) => ({
         id: bet.wurlusBetId || String(bet.id),
+        numericId: bet.id,
         eventName: bet.eventName || 'Unknown Event',
         selection: bet.prediction,
         prediction: bet.prediction,
         odds: bet.odds,
         stake: bet.betAmount,
-        betAmount: bet.betAmount, // Alias for compatibility
+        betAmount: bet.betAmount,
         potentialWin: bet.potentialPayout,
-        potentialPayout: bet.potentialPayout, // Alias for compatibility
+        potentialPayout: bet.potentialPayout,
         status: bet.status,
         placedAt: bet.createdAt?.toISOString() || new Date().toISOString(),
-        createdAt: bet.createdAt?.toISOString() || new Date().toISOString(), // Alias for compatibility
+        createdAt: bet.createdAt?.toISOString() || new Date().toISOString(),
         settledAt: bet.settledAt?.toISOString(),
         txHash: bet.txHash,
         currency: bet.feeCurrency || 'SUI',

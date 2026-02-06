@@ -19,7 +19,8 @@ interface BetLeg {
 
 interface ShareableBetCardProps {
   bet: {
-    id: number;
+    id: number | string;
+    numericId?: number;
     eventName: string;
     prediction: string;
     odds: number;
@@ -256,7 +257,8 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
         }
       }, 'image/png');
     } catch (error) {
-      const shareUrl = `https://suibets.com/bet/${bet.id}`;
+      const shareId = bet.numericId ?? bet.id;
+      const shareUrl = `https://suibets.com/bet/${shareId}`;
       try {
         await navigator.clipboard.writeText(shareUrl);
         setCopied(true);
@@ -276,7 +278,8 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
   };
 
   const handleCopyBet = async () => {
-    const shareUrl = `https://suibets.com/bet/${bet.id}`;
+    const shareId = bet.numericId ?? bet.id;
+    const shareUrl = `https://suibets.com/bet/${shareId}`;
     const legs = isParlay && parlayLegs.length > 0
       ? parlayLegs
       : (isParlay && bet.prediction?.includes(' | '))

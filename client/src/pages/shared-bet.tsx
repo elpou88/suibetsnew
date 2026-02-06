@@ -21,6 +21,7 @@ import { useWalrusProtocolContext } from '@/context/WalrusProtocolContext';
 
 interface SharedBetData {
   id: string | number;
+  numericId?: number;
   eventId: string;
   eventName: string;
   selection?: string;
@@ -138,7 +139,8 @@ export default function SharedBetPage() {
   };
 
   const handleShareLink = async () => {
-    const shareUrl = `https://suibets.com/bet/${betId}`;
+    const shareId = bet?.numericId ?? betId;
+    const shareUrl = `https://suibets.com/bet/${shareId}`;
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
