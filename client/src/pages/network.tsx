@@ -958,152 +958,285 @@ function PredictTab({ wallet }: { wallet?: string }) {
             </Button>
           </CardContent>
         </Card>
-      ) : (
-        <div className="space-y-4">
-          {predictions.map((p: any) => {
-            const total = (p.totalYesAmount || 0) + (p.totalNoAmount || 0);
-            const yesPct = total > 0 ? ((p.totalYesAmount || 0) / total) * 100 : 50;
-            const noPct = 100 - yesPct;
-            const isEnded = new Date(p.endDate) <= new Date();
-            const isActive = p.status === 'active' && !isEnded;
-            const canResolve = wallet && isEnded && p.status === 'active';
-            const currentBetAmount = getBetAmount(p.id);
-            const userBets = getBetsForPrediction(p.id);
-            return (
-              <Card key={p.id} className="bg-[#111111] border-cyan-900/20" data-testid={`prediction-${p.id}`}>
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-2 mb-3">
-                    <div className="flex-1">
-                      <p className="text-white font-medium">{p.title}</p>
-                      {p.description && <p className="text-gray-500 text-sm mt-1">{p.description}</p>}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/30 text-xs">{p.category}</Badge>
-                      <button onClick={() => { copyToClipboard(`${window.location.origin}/network?p=${p.id}`); toast({ title: 'Link Copied', description: 'Share link copied!' }); }} className="text-gray-500 hover:text-cyan-400" data-testid={`share-prediction-${p.id}`}>
-                        <Share2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="flex-1 h-3 bg-muted/50 rounded-full overflow-hidden flex">
-                      <div className="h-full bg-green-500 rounded-l-full transition-all" style={{ width: `${yesPct}%` }} />
-                      <div className="h-full bg-red-500 rounded-r-full transition-all" style={{ width: `${noPct}%` }} />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-4">
-                      <span className="text-green-400 text-sm font-bold">YES {yesPct.toFixed(0)}%</span>
-                      <span className="text-red-400 text-sm font-bold">NO {noPct.toFixed(0)}%</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-xs text-gray-500">
-                      <span>{p.totalParticipants || 0} bets</span>
-                      <span>{total > 0 ? total.toFixed(0) : '0'} SBETS pool</span>
-                      <span>{timeLeft(p.endDate)}</span>
-                    </div>
-                  </div>
-
-                  {isActive && (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-gray-500 text-xs">Bet amount:</span>
-                        <div className="flex items-center gap-1 flex-wrap">
-                          {BET_AMOUNTS.map(amt => (
-                            <button
-                              key={amt}
-                              onClick={() => setBetAmounts(prev => ({ ...prev, [p.id]: amt }))}
-                              className={`px-2 py-1 rounded text-xs font-bold transition-colors ${
-                                currentBetAmount === amt
-                                  ? 'bg-cyan-500/30 text-cyan-400 border border-cyan-500/50'
-                                  : 'bg-muted/30 text-gray-500 border border-gray-800 hover:border-gray-600'
-                              }`}
-                              data-testid={`bet-amount-${amt}-${p.id}`}
-                            >
-                              {amt.toLocaleString()} SBETS
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          className="flex-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/30 font-bold"
-                          onClick={() => handleBet(p.id, 'yes')}
-                          disabled={betMutation.isPending}
-                          data-testid={`button-yes-${p.id}`}
-                        >
-                          <ThumbsUp className="h-4 w-4 mr-1" />
-                          YES ({currentBetAmount.toLocaleString()} SBETS)
-                        </Button>
-                        <Button
-                          size="sm"
-                          className="flex-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 font-bold"
-                          onClick={() => handleBet(p.id, 'no')}
-                          disabled={betMutation.isPending}
-                          data-testid={`button-no-${p.id}`}
-                        >
-                          <ThumbsDown className="h-4 w-4 mr-1" />
-                          NO ({currentBetAmount.toLocaleString()} SBETS)
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {canResolve && (
-                    <div className="space-y-2 mt-3">
-                      <p className="text-yellow-400 text-xs font-semibold">
-                        Time expired - {yesPct > 50 ? 'YES' : yesPct < 50 ? 'NO' : 'TIE (YES)'} side has majority ({total > 0 ? `${Math.max(yesPct, noPct).toFixed(0)}%` : 'no bets'})
-                      </p>
-                      <Button
-                        size="sm"
-                        className="w-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-bold"
-                        onClick={() => resolveMutation.mutate({ predictionId: p.id })}
-                        disabled={resolveMutation.isPending}
-                        data-testid={`button-resolve-${p.id}`}
-                      >
-                        <CheckCircle className="h-4 w-4 mr-1" />
-                        {resolveMutation.isPending ? 'Resolving...' : 'Resolve & Pay Winners'}
-                      </Button>
-                      <p className="text-gray-600 text-xs text-center">Auto-resolves within minutes, or tap to trigger now</p>
-                    </div>
-                  )}
-
-                  {!isActive && !canResolve && (
-                    <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30">
-                      {p.status === 'resolved_yes' ? 'Resolved: YES Wins' : p.status === 'resolved_no' ? 'Resolved: NO Wins' : p.status === 'expired' ? 'Expired (No Bets)' : 'Market Ended'}
-                    </Badge>
-                  )}
-
-                  {userBets.length > 0 && (
-                    <div className="mt-3 border-t border-cyan-900/20 pt-3">
-                      <p className="text-xs font-semibold text-gray-400 mb-2">Your Bets</p>
-                      <div className="space-y-1">
-                        {userBets.map((b: any) => (
-                          <div key={b.id} className="flex items-center justify-between text-xs p-2 bg-muted/30 rounded-lg">
-                            <div className="flex items-center gap-2">
-                              <Badge className={b.side === 'yes' ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30'}>
-                                {b.side?.toUpperCase()}
-                              </Badge>
-                              <span className="text-white">{b.amount?.toLocaleString()} SBETS</span>
-                            </div>
-                            <span className="text-gray-500">{timeAgo(b.createdAt)}</span>
+      ) : (() => {
+        const activeMarkets = predictions.filter((p: any) => p.status === 'active');
+        const finishedMarkets = predictions.filter((p: any) => p.status !== 'active');
+        return (
+          <div className="space-y-6">
+            {activeMarkets.length > 0 && (
+              <div className="space-y-4">
+                {activeMarkets.map((p: any) => {
+                  const total = (p.totalYesAmount || 0) + (p.totalNoAmount || 0);
+                  const yesPct = total > 0 ? ((p.totalYesAmount || 0) / total) * 100 : 50;
+                  const noPct = 100 - yesPct;
+                  const isEnded = new Date(p.endDate) <= new Date();
+                  const isActive = !isEnded;
+                  const canResolve = wallet && isEnded;
+                  const currentBetAmount = getBetAmount(p.id);
+                  const userBets = getBetsForPrediction(p.id);
+                  return (
+                    <Card key={p.id} className="bg-[#111111] border-cyan-900/20" data-testid={`prediction-${p.id}`}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-2 mb-3">
+                          <div className="flex-1">
+                            <p className="text-white font-medium">{p.title}</p>
+                            {p.description && <p className="text-gray-500 text-sm mt-1">{p.description}</p>}
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/30 text-xs">{p.category}</Badge>
+                            <button onClick={() => { copyToClipboard(`${window.location.origin}/network?p=${p.id}`); toast({ title: 'Link Copied', description: 'Share link copied!' }); }} className="text-gray-500 hover:text-cyan-400" data-testid={`share-prediction-${p.id}`}>
+                              <Share2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
 
-                  <div className="flex items-center justify-between mt-2 text-xs text-gray-600">
-                    <span>by {formatWallet(p.creatorWallet)}</span>
-                    <span>{timeAgo(p.createdAt)}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="flex-1 h-3 bg-muted/50 rounded-full overflow-hidden flex">
+                            <div className="h-full bg-green-500 rounded-l-full transition-all" style={{ width: `${yesPct}%` }} />
+                            <div className="h-full bg-red-500 rounded-r-full transition-all" style={{ width: `${noPct}%` }} />
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-4">
+                            <span className="text-green-400 text-sm font-bold">YES {yesPct.toFixed(0)}%</span>
+                            <span className="text-red-400 text-sm font-bold">NO {noPct.toFixed(0)}%</span>
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-gray-500">
+                            <span>{p.totalParticipants || 0} bets</span>
+                            <span>{total > 0 ? total.toFixed(0) : '0'} SBETS pool</span>
+                            <span>{timeLeft(p.endDate)}</span>
+                          </div>
+                        </div>
+
+                        {isActive && (
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                              <span className="text-gray-500 text-xs">Bet amount:</span>
+                              <div className="flex items-center gap-1 flex-wrap">
+                                {BET_AMOUNTS.map(amt => (
+                                  <button
+                                    key={amt}
+                                    onClick={() => setBetAmounts(prev => ({ ...prev, [p.id]: amt }))}
+                                    className={`px-2 py-1 rounded text-xs font-bold transition-colors ${
+                                      currentBetAmount === amt
+                                        ? 'bg-cyan-500/30 text-cyan-400 border border-cyan-500/50'
+                                        : 'bg-muted/30 text-gray-500 border border-gray-800 hover:border-gray-600'
+                                    }`}
+                                    data-testid={`bet-amount-${amt}-${p.id}`}
+                                  >
+                                    {amt.toLocaleString()} SBETS
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                className="flex-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/30 font-bold"
+                                onClick={() => handleBet(p.id, 'yes')}
+                                disabled={betMutation.isPending}
+                                data-testid={`button-yes-${p.id}`}
+                              >
+                                <ThumbsUp className="h-4 w-4 mr-1" />
+                                YES ({currentBetAmount.toLocaleString()} SBETS)
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="flex-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 font-bold"
+                                onClick={() => handleBet(p.id, 'no')}
+                                disabled={betMutation.isPending}
+                                data-testid={`button-no-${p.id}`}
+                              >
+                                <ThumbsDown className="h-4 w-4 mr-1" />
+                                NO ({currentBetAmount.toLocaleString()} SBETS)
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {canResolve && (
+                          <div className="space-y-2 mt-3">
+                            <p className="text-yellow-400 text-xs font-semibold">
+                              Time expired - {yesPct > 50 ? 'YES' : yesPct < 50 ? 'NO' : 'TIE (YES)'} side has majority ({total > 0 ? `${Math.max(yesPct, noPct).toFixed(0)}%` : 'no bets'})
+                            </p>
+                            <Button
+                              size="sm"
+                              className="w-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-bold"
+                              onClick={() => resolveMutation.mutate({ predictionId: p.id })}
+                              disabled={resolveMutation.isPending}
+                              data-testid={`button-resolve-${p.id}`}
+                            >
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              {resolveMutation.isPending ? 'Resolving...' : 'Resolve & Pay Winners'}
+                            </Button>
+                            <p className="text-gray-600 text-xs text-center">Auto-resolves within minutes, or tap to trigger now</p>
+                          </div>
+                        )}
+
+                        {userBets.length > 0 && (
+                          <div className="mt-3 border-t border-cyan-900/20 pt-3">
+                            <p className="text-xs font-semibold text-gray-400 mb-2">Your Bets</p>
+                            <div className="space-y-1">
+                              {userBets.map((b: any) => (
+                                <div key={b.id} className="flex items-center justify-between text-xs p-2 bg-muted/30 rounded-lg">
+                                  <div className="flex items-center gap-2">
+                                    <Badge className={b.side === 'yes' ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30'}>
+                                      {b.side?.toUpperCase()}
+                                    </Badge>
+                                    <span className="text-white">{b.amount?.toLocaleString()} SBETS</span>
+                                  </div>
+                                  <span className="text-gray-500">{timeAgo(b.createdAt)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between mt-2 text-xs text-gray-600">
+                          <span>by {formatWallet(p.creatorWallet)}</span>
+                          <span>{timeAgo(p.createdAt)}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+
+            {finishedMarkets.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 pt-2">
+                  <Trophy className="h-5 w-5 text-yellow-500" />
+                  <h3 className="text-white font-bold text-lg">Finished Markets</h3>
+                  <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30 text-xs">{finishedMarkets.length}</Badge>
+                </div>
+                {finishedMarkets.map((p: any) => {
+                  const total = (p.totalYesAmount || 0) + (p.totalNoAmount || 0);
+                  const yesPct = total > 0 ? ((p.totalYesAmount || 0) / total) * 100 : 50;
+                  const noPct = 100 - yesPct;
+                  const isResolvedYes = p.status?.includes('resolved_yes');
+                  const isResolvedNo = p.status?.includes('resolved_no');
+                  const winningSide = isResolvedYes ? 'YES' : isResolvedNo ? 'NO' : null;
+                  const winningAmount = isResolvedYes ? (p.totalYesAmount || 0) : isResolvedNo ? (p.totalNoAmount || 0) : 0;
+                  const losingAmount = isResolvedYes ? (p.totalNoAmount || 0) : isResolvedNo ? (p.totalYesAmount || 0) : 0;
+                  const userBets = getBetsForPrediction(p.id);
+                  const userWon = userBets.some((b: any) => winningSide && b.side === winningSide.toLowerCase());
+                  const userLost = userBets.some((b: any) => winningSide && b.side !== winningSide.toLowerCase());
+                  const userWinningBets = userBets.filter((b: any) => winningSide && b.side === winningSide.toLowerCase());
+                  const userPayout = userWinningBets.reduce((sum: number, b: any) => {
+                    if (winningAmount <= 0) return sum;
+                    return sum + ((b.amount || 0) / winningAmount) * total;
+                  }, 0);
+
+                  return (
+                    <Card key={p.id} className="bg-[#0a0a0a] border-gray-800/50 opacity-90" data-testid={`finished-prediction-${p.id}`}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-2 mb-3">
+                          <div className="flex-1">
+                            <p className="text-gray-300 font-medium">{p.title}</p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {winningSide ? (
+                              <Badge className={winningSide === 'YES' ? 'bg-green-500/20 text-green-400 border-green-500/30 text-xs' : 'bg-red-500/20 text-red-400 border-red-500/30 text-xs'}>
+                                {winningSide} Won
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30 text-xs">
+                                {p.status === 'expired' ? 'Expired' : 'Ended'}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="flex-1 h-2 bg-muted/30 rounded-full overflow-hidden flex">
+                            <div className={`h-full rounded-l-full transition-all ${isResolvedYes ? 'bg-green-500' : 'bg-green-500/30'}`} style={{ width: `${yesPct}%` }} />
+                            <div className={`h-full rounded-r-full transition-all ${isResolvedNo ? 'bg-red-500' : 'bg-red-500/30'}`} style={{ width: `${noPct}%` }} />
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-4">
+                            <span className={`text-sm font-bold ${isResolvedYes ? 'text-green-400' : 'text-green-400/40'}`}>YES {yesPct.toFixed(0)}%</span>
+                            <span className={`text-sm font-bold ${isResolvedNo ? 'text-red-400' : 'text-red-400/40'}`}>NO {noPct.toFixed(0)}%</span>
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-gray-500">
+                            <span>{p.totalParticipants || 0} bets</span>
+                            <span>{total > 0 ? total.toFixed(0) : '0'} SBETS pool</span>
+                          </div>
+                        </div>
+
+                        {winningSide && total > 0 && (
+                          <div className="bg-muted/20 rounded-lg p-3 mt-2 space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-gray-400">Winning side pool</span>
+                              <span className="text-white font-bold">{winningAmount.toLocaleString()} SBETS</span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-gray-400">Losing side pool</span>
+                              <span className="text-gray-500">{losingAmount.toLocaleString()} SBETS</span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs border-t border-gray-800 pt-1 mt-1">
+                              <span className="text-gray-400">Total paid out</span>
+                              <span className="text-cyan-400 font-bold">{total.toLocaleString()} SBETS</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {userBets.length > 0 && (
+                          <div className="mt-3 border-t border-gray-800/50 pt-3">
+                            <div className="flex items-center gap-2 mb-2">
+                              {userWon && (
+                                <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
+                                  <Trophy className="h-3 w-3 mr-1" />
+                                  You Won {userPayout > 0 ? `${userPayout.toFixed(0)} SBETS` : ''}
+                                </Badge>
+                              )}
+                              {userLost && !userWon && (
+                                <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-xs">
+                                  <XCircle className="h-3 w-3 mr-1" />
+                                  You Lost
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="space-y-1">
+                              {userBets.map((b: any) => {
+                                const won = winningSide && b.side === winningSide.toLowerCase();
+                                const betPayout = won && winningAmount > 0 ? ((b.amount || 0) / winningAmount) * total : 0;
+                                return (
+                                  <div key={b.id} className="flex items-center justify-between text-xs p-2 bg-muted/20 rounded-lg">
+                                    <div className="flex items-center gap-2">
+                                      <Badge className={b.side === 'yes' ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30'}>
+                                        {b.side?.toUpperCase()}
+                                      </Badge>
+                                      <span className="text-gray-300">{b.amount?.toLocaleString()} SBETS</span>
+                                    </div>
+                                    {won ? (
+                                      <span className="text-green-400 font-bold">+{betPayout.toFixed(0)} SBETS</span>
+                                    ) : winningSide ? (
+                                      <span className="text-red-400">-{(b.amount || 0).toLocaleString()} SBETS</span>
+                                    ) : null}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between mt-2 text-xs text-gray-600">
+                          <span>by {formatWallet(p.creatorWallet)}</span>
+                          <span>Ended {p.resolvedAt ? timeAgo(p.resolvedAt) : timeAgo(p.endDate)}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {showCreate && wallet && <CreatePredictionModal onClose={() => setShowCreate(false)} wallet={wallet} />}
     </div>
