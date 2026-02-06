@@ -5318,13 +5318,15 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       if (prediction.endDate && new Date(prediction.endDate) < new Date()) {
         return res.status(400).json({ error: 'Prediction has expired' });
       }
-      await db.insert(socialPredictionBets).values({
+      const txId = `sp_${Date.now()}_${predictionId}_${Math.random().toString(36).slice(2, 10)}`;
+      const [bet] = await db.insert(socialPredictionBets).values({
         predictionId,
         wallet: wallet.toLowerCase(),
         side,
         amount: parsedAmount,
-        currency: currency || 'SUI'
-      });
+        currency: currency || 'SBETS',
+        txId
+      }).returning();
       const yesInc = side === 'yes' ? parseFloat(amount) : 0;
       const noInc = side === 'no' ? parseFloat(amount) : 0;
       await db.update(socialPredictions)
@@ -5334,7 +5336,8 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           totalParticipants: (prediction.totalParticipants || 0) + 1
         })
         .where(eq(socialPredictions.id, predictionId));
-      res.json({ success: true });
+      console.log(`[Social] Prediction bet recorded: ${wallet.slice(0,10)}... | ${side.toUpperCase()} ${parsedAmount} SBETS on prediction #${predictionId} | TX: ${txId}`);
+      res.json({ success: true, txId, betId: bet.id });
     } catch (error) {
       console.error('Prediction bet error:', error);
       res.status(500).json({ error: 'Failed to place prediction bet' });
@@ -5365,7 +5368,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         title,
         description: description || '',
         stakeAmount: parseFloat(stakeAmount),
-        currency: currency || 'SUI',
+        currency: 'SBETS',
         maxParticipants: maxParticipants || 10,
         currentParticipants: 1,
         status: 'open',
@@ -5636,134 +5639,52 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
 
-  app.post("/api/social/seed-data", async (req: Request, res: Response) => {
+  app.get("/api/social/chat", async (req: Request, res: Response) => {
     try {
-      const { socialPredictions, socialChallenges } = await import('@shared/schema');
-      const now = new Date();
-      const predictions = [
-        {
-          creatorWallet: '0xaa7f49920b411adeaf6a79a16fc5e8cd0b2da25fdee3eda70fafb06bdba5abf1',
-          title: 'Will Bitcoin hit $200K by end of 2026?',
-          description: 'BTC price prediction for the next bull run cycle',
-          category: 'crypto',
-          endDate: new Date(now.getTime() + 30 * 86400000),
-          status: 'active',
-          totalYesAmount: 45.5,
-          totalNoAmount: 22.3,
-          totalParticipants: 28
-        },
-        {
-          creatorWallet: '0xbb8f49920b411adeaf6a79a16fc5e8cd0b2da25fdee3eda70fafb06bdba5abf2',
-          title: 'Will Sui Network TVL exceed $5B in Q1 2026?',
-          description: 'Total value locked in Sui DeFi ecosystem prediction',
-          category: 'crypto',
-          endDate: new Date(now.getTime() + 45 * 86400000),
-          status: 'active',
-          totalYesAmount: 18.2,
-          totalNoAmount: 31.5,
-          totalParticipants: 15
-        },
-        {
-          creatorWallet: '0xcc9f49920b411adeaf6a79a16fc5e8cd0b2da25fdee3eda70fafb06bdba5abf3',
-          title: 'Will Real Madrid win the Champions League 2026?',
-          description: 'UEFA Champions League 2025-26 season prediction',
-          category: 'sports',
-          endDate: new Date(now.getTime() + 90 * 86400000),
-          status: 'active',
-          totalYesAmount: 35.0,
-          totalNoAmount: 42.8,
-          totalParticipants: 34
-        },
-        {
-          creatorWallet: '0xaa7f49920b411adeaf6a79a16fc5e8cd0b2da25fdee3eda70fafb06bdba5abf1',
-          title: 'Will Apple release AR glasses in 2026?',
-          description: 'Apple Vision product line expansion prediction',
-          category: 'tech',
-          endDate: new Date(now.getTime() + 120 * 86400000),
-          status: 'active',
-          totalYesAmount: 12.1,
-          totalNoAmount: 8.7,
-          totalParticipants: 9
-        },
-        {
-          creatorWallet: '0xdd0f49920b411adeaf6a79a16fc5e8cd0b2da25fdee3eda70fafb06bdba5abf4',
-          title: 'Will Ethereum flip Bitcoin in market cap by 2027?',
-          description: 'The flippening - ETH vs BTC market cap prediction',
-          category: 'crypto',
-          endDate: new Date(now.getTime() + 180 * 86400000),
-          status: 'active',
-          totalYesAmount: 8.3,
-          totalNoAmount: 55.2,
-          totalParticipants: 22
-        },
-        {
-          creatorWallet: '0xbb8f49920b411adeaf6a79a16fc5e8cd0b2da25fdee3eda70fafb06bdba5abf2',
-          title: 'Will a League of Legends world championship go to 5 games in finals?',
-          description: 'Esports prediction for the next Worlds finals format',
-          category: 'gaming',
-          endDate: new Date(now.getTime() + 60 * 86400000),
-          status: 'active',
-          totalYesAmount: 5.5,
-          totalNoAmount: 3.2,
-          totalParticipants: 7
-        }
-      ];
-      const challenges = [
-        {
-          creatorWallet: '0xaa7f49920b411adeaf6a79a16fc5e8cd0b2da25fdee3eda70fafb06bdba5abf1',
-          title: 'I bet Barcelona wins El Clasico next match - who fades me?',
-          description: 'La Liga El Clasico prediction challenge',
-          stakeAmount: 5,
-          currency: 'SUI',
-          maxParticipants: 10,
-          currentParticipants: 3,
-          status: 'open',
-          expiresAt: new Date(now.getTime() + 7 * 86400000)
-        },
-        {
-          creatorWallet: '0xcc9f49920b411adeaf6a79a16fc5e8cd0b2da25fdee3eda70fafb06bdba5abf3',
-          title: 'SUI token hits $10 this month - fade or back me!',
-          description: 'SUI price challenge',
-          stakeAmount: 2,
-          currency: 'SUI',
-          maxParticipants: 20,
-          currentParticipants: 8,
-          status: 'open',
-          expiresAt: new Date(now.getTime() + 14 * 86400000)
-        },
-        {
-          creatorWallet: '0xdd0f49920b411adeaf6a79a16fc5e8cd0b2da25fdee3eda70fafb06bdba5abf4',
-          title: 'Manchester City won\'t win the Premier League 2026',
-          description: 'Premier League title race prediction',
-          stakeAmount: 10,
-          currency: 'SUI',
-          maxParticipants: 15,
-          currentParticipants: 5,
-          status: 'open',
-          expiresAt: new Date(now.getTime() + 30 * 86400000)
-        },
-        {
-          creatorWallet: '0xbb8f49920b411adeaf6a79a16fc5e8cd0b2da25fdee3eda70fafb06bdba5abf2',
-          title: 'SBETS token 10x by March - who bets against me?',
-          description: 'SBETS token price prediction challenge',
-          stakeAmount: 50000,
-          currency: 'SBETS',
-          maxParticipants: 50,
-          currentParticipants: 12,
-          status: 'open',
-          expiresAt: new Date(now.getTime() + 21 * 86400000)
-        }
-      ];
-      for (const p of predictions) {
-        await db.insert(socialPredictions).values(p);
-      }
-      for (const c of challenges) {
-        await db.insert(socialChallenges).values(c);
-      }
-      res.json({ success: true, predictions: predictions.length, challenges: challenges.length });
+      const { socialChatMessages } = await import('@shared/schema');
+      const { desc } = await import('drizzle-orm');
+      const messages = await db.select().from(socialChatMessages).orderBy(desc(socialChatMessages.createdAt)).limit(100);
+      res.json(messages.reverse());
     } catch (error) {
-      console.error('Seed social data error:', error);
-      res.status(500).json({ error: 'Failed to seed data' });
+      console.error('Chat fetch error:', error);
+      res.json([]);
+    }
+  });
+
+  app.post("/api/social/chat", async (req: Request, res: Response) => {
+    try {
+      const { socialChatMessages } = await import('@shared/schema');
+      const { wallet, message } = req.body;
+      if (!wallet || !message) {
+        return res.status(400).json({ error: 'Wallet and message required' });
+      }
+      const trimmed = message.trim().slice(0, 500);
+      if (!trimmed) {
+        return res.status(400).json({ error: 'Message cannot be empty' });
+      }
+      const [chatMsg] = await db.insert(socialChatMessages).values({
+        wallet: wallet.toLowerCase(),
+        message: trimmed
+      }).returning();
+      res.json(chatMsg);
+    } catch (error) {
+      console.error('Chat send error:', error);
+      res.status(500).json({ error: 'Failed to send message' });
+    }
+  });
+
+  app.get("/api/social/predictions/bets", async (req: Request, res: Response) => {
+    try {
+      const { socialPredictionBets } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      const wallet = (req.query.wallet as string || '').toLowerCase();
+      if (!wallet) return res.json([]);
+      const bets = await db.select().from(socialPredictionBets).where(
+        eq(socialPredictionBets.wallet, wallet)
+      );
+      res.json(bets);
+    } catch (error) {
+      res.json([]);
     }
   });
 

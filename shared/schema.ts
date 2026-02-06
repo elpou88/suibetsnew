@@ -627,7 +627,8 @@ export const socialPredictionBets = pgTable("social_prediction_bets", {
   wallet: text("wallet").notNull(),
   side: text("side").notNull(),
   amount: real("amount").notNull(),
-  currency: text("currency").notNull().default("SUI"),
+  currency: text("currency").notNull().default("SBETS"),
+  txId: text("tx_id"),
   createdAt: timestamp("created_at").defaultNow()
 });
 
@@ -679,3 +680,14 @@ export type SocialChallengeParticipant = typeof socialChallengeParticipants.$inf
 export const insertSocialFollowSchema = createInsertSchema(socialFollows).omit({ id: true, createdAt: true });
 export type InsertSocialFollow = z.infer<typeof insertSocialFollowSchema>;
 export type SocialFollow = typeof socialFollows.$inferSelect;
+
+export const socialChatMessages = pgTable("social_chat_messages", {
+  id: serial("id").primaryKey(),
+  wallet: text("wallet").notNull(),
+  message: text("message").notNull(),
+  createdAt: timestamp("created_at").defaultNow()
+});
+
+export const insertSocialChatMessageSchema = createInsertSchema(socialChatMessages).omit({ id: true, createdAt: true });
+export type InsertSocialChatMessage = z.infer<typeof insertSocialChatMessageSchema>;
+export type SocialChatMessage = typeof socialChatMessages.$inferSelect;
