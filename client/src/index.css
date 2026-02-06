@@ -59,6 +59,8 @@
     --card-foreground: 210 40% 98%;
     --border: 0 0% 14%;
     --input: 0 0% 8%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 64%;
     --ring: 200 100% 50%;
     --success: 120 100% 50%;
     --warning: 40 100% 50%;
@@ -73,6 +75,8 @@
     --card-foreground: 210 40% 98%;
     --border: 0 0% 14%;
     --input: 0 0% 8%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 64%;
   }
 
   * {

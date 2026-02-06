@@ -130,7 +130,7 @@ function CreatePredictionModal({ onClose, wallet }: { onClose: () => void; walle
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder="Will BTC hit $150k by end of 2026?"
-              className="w-full bg-black/50 border border-cyan-900/30 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
+              className="w-full bg-muted/50 border border-cyan-900/30 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
               data-testid="input-prediction-title"
             />
           </div>
@@ -140,7 +140,7 @@ function CreatePredictionModal({ onClose, wallet }: { onClose: () => void; walle
               value={description}
               onChange={e => setDescription(e.target.value)}
               placeholder="Add context or rules..."
-              className="w-full bg-black/50 border border-cyan-900/30 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none resize-none"
+              className="w-full bg-muted/50 border border-cyan-900/30 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none resize-none"
               rows={2}
               data-testid="input-prediction-description"
             />
@@ -151,7 +151,7 @@ function CreatePredictionModal({ onClose, wallet }: { onClose: () => void; walle
               <select
                 value={category}
                 onChange={e => setCategory(e.target.value)}
-                className="w-full bg-black/50 border border-cyan-900/30 rounded-lg px-4 py-3 text-white focus:border-cyan-500/50 focus:outline-none"
+                className="w-full bg-muted/50 border border-cyan-900/30 rounded-lg px-4 py-3 text-white focus:border-cyan-500/50 focus:outline-none"
                 data-testid="select-prediction-category"
               >
                 {CATEGORIES.filter(c => c.value !== 'all').map(c => (
@@ -165,7 +165,7 @@ function CreatePredictionModal({ onClose, wallet }: { onClose: () => void; walle
                 type="datetime-local"
                 value={endDate}
                 onChange={e => setEndDate(e.target.value)}
-                className="w-full bg-black/50 border border-cyan-900/30 rounded-lg px-4 py-3 text-white focus:border-cyan-500/50 focus:outline-none"
+                className="w-full bg-muted/50 border border-cyan-900/30 rounded-lg px-4 py-3 text-white focus:border-cyan-500/50 focus:outline-none"
                 data-testid="input-prediction-enddate"
               />
             </div>
@@ -261,7 +261,7 @@ function CreateChallengeModal({ onClose, wallet }: { onClose: () => void; wallet
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder="I bet Barcelona wins El Clasico - who fades me?"
-              className="w-full bg-black/50 border border-cyan-900/30 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
+              className="w-full bg-muted/50 border border-cyan-900/30 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
               data-testid="input-challenge-title"
             />
           </div>
@@ -271,7 +271,7 @@ function CreateChallengeModal({ onClose, wallet }: { onClose: () => void; wallet
               value={description}
               onChange={e => setDescription(e.target.value)}
               placeholder="Add context..."
-              className="w-full bg-black/50 border border-cyan-900/30 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none resize-none"
+              className="w-full bg-muted/50 border border-cyan-900/30 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none resize-none"
               rows={2}
               data-testid="input-challenge-description"
             />
@@ -285,13 +285,13 @@ function CreateChallengeModal({ onClose, wallet }: { onClose: () => void; wallet
                 onChange={e => setStakeAmount(e.target.value)}
                 min="1"
                 step="1"
-                className="w-full bg-black/50 border border-cyan-900/30 rounded-lg px-4 py-3 text-white focus:border-cyan-500/50 focus:outline-none"
+                className="w-full bg-muted/50 border border-cyan-900/30 rounded-lg px-4 py-3 text-white focus:border-cyan-500/50 focus:outline-none"
                 data-testid="input-challenge-stake"
               />
             </div>
             <div>
               <label className="text-gray-400 text-sm mb-1 block">Token</label>
-              <div className="w-full bg-black/50 border border-cyan-900/30 rounded-lg px-4 py-3 text-cyan-400 font-semibold" data-testid="display-challenge-currency">
+              <div className="w-full bg-muted/50 border border-cyan-900/30 rounded-lg px-4 py-3 text-cyan-400 font-semibold" data-testid="display-challenge-currency">
                 SBETS
               </div>
             </div>
@@ -303,7 +303,7 @@ function CreateChallengeModal({ onClose, wallet }: { onClose: () => void; wallet
                 onChange={e => setMaxParticipants(e.target.value)}
                 min="2"
                 max="100"
-                className="w-full bg-black/50 border border-cyan-900/30 rounded-lg px-4 py-3 text-white focus:border-cyan-500/50 focus:outline-none"
+                className="w-full bg-muted/50 border border-cyan-900/30 rounded-lg px-4 py-3 text-white focus:border-cyan-500/50 focus:outline-none"
                 data-testid="input-challenge-max"
               />
             </div>
@@ -314,7 +314,7 @@ function CreateChallengeModal({ onClose, wallet }: { onClose: () => void; wallet
               type="datetime-local"
               value={expiresAt}
               onChange={e => setExpiresAt(e.target.value)}
-              className="w-full bg-black/50 border border-cyan-900/30 rounded-lg px-4 py-3 text-white focus:border-cyan-500/50 focus:outline-none"
+              className="w-full bg-muted/50 border border-cyan-900/30 rounded-lg px-4 py-3 text-white focus:border-cyan-500/50 focus:outline-none"
               data-testid="input-challenge-expires"
             />
           </div>
@@ -451,31 +451,31 @@ function ProfileModal({ wallet, onClose, myWallet }: { wallet: string; onClose: 
               </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-              <div className="bg-black/50 border border-cyan-900/20 rounded-xl p-3 text-center">
+              <div className="bg-muted/50 border border-cyan-900/20 rounded-xl p-3 text-center">
                 <p className={`text-lg font-bold ${profile.roi >= 0 ? 'text-green-400' : 'text-red-400'}`}>{profile.roi > 0 ? '+' : ''}{profile.roi}%</p>
                 <p className="text-gray-500 text-xs">ROI</p>
               </div>
-              <div className="bg-black/50 border border-cyan-900/20 rounded-xl p-3 text-center">
+              <div className="bg-muted/50 border border-cyan-900/20 rounded-xl p-3 text-center">
                 <p className="text-lg font-bold text-cyan-400">{profile.winRate}%</p>
                 <p className="text-gray-500 text-xs">Win Rate</p>
               </div>
-              <div className="bg-black/50 border border-cyan-900/20 rounded-xl p-3 text-center">
+              <div className="bg-muted/50 border border-cyan-900/20 rounded-xl p-3 text-center">
                 <p className="text-lg font-bold text-yellow-400">{profile.biggestWin} SUI</p>
                 <p className="text-gray-500 text-xs">Biggest Win</p>
               </div>
-              <div className="bg-black/50 border border-cyan-900/20 rounded-xl p-3 text-center">
+              <div className="bg-muted/50 border border-cyan-900/20 rounded-xl p-3 text-center">
                 <p className="text-lg font-bold text-white">{profile.totalBets}</p>
                 <p className="text-gray-500 text-xs">Total Bets</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3 mb-6">
-              <div className="bg-black/50 border border-cyan-900/20 rounded-xl p-3 text-center">
+              <div className="bg-muted/50 border border-cyan-900/20 rounded-xl p-3 text-center">
                 <p className={`text-lg font-bold ${profile.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                   {profile.profit >= 0 ? '+' : ''}{profile.profit} SUI
                 </p>
                 <p className="text-gray-500 text-xs">Total Profit</p>
               </div>
-              <div className="bg-black/50 border border-cyan-900/20 rounded-xl p-3 text-center">
+              <div className="bg-muted/50 border border-cyan-900/20 rounded-xl p-3 text-center">
                 <p className="text-lg font-bold text-purple-400">{profile.totalStaked} SUI</p>
                 <p className="text-gray-500 text-xs">Total Staked</p>
               </div>
@@ -485,7 +485,7 @@ function ProfileModal({ wallet, onClose, myWallet }: { wallet: string; onClose: 
                 <h4 className="text-sm font-semibold text-gray-400 mb-3">Recent Bets</h4>
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {profile.recentBets.map((bet: any) => (
-                    <div key={bet.id} className="flex items-center justify-between p-3 bg-black/30 border border-cyan-900/10 rounded-lg gap-2">
+                    <div key={bet.id} className="flex items-center justify-between p-3 bg-muted/30 border border-cyan-900/10 rounded-lg gap-2">
                       <div className="flex-1 min-w-0">
                         <p className="text-white text-sm truncate">{bet.event}</p>
                         <p className="text-gray-500 text-xs">{bet.prediction} @ {bet.odds?.toFixed(2)} | {bet.stake} SUI</p>
@@ -589,7 +589,7 @@ function HomeTab({ onViewProfile }: { onViewProfile: (w: string) => void }) {
                         <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/30 text-xs shrink-0">{p.category}</Badge>
                       </div>
                       <div className="flex items-center gap-2 mb-2">
-                        <div className="flex-1 h-2.5 bg-black/50 rounded-full overflow-hidden flex">
+                        <div className="flex-1 h-2.5 bg-muted/50 rounded-full overflow-hidden flex">
                           <div className="h-full bg-green-500 rounded-l-full" style={{ width: `${yesPct}%` }} />
                           <div className="h-full bg-red-500 rounded-r-full" style={{ width: `${100 - yesPct}%` }} />
                         </div>
@@ -640,7 +640,7 @@ function HomeTab({ onViewProfile }: { onViewProfile: (w: string) => void }) {
                       </div>
                       <div className="mb-2">
                         <div className="flex items-center gap-2">
-                          <div className="flex-1 h-1.5 bg-black/50 rounded-full overflow-hidden">
+                          <div className="flex-1 h-1.5 bg-muted/50 rounded-full overflow-hidden">
                             <div className="h-full bg-orange-500 rounded-full" style={{ width: `${fillPct}%` }} />
                           </div>
                           <span className="text-orange-400 text-xs font-bold">{c.currentParticipants || 1}/{c.maxParticipants || 10}</span>
@@ -971,7 +971,7 @@ function PredictTab({ wallet }: { wallet?: string }) {
                   </div>
 
                   <div className="flex items-center gap-2 mb-3">
-                    <div className="flex-1 h-3 bg-black/50 rounded-full overflow-hidden flex">
+                    <div className="flex-1 h-3 bg-muted/50 rounded-full overflow-hidden flex">
                       <div className="h-full bg-green-500 rounded-l-full transition-all" style={{ width: `${yesPct}%` }} />
                       <div className="h-full bg-red-500 rounded-r-full transition-all" style={{ width: `${noPct}%` }} />
                     </div>
@@ -1001,7 +1001,7 @@ function PredictTab({ wallet }: { wallet?: string }) {
                               className={`px-2 py-1 rounded text-xs font-bold transition-colors ${
                                 currentBetAmount === amt
                                   ? 'bg-cyan-500/30 text-cyan-400 border border-cyan-500/50'
-                                  : 'bg-black/30 text-gray-500 border border-gray-800 hover:border-gray-600'
+                                  : 'bg-muted/30 text-gray-500 border border-gray-800 hover:border-gray-600'
                               }`}
                               data-testid={`bet-amount-${amt}-${p.id}`}
                             >
@@ -1074,7 +1074,7 @@ function PredictTab({ wallet }: { wallet?: string }) {
                       <p className="text-xs font-semibold text-gray-400 mb-2">Your Bets</p>
                       <div className="space-y-1">
                         {userBets.map((b: any) => (
-                          <div key={b.id} className="flex items-center justify-between text-xs p-2 bg-black/30 rounded-lg">
+                          <div key={b.id} className="flex items-center justify-between text-xs p-2 bg-muted/30 rounded-lg">
                             <div className="flex items-center gap-2">
                               <Badge className={b.side === 'yes' ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30'}>
                                 {b.side?.toUpperCase()}
@@ -1241,7 +1241,7 @@ function ChallengeTab({ wallet }: { wallet?: string }) {
                       <span className="text-gray-400">{c.currentParticipants || 1}/{c.maxParticipants || 10} players</span>
                       <span className="text-orange-400 font-bold">{totalPool.toFixed(0)} {c.currency} pool</span>
                     </div>
-                    <div className="h-2 bg-black/50 rounded-full overflow-hidden">
+                    <div className="h-2 bg-muted/50 rounded-full overflow-hidden">
                       <div className="h-full bg-gradient-to-r from-orange-500 to-red-500 rounded-full transition-all" style={{ width: `${fillPct}%` }} />
                     </div>
                   </div>
@@ -1297,7 +1297,7 @@ function ChallengeTab({ wallet }: { wallet?: string }) {
           <h4 className="text-gray-400 font-semibold mb-3 text-sm">Past Challenges</h4>
           <div className="space-y-2">
             {closedChallenges.slice(0, 5).map((c: any) => (
-              <Card key={c.id} className="bg-[#0a0a0a] border-gray-800 opacity-60">
+              <Card key={c.id} className="bg-card border-gray-800 opacity-60">
                 <CardContent className="p-3 flex items-center justify-between gap-2">
                   <p className="text-gray-400 text-sm flex-1 truncate">{c.title}</p>
                   <div className="flex items-center gap-2">
@@ -1373,7 +1373,7 @@ function LiveChat({ myWallet }: { myWallet?: string }) {
           <MessageCircle className="h-5 w-5 text-cyan-400" />
           <h3 className="text-white font-semibold">Live Chat</h3>
         </div>
-        <div className="h-64 overflow-y-auto mb-3 space-y-2 border border-cyan-900/10 rounded-lg p-3 bg-black/30" data-testid="chat-messages">
+        <div className="h-64 overflow-y-auto mb-3 space-y-2 border border-cyan-900/10 rounded-lg p-3 bg-muted/30" data-testid="chat-messages">
           {messages.length === 0 ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-gray-500 text-sm">No messages yet. Start the conversation!</p>
@@ -1403,7 +1403,7 @@ function LiveChat({ myWallet }: { myWallet?: string }) {
             onChange={e => setMessage(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
             placeholder={myWallet ? "Type a message..." : "Connect wallet to chat"}
-            className="flex-1 bg-black/50 border border-cyan-900/30 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none text-sm"
+            className="flex-1 bg-muted/50 border border-cyan-900/30 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none text-sm"
             disabled={!myWallet}
             data-testid="input-chat-message"
           />
@@ -1504,7 +1504,7 @@ function SocialTab({ onViewProfile, myWallet }: { onViewProfile: (w: string) => 
                 value={xInput}
                 onChange={e => setXInput(e.target.value)}
                 placeholder="@yourusername"
-                className="flex-1 bg-black/50 border border-cyan-900/30 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none text-sm"
+                className="flex-1 bg-muted/50 border border-cyan-900/30 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none text-sm"
                 data-testid="input-x-handle"
               />
               <Button
@@ -1518,7 +1518,7 @@ function SocialTab({ onViewProfile, myWallet }: { onViewProfile: (w: string) => 
               </Button>
               <Button
                 size="sm"
-                className="bg-black text-white border border-gray-700"
+                className="bg-card text-white border border-gray-700"
                 onClick={handleShareOnX}
                 data-testid="button-share-on-x"
               >
@@ -1707,8 +1707,8 @@ export default function NetworkPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-black" data-testid="network-page">
-      <nav className="bg-[#0a0a0a] border-b border-cyan-900/30 px-4 py-3">
+    <div className="min-h-screen bg-background" data-testid="network-page">
+      <nav className="bg-card border-b border-cyan-900/30 px-4 py-3">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
@@ -1779,7 +1779,7 @@ export default function NetworkPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-1 bg-[#0a0a0a] border border-cyan-900/30 rounded-xl p-1 mb-6">
+        <div className="flex items-center gap-1 bg-card border border-cyan-900/30 rounded-xl p-1 mb-6">
           {tabs.map(tab => (
             <button
               key={tab.key}
