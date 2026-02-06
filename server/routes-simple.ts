@@ -1736,8 +1736,30 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         return res.status(400).json({ message: "Event ID required", code: "MISSING_EVENT_ID" });
       }
       
-      // SERVER-SIDE VALIDATION: Check event status before on-chain transaction
-      const eventLookup = apiSportsService.lookupEventSync(String(eventId));
+      const eventIdStr = String(eventId);
+      
+      // Check free sports events first (basketball_, mma_, baseball_, etc.)
+      const freeSportsLookup = freeSportsService.lookupEvent(eventIdStr);
+      if (freeSportsLookup.found) {
+        // Free sports: NO live betting allowed - only pre-game betting
+        if (freeSportsLookup.shouldBeLive) {
+          console.log(`[validate] Free sport event ${eventIdStr} rejected: game has already started (startTime: ${freeSportsLookup.event?.startTime})`);
+          return res.status(400).json({
+            message: "This match has already started. Betting is only available before the game begins.",
+            code: "MATCH_STARTED"
+          });
+        }
+        
+        // Free sport event is valid for pre-game betting
+        return res.json({
+          valid: true,
+          eventId: eventIdStr,
+          source: 'free_sports'
+        });
+      }
+      
+      // SERVER-SIDE VALIDATION: Check event status in paid API cache
+      const eventLookup = apiSportsService.lookupEventSync(eventIdStr);
       
       if (!eventLookup.found) {
         return res.status(400).json({ 
@@ -1759,7 +1781,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         });
       }
       
-      // CRITICAL: 45-minute cutoff for live matches (users can only bet in first 45 minutes)
+      // CRITICAL: 45-minute cutoff for live football matches (users can only bet in first 45 minutes)
       if (eventLookup.source === 'live' && eventLookup.minute !== undefined) {
         if (eventLookup.minute >= 45) {
           console.log(`[validate] Event ${eventId} rejected: ${eventLookup.minute} min >= 45 cutoff`);
@@ -1844,8 +1866,18 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         });
       }
       
+      // SERVER-SIDE: Block betting on free sports events that have already started
+      const freeLookup = freeSportsService.lookupEvent(eventId);
+      if (freeLookup.found && freeLookup.shouldBeLive) {
+        console.log(`❌ Blocked bet on started free sport event ${eventId} from ${(walletAddress || userId).slice(0, 12)}...`);
+        return res.status(400).json({
+          message: "This match has already started. Betting is only available before the game begins.",
+          code: "MATCH_STARTED"
+        });
+      }
+      
       // ANTI-EXPLOIT: Validate event exists in our system (for non-live bets)
-      if (!isLive) {
+      if (!isLive && !freeLookup.found) {
         try {
           const eventCheck = apiSportsService.lookupEventSync(eventId);
           if (!eventCheck) {

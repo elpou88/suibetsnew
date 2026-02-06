@@ -1144,16 +1144,54 @@ export class BlockchainBetService {
           // ANTI-EXPLOIT: Validate event ID is a real event in our system
           try {
             const apiSportsService = (await import('./apiSportsService')).default;
-            const eventData = apiSportsService.lookupEventSync(eventId);
-            if (!eventData || !eventData.homeTeam || !eventData.awayTeam) {
-              console.warn(`🚫 EXPLOIT BLOCKED: Rejecting bet ${betObjectId.slice(0, 12)}... - Event ${eventId} not found in our system`);
-              continue; // Don't sync bets for events we don't track
-            }
+            const { freeSportsService } = await import('./freeSportsService');
             
-            // Use real event data if found
-            homeTeam = eventData.homeTeam;
-            awayTeam = eventData.awayTeam;
-            eventName = `${homeTeam} vs ${awayTeam}`;
+            // Check paid API sports first
+            const eventData = apiSportsService.lookupEventSync(eventId);
+            if (eventData && eventData.found && (eventData.homeTeam || eventData.awayTeam)) {
+              homeTeam = eventData.homeTeam || homeTeam;
+              awayTeam = eventData.awayTeam || awayTeam;
+              eventName = `${homeTeam} vs ${awayTeam}`;
+            } else {
+              // Check free sports events (basketball_, mma_, baseball_, etc.)
+              const freeLookup = freeSportsService.lookupEvent(eventId);
+              if (freeLookup.found && freeLookup.event) {
+                homeTeam = freeLookup.event.homeTeam || homeTeam;
+                awayTeam = freeLookup.event.awayTeam || awayTeam;
+                eventName = `${homeTeam} vs ${awayTeam}`;
+                console.log(`✅ Free sport event verified: ${eventId} (${eventName})`);
+              } else if (eventId.startsWith('parlay_')) {
+                // Parlay bets have composite event IDs - extract and verify each leg
+                const parts = eventId.split('_');
+                let allLegsValid = true;
+                for (let i = 2; i < parts.length; i++) {
+                  const legId = parts[i];
+                  // Check if leg ID contains sport prefix (e.g., basketball_489697)
+                  const nextPart = parts[i + 1];
+                  let fullLegId = legId;
+                  if (nextPart && !isNaN(Number(nextPart))) {
+                    fullLegId = `${legId}_${nextPart}`;
+                    i++; // Skip the number part
+                  }
+                  const legCheck = apiSportsService.lookupEventSync(fullLegId);
+                  const freeLegCheck = freeSportsService.lookupEvent(fullLegId);
+                  if (!legCheck.found && !freeLegCheck.found) {
+                    // Also try just the numeric part (football bets use numeric IDs)
+                    const numericCheck = apiSportsService.lookupEventSync(legId);
+                    if (!numericCheck.found) {
+                      allLegsValid = false;
+                    }
+                  }
+                }
+                if (!allLegsValid) {
+                  console.warn(`🚫 EXPLOIT BLOCKED: Rejecting bet ${betObjectId.slice(0, 12)}... - Event ${eventId} not found in our system`);
+                  continue;
+                }
+              } else {
+                console.warn(`🚫 EXPLOIT BLOCKED: Rejecting bet ${betObjectId.slice(0, 12)}... - Event ${eventId} not found in our system`);
+                continue;
+              }
+            }
           } catch (eventCheckError) {
             console.warn(`🚫 EXPLOIT BLOCKED: Rejecting bet ${betObjectId.slice(0, 12)}... - Could not verify event ${eventId}`);
             continue; // Don't sync bets for unverifiable events

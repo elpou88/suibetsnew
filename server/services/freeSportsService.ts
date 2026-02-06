@@ -262,44 +262,62 @@ export class FreeSportsService {
     console.log('[FreeSports] 📅 Fetching upcoming matches for all free sports...');
     
     const allEvents: SportEvent[] = [];
-    const today = new Date();
-    const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const DAYS_TO_FETCH = 7;
 
     for (const [sportSlug, config] of Object.entries(FREE_SPORTS_CONFIG)) {
       try {
-        const events = await this.fetchUpcomingForSport(sportSlug, config, today, nextWeek);
-        allEvents.push(...events);
-        console.log(`[FreeSports] ${config.name}: ${events.length} upcoming matches`);
+        let sportEvents: SportEvent[] = [];
         
-        // Small delay between API calls to be nice to the free tier
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        for (let dayOffset = 0; dayOffset < DAYS_TO_FETCH; dayOffset++) {
+          const fetchDate = new Date();
+          fetchDate.setUTCDate(fetchDate.getUTCDate() + dayOffset);
+          
+          try {
+            const dayEvents = await this.fetchUpcomingForSingleDate(sportSlug, config, fetchDate);
+            sportEvents.push(...dayEvents);
+          } catch (dayErr: any) {
+            if (dayErr.response?.status === 429) {
+              console.warn(`[FreeSports] Rate limited for ${config.name} day+${dayOffset}, stopping`);
+              break;
+            }
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+        
+        const seenIds = new Set<string>();
+        sportEvents = sportEvents.filter(e => {
+          const id = String(e.id);
+          if (seenIds.has(id)) return false;
+          seenIds.add(id);
+          return true;
+        });
+        
+        allEvents.push(...sportEvents);
+        console.log(`[FreeSports] ${config.name}: ${sportEvents.length} upcoming matches (${DAYS_TO_FETCH} days)`);
+        
+        await new Promise(resolve => setTimeout(resolve, 500));
       } catch (error: any) {
         console.error(`[FreeSports] Error fetching ${config.name}:`, error.message);
       }
     }
 
-    // Update cache and set per-day lock
     cachedFreeSportsEvents = allEvents;
     lastFetchTime = Date.now();
-    lastUpcomingFetchDate = getUTCDateString(); // Lock: only fetch once per day
+    lastUpcomingFetchDate = getUTCDateString();
     
-    // ULTRA API SAVING: Persist cache to file for restart survival
     saveCacheToFile();
     
     console.log(`[FreeSports] ✅ Total: ${allEvents.length} upcoming matches cached (locked until ${lastUpcomingFetchDate})`);
     return allEvents;
   }
 
-  /**
-   * Fetch upcoming matches for a single sport
-   */
-  private async fetchUpcomingForSport(
+  private async fetchUpcomingForSingleDate(
     sportSlug: string, 
     config: typeof FREE_SPORTS_CONFIG[string],
-    startDate: Date,
-    endDate: Date
+    fetchDate: Date
   ): Promise<SportEvent[]> {
-    const dateStr = startDate.toISOString().split('T')[0];
+    const dateStr = fetchDate.toISOString().split('T')[0];
     
     try {
       const response = await axios.get(config.endpoint, {
@@ -535,6 +553,20 @@ export class FreeSportsService {
       cacheAgeMinutes: Math.round(cacheAgeMs / (60 * 1000)),
       isStale: cacheAgeMs > CACHE_TTL
     };
+  }
+
+  /**
+   * Look up a specific event by ID for validation
+   * Returns event data including startTime for betting cutoff enforcement
+   */
+  lookupEvent(eventId: string): { found: boolean; event?: SportEvent; shouldBeLive: boolean } {
+    const event = cachedFreeSportsEvents.find(e => String(e.id) === String(eventId));
+    if (!event) {
+      return { found: false, shouldBeLive: false };
+    }
+    
+    const shouldBeLive = event.startTime ? new Date(event.startTime).getTime() <= Date.now() : false;
+    return { found: true, event, shouldBeLive };
   }
 
   /**

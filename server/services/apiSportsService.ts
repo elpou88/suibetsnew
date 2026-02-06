@@ -70,11 +70,11 @@ export class ApiSportsService {
   // Background prefetcher state
   private prefetcherRunning: boolean = false;
   private lastPrefetchTime: number = 0;
-  private prefetchInterval: number = 120 * 60 * 1000; // Refresh odds every 2 hours (MINIMAL API USAGE)
+  private prefetchInterval: number = 30 * 60 * 1000; // Refresh odds every 30 minutes
   
   // Pre-warmed odds cache - separate from main cache for guaranteed access
   private oddsCache: Map<string, { homeOdds: number; drawOdds?: number; awayOdds: number; timestamp: number }> = new Map();
-  private oddsCacheTTL: number = 30 * 60 * 1000; // 30 minutes TTL for odds (AGGRESSIVE API SAVING)
+  private oddsCacheTTL: number = 4 * 60 * 60 * 1000; // 4 hours TTL - must outlast prefetch interval
   
   // Cache settings - AGGRESSIVE API SAVING to prevent quota exhaustion
   private shortCacheExpiry: number = 120 * 1000; // 2 minutes for live events (was 60s) - saves 50% API calls
@@ -2880,51 +2880,31 @@ export class ApiSportsService {
     
     const resultMap = new Map<string, any>();
     
-    // ULTRA API SAVING: Return ONLY cached odds - no API calls
-    // All odds come from prefetch scheduler only
-    console.log(`[ApiSportsService] 🎰 CACHE-ONLY mode: Returning cached odds for ${fixtureIds.length} fixtures (no API calls)`);
-    
+    // Step 1: Return cached odds first
     for (const fixtureId of fixtureIds) {
       const cached = this.oddsCache.get(fixtureId);
-      if (cached) {
+      if (cached && (Date.now() - cached.timestamp < this.oddsCacheTTL)) {
         resultMap.set(fixtureId, cached);
       }
     }
     
-    console.log(`[ApiSportsService] 🎰 Found ${resultMap.size}/${fixtureIds.length} fixtures in cache`);
-    return resultMap;
+    console.log(`[ApiSportsService] 🎰 Cache hits: ${resultMap.size}/${fixtureIds.length} fixtures`);
     
-    // ===== DISABLED: Individual API calls - use prefetch scheduler instead =====
-    /*
+    // Step 2: If we have good cache coverage (>60%), return cached data
+    if (resultMap.size >= fixtureIds.length * 0.6) {
+      return resultMap;
+    }
     
-    // Process ALL batches with rate limiting (max 10 requests per second for API-Sports)
-    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
-      const batch = batches[batchIndex];
-      const promises = batch.map(async (fixtureId) => {
-        const cacheKey = `odds_fixture_${fixtureId}`;
-        
+    // Step 3: For live events with poor cache coverage, fetch from API (limited to 5 fixtures max)
+    const uncachedIds = fixtureIds.filter(id => !resultMap.has(id));
+    if (uncachedIds.length > 0 && (sport === 'football' || sport === 'soccer')) {
+      const toFetch = uncachedIds.slice(0, 5); // Limit API calls
+      console.log(`[ApiSportsService] 🎰 Fetching odds for ${toFetch.length} uncached fixtures from API`);
+      
+      for (const fixtureId of toFetch) {
         try {
-          // Check cache first
-          const cached = this.cache.get(cacheKey);
-          if (cached && Date.now() - cached.timestamp < this.mediumCacheExpiry) {
-            return cached.data;
-          }
-          
-          let apiUrl: string;
-          let params: any = {};
-          
-          if (sport === 'football' || sport === 'soccer') {
-            apiUrl = 'https://v3.football.api-sports.io/odds';
-            params = { fixture: fixtureId };
-          } else if (sport === 'basketball') {
-            apiUrl = 'https://v1.basketball.api-sports.io/odds';
-            params = { game: fixtureId };
-          } else {
-            return null;
-          }
-          
-          const response = await axios.get(apiUrl, {
-            params,
+          const response = await axios.get('https://v3.football.api-sports.io/odds', {
+            params: isLive ? { fixture: fixtureId, live: 'true' } : { fixture: fixtureId },
             headers: {
               'x-apisports-key': this.apiKey,
               'Accept': 'application/json'
@@ -2932,41 +2912,53 @@ export class ApiSportsService {
             timeout: 10000
           });
           
-          if (response.data?.response?.[0]?.bookmakers && response.data.response[0].bookmakers.length > 0) {
-            // Check ALL bookmakers (not just first) to find Match Winner market
+          if (response.data?.response?.[0]?.bookmakers) {
             const allBookmakers = response.data.response[0].bookmakers;
             const matchWinnerNames = [
-              'Match Winner', 'Winner', 'Home/Away', '1X2', 'Fulltime Result', 
-              '3Way', 'To Win', 'Money Line', 'Moneyline', 'Full Time Result',
-              'Match Result', 'Game Winner', 'Final Result', 'Regular Time',
-              '1x2 - Full Time', '3-Way Result', 'Match Odds', 'Win/Draw/Win',
-              'Home Draw Away', 'Three Way', '3 Way', 'Full-Time Result'
+              'match winner', 'winner', 'home/away', '1x2', 'fulltime result',
+              '3way', 'to win', 'money line', 'moneyline', 'full time result',
+              'match result', 'game winner', 'final result', 'regular time',
+              '1x2 - full time', '3-way result', 'match odds', 'win/draw/win',
+              'home draw away', 'three way', '3 way', 'full-time result'
             ];
             
-            // Search through ALL bookmakers for the best Match Winner odds
             for (const bookmaker of allBookmakers) {
-              const matchWinner = bookmaker.bets?.find((b: any) => 
-                matchWinnerNames.some(name => b.name?.toLowerCase() === name.toLowerCase())
+              const matchWinner = bookmaker.bets?.find((b: any) =>
+                matchWinnerNames.some(name => b.name?.toLowerCase() === name)
               );
               
               if (matchWinner?.values) {
-                const oddsValues: any = { fixtureId, bookmakerName: bookmaker.name };
+                const oddsValues: any = { fixtureId, bookmakerName: bookmaker.name, timestamp: Date.now() };
                 for (const val of matchWinner.values) {
                   const outcome = val.value?.toLowerCase();
                   const oddValue = parseFloat(val.odd);
-                  if (outcome === 'home' || outcome === '1') {
-                    oddsValues.homeOdds = oddValue;
-                  } else if (outcome === 'draw' || outcome === 'x') {
-                    oddsValues.drawOdds = oddValue;
-                  } else if (outcome === 'away' || outcome === '2') {
-                    oddsValues.awayOdds = oddValue;
-                  }
+                  if (outcome === 'home' || outcome === '1') oddsValues.homeOdds = oddValue;
+                  else if (outcome === 'draw' || outcome === 'x') oddsValues.drawOdds = oddValue;
+                  else if (outcome === 'away' || outcome === '2') oddsValues.awayOdds = oddValue;
                 }
-                // Only cache successful results - short cache for live events
-                this.cache.set(cacheKey, { data: oddsValues, timestamp: Date.now() });
-                // Also store in oddsCache for cross-request consistency
-                this.oddsCache.set(fixtureId, {
-                  homeOdds: oddsValues.homeOdds,
+                
+                if (oddsValues.homeOdds && oddsValues.awayOdds) {
+                  this.oddsCache.set(fixtureId, oddsValues);
+                  resultMap.set(fixtureId, oddsValues);
+                  break;
+                }
+              }
+            }
+          }
+          
+          // Rate limit: small delay between API calls
+          await new Promise(r => setTimeout(r, 200));
+        } catch (error) {
+          // Silently skip failed fixture
+        }
+      }
+    }
+    
+    console.log(`[ApiSportsService] 🎰 Total odds: ${resultMap.size}/${fixtureIds.length} fixtures`);
+    return resultMap;
+    
+    // ===== DISABLED: Legacy batch processing =====
+    /*
                   drawOdds: oddsValues.drawOdds,
                   awayOdds: oddsValues.awayOdds,
                   timestamp: Date.now()
@@ -3411,13 +3403,13 @@ export class ApiSportsService {
    */
   private async prefetchOdds(): Promise<void> {
     try {
-      console.log('[ApiSportsService] 🔄 Prefetching odds for TODAY only (ULTRA API SAVING)...');
+      console.log('[ApiSportsService] 🔄 Prefetching odds for today and tomorrow...');
       const startTime = Date.now();
       
-      // ULTRA API SAVING: Only fetch today's odds (cuts API calls in half)
       const today = new Date();
+      const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
       const formatDate = (d: Date) => d.toISOString().split('T')[0];
-      const dates = [formatDate(today)]; // Only today, skip tomorrow
+      const dates = [formatDate(today), formatDate(tomorrow)];
       
       let totalOdds = 0;
       let totalApiCalls = 0;
@@ -3427,7 +3419,7 @@ export class ApiSportsService {
         let page = 1;
         let hasMore = true;
         
-        while (hasMore && page <= 3) { // Max 3 pages per date (MINIMAL API USAGE - only major leagues)
+        while (hasMore && page <= 10) { // Max 10 pages per date for thorough coverage
           try {
             console.log(`[ApiSportsService] 📅 Fetching odds for ${date} (page ${page})...`);
             
