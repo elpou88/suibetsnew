@@ -103,6 +103,97 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
   freeSportsService.startSchedulers();
   console.log('🆓 Free sports scheduler started - daily updates for basketball, baseball, hockey, MMA, NFL');
 
+  // Shared guard: prevents both auto-resolve worker and manual endpoint from resolving the same prediction simultaneously
+  const resolvingPredictions = new Set<number>();
+
+  // Auto-resolve expired prediction markets every 2 minutes
+  // Majority side (more SBETS wagered) wins and splits the pool
+  setInterval(async () => {
+    try {
+      const { socialPredictions, socialPredictionBets } = await import('@shared/schema');
+      const { eq, and, lt } = await import('drizzle-orm');
+      const now = new Date();
+      const expiredPredictions = await db.select().from(socialPredictions)
+        .where(and(eq(socialPredictions.status, 'active'), lt(socialPredictions.endDate, now)));
+      
+      for (const prediction of expiredPredictions) {
+        if (resolvingPredictions.has(prediction.id)) {
+          console.log(`[AutoResolve] Prediction #${prediction.id} already being resolved, skipping`);
+          continue;
+        }
+        resolvingPredictions.add(prediction.id);
+        try {
+          const [fresh] = await db.select().from(socialPredictions).where(eq(socialPredictions.id, prediction.id));
+          if (!fresh || fresh.status !== 'active') {
+            console.log(`[AutoResolve] Prediction #${prediction.id} already resolved, skipping`);
+            continue;
+          }
+          
+          const allBets = await db.select().from(socialPredictionBets)
+            .where(eq(socialPredictionBets.predictionId, prediction.id));
+          
+          const yesTotal = allBets.filter(b => b.side === 'yes').reduce((sum, b) => sum + (b.amount || 0), 0);
+          const noTotal = allBets.filter(b => b.side === 'no').reduce((sum, b) => sum + (b.amount || 0), 0);
+          const totalPool = yesTotal + noTotal;
+          
+          if (totalPool === 0 || allBets.length === 0) {
+            await db.update(socialPredictions)
+              .set({ status: 'expired', resolvedAt: now })
+              .where(eq(socialPredictions.id, prediction.id));
+            console.log(`[AutoResolve] Prediction #${prediction.id} expired with no bets`);
+            continue;
+          }
+          
+          const resolution = yesTotal >= noTotal ? 'yes' : 'no';
+          const winners = allBets.filter(b => b.side === resolution);
+          const winnersTotal = winners.reduce((sum, b) => sum + (b.amount || 0), 0);
+          const newStatus = resolution === 'yes' ? 'resolved_yes' : 'resolved_no';
+          
+          if (winners.length === 0 || winnersTotal === 0) {
+            await db.update(socialPredictions)
+              .set({ status: newStatus, resolvedOutcome: resolution, resolvedAt: now })
+              .where(eq(socialPredictions.id, prediction.id));
+            console.log(`[AutoResolve] Prediction #${prediction.id} resolved ${resolution.toUpperCase()} - no winners`);
+            continue;
+          }
+          
+          console.log(`[AutoResolve] Prediction #${prediction.id} auto-resolving: YES=${yesTotal} vs NO=${noTotal} → ${resolution.toUpperCase()} wins | Pool: ${totalPool} SBETS`);
+          
+          let successCount = 0;
+          let failCount = 0;
+          for (const winner of winners) {
+            const payout = ((winner.amount || 0) / winnersTotal) * totalPool;
+            if (payout <= 0) continue;
+            try {
+              const result = await blockchainBetService.sendSbetsToUser(winner.wallet, payout);
+              if (result.success) {
+                successCount++;
+                console.log(`[AutoResolve] Payout: ${payout.toFixed(0)} SBETS → ${winner.wallet.slice(0,10)}...`);
+              } else {
+                failCount++;
+              }
+            } catch {
+              failCount++;
+            }
+          }
+          
+          const finalStatus = failCount === 0 ? newStatus : (successCount > 0 ? `${newStatus}_partial` : `${newStatus}_failed`);
+          await db.update(socialPredictions)
+            .set({ status: finalStatus, resolvedOutcome: resolution, resolvedAt: now })
+            .where(eq(socialPredictions.id, prediction.id));
+          console.log(`[AutoResolve] Prediction #${prediction.id} settled: ${successCount}/${winners.length} payouts OK`);
+        } catch (err: any) {
+          console.error(`[AutoResolve] Error resolving prediction #${prediction.id}:`, err.message);
+        } finally {
+          resolvingPredictions.delete(prediction.id);
+        }
+      }
+    } catch (err: any) {
+      console.error('[AutoResolve] Worker error:', err.message);
+    }
+  }, 2 * 60 * 1000);
+  console.log('🎯 Prediction auto-resolve worker started - checks every 2 minutes for expired markets');
+
   // Create HTTP server
   const httpServer = createServer(app);
 
@@ -5737,8 +5828,6 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
 
-  const resolvingPredictions = new Set<number>();
-
   app.post("/api/social/predictions/:id/resolve", async (req: Request, res: Response) => {
     try {
       const { socialPredictions, socialPredictionBets } = await import('@shared/schema');
@@ -5747,12 +5836,9 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       if (isNaN(predictionId) || predictionId <= 0) {
         return res.status(400).json({ error: 'Invalid prediction ID' });
       }
-      const { resolution, resolverWallet } = req.body;
-      if (!resolution || !['yes', 'no'].includes(resolution)) {
-        return res.status(400).json({ error: 'Resolution must be "yes" or "no"' });
-      }
+      const { resolverWallet } = req.body;
       if (!resolverWallet || typeof resolverWallet !== 'string' || !resolverWallet.startsWith('0x')) {
-        return res.status(400).json({ error: 'Valid resolver wallet required' });
+        return res.status(400).json({ error: 'Valid wallet required' });
       }
       if (resolvingPredictions.has(predictionId)) {
         return res.status(409).json({ error: 'Prediction is already being resolved' });
@@ -5766,29 +5852,32 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         if (prediction.status !== 'active') {
           return res.status(400).json({ error: 'Prediction is not active - may already be resolved' });
         }
-        if (resolverWallet.toLowerCase() !== prediction.creatorWallet?.toLowerCase()) {
-          return res.status(403).json({ error: 'Only the creator can resolve this prediction' });
-        }
         if (prediction.endDate && new Date(prediction.endDate) > new Date()) {
           return res.status(400).json({ error: 'Cannot resolve before end date' });
         }
         const allBets = await db.select().from(socialPredictionBets).where(eq(socialPredictionBets.predictionId, predictionId));
+        const yesTotal = allBets.filter(b => b.side === 'yes').reduce((sum, b) => sum + (b.amount || 0), 0);
+        const noTotal = allBets.filter(b => b.side === 'no').reduce((sum, b) => sum + (b.amount || 0), 0);
+        const totalPool = yesTotal + noTotal;
+        const resolution = yesTotal >= noTotal ? 'yes' : 'no';
         const winners = allBets.filter(b => b.side === resolution);
         const losers = allBets.filter(b => b.side !== resolution);
-        const totalPool = allBets.reduce((sum, b) => sum + (b.amount || 0), 0);
         const winnersTotal = winners.reduce((sum, b) => sum + (b.amount || 0), 0);
         const newStatus = resolution === 'yes' ? 'resolved_yes' : 'resolved_no';
         if (totalPool === 0 || winners.length === 0) {
           await db.update(socialPredictions)
             .set({ status: newStatus, resolvedOutcome: resolution, resolvedAt: new Date() })
             .where(eq(socialPredictions.id, predictionId));
-          console.log(`[Social] Prediction #${predictionId} resolved ${resolution.toUpperCase()} - no winners to pay (pool: ${totalPool} SBETS)`);
+          console.log(`[Social] Prediction #${predictionId} resolved ${resolution.toUpperCase()} (majority) - no winners to pay (pool: ${totalPool} SBETS)`);
           return res.json({
             success: true,
             resolution: newStatus,
             totalPool,
             winnersCount: 0,
             losersCount: losers.length,
+            winningSide: resolution,
+            yesTotal,
+            noTotal,
             payouts: [],
             payoutStatus: winners.length === 0 ? 'no_winners' : 'empty_pool'
           });
@@ -5798,7 +5887,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           betAmount: w.amount,
           payout: winnersTotal > 0 ? ((w.amount || 0) / winnersTotal) * totalPool : 0
         }));
-        console.log(`[Social] Prediction #${predictionId} resolving ${resolution.toUpperCase()} | Pool: ${totalPool} SBETS | Winners: ${winners.length} | Losers: ${losers.length}`);
+        console.log(`[Social] Prediction #${predictionId} resolving by majority: YES=${yesTotal} vs NO=${noTotal} → ${resolution.toUpperCase()} wins | Pool: ${totalPool} SBETS | Winners: ${winners.length}`);
         const payoutResults: { wallet: string; amount: number; txHash?: string; error?: string }[] = [];
         for (const payout of payouts) {
           if (payout.payout <= 0) continue;
@@ -5829,6 +5918,9 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           totalPool,
           winnersCount: winners.length,
           losersCount: losers.length,
+          winningSide: resolution,
+          yesTotal,
+          noTotal,
           payouts,
           payoutResults: {
             successful: successfulPayouts.length,

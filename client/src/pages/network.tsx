@@ -843,11 +843,11 @@ function PredictTab({ wallet }: { wallet?: string }) {
   });
 
   const resolveMutation = useMutation({
-    mutationFn: async ({ predictionId, outcome }: { predictionId: number; outcome: string }) => {
+    mutationFn: async ({ predictionId }: { predictionId: number }) => {
       const res = await fetch(`/api/social/predictions/${predictionId}/resolve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resolverWallet: wallet, resolution: outcome })
+        body: JSON.stringify({ resolverWallet: wallet })
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -857,13 +857,14 @@ function PredictTab({ wallet }: { wallet?: string }) {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/social/predictions'] });
+      const winningSide = data?.winningSide?.toUpperCase() || '?';
       const payoutInfo = data?.payoutResults;
       if (payoutInfo && payoutInfo.successful > 0) {
-        toast({ title: 'Market Resolved & Paid Out', description: `${payoutInfo.successful} winner(s) paid ${data.totalPool} SBETS from treasury` });
+        toast({ title: `${winningSide} Wins!`, description: `Majority side wins! ${payoutInfo.successful} winner(s) split ${data.totalPool} SBETS` });
       } else if (data?.winnersCount === 0) {
-        toast({ title: 'Market Resolved', description: 'No winners - no payouts needed' });
+        toast({ title: 'Market Resolved', description: `${winningSide} won but no winners to pay` });
       } else {
-        toast({ title: 'Market Resolved', description: `Pool: ${data?.totalPool || 0} SBETS | Winners: ${data?.winnersCount || 0}` });
+        toast({ title: `${winningSide} Wins!`, description: `Pool: ${data?.totalPool || 0} SBETS | Winners: ${data?.winnersCount || 0}` });
       }
     },
     onError: (err: Error) => {
@@ -905,9 +906,9 @@ function PredictTab({ wallet }: { wallet?: string }) {
             <div className="mt-3 space-y-2 text-sm text-gray-400">
               <p>Predict = Pool-based prediction market. You bet YES or NO on any question.</p>
               <p>When you place a bet, your SBETS are transferred on-chain to the platform treasury. Your wallet signs the real transaction.</p>
-              <p>When the creator resolves the market (YES or NO), the winning side splits the ENTIRE pool proportionally. Payouts are sent directly to your wallet from treasury.</p>
-              <p className="text-cyan-400/80">Example: If 10,000 SBETS on YES and 5,000 on NO, and YES wins, YES bettors split 15,000 SBETS proportionally.</p>
-              <p>Every bet is a real on-chain SBETS transfer verified by the Sui blockchain. No fake transactions - your wallet signs each bet.</p>
+              <p>When time runs out, the side with more SBETS wagered wins automatically. Winners split the ENTIRE pool proportionally. Payouts are sent directly to your wallet.</p>
+              <p className="text-cyan-400/80">Example: If 10,000 SBETS on YES and 5,000 on NO, YES has majority so YES bettors split 15,000 SBETS proportionally.</p>
+              <p>Markets auto-resolve within minutes of expiry. Every bet is a real on-chain SBETS transfer verified by the Sui blockchain.</p>
             </div>
           )}
         </CardContent>
@@ -965,8 +966,7 @@ function PredictTab({ wallet }: { wallet?: string }) {
             const noPct = 100 - yesPct;
             const isEnded = new Date(p.endDate) <= new Date();
             const isActive = p.status === 'active' && !isEnded;
-            const isCreator = wallet && wallet.toLowerCase() === p.creatorWallet?.toLowerCase();
-            const canResolve = isCreator && isEnded && p.status === 'active';
+            const canResolve = wallet && isEnded && p.status === 'active';
             const currentBetAmount = getBetAmount(p.id);
             const userBets = getBetsForPrediction(p.id);
             return (
@@ -1052,35 +1052,26 @@ function PredictTab({ wallet }: { wallet?: string }) {
 
                   {canResolve && (
                     <div className="space-y-2 mt-3">
-                      <p className="text-yellow-400 text-xs font-semibold">You are the creator - resolve this market:</p>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          className="flex-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/30 font-bold"
-                          onClick={() => resolveMutation.mutate({ predictionId: p.id, outcome: 'yes' })}
-                          disabled={resolveMutation.isPending}
-                          data-testid={`button-resolve-yes-${p.id}`}
-                        >
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          Resolve YES
-                        </Button>
-                        <Button
-                          size="sm"
-                          className="flex-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 font-bold"
-                          onClick={() => resolveMutation.mutate({ predictionId: p.id, outcome: 'no' })}
-                          disabled={resolveMutation.isPending}
-                          data-testid={`button-resolve-no-${p.id}`}
-                        >
-                          <XCircle className="h-4 w-4 mr-1" />
-                          Resolve NO
-                        </Button>
-                      </div>
+                      <p className="text-yellow-400 text-xs font-semibold">
+                        Time expired - {yesPct > 50 ? 'YES' : yesPct < 50 ? 'NO' : 'TIE (YES)'} side has majority ({total > 0 ? `${Math.max(yesPct, noPct).toFixed(0)}%` : 'no bets'})
+                      </p>
+                      <Button
+                        size="sm"
+                        className="w-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-bold"
+                        onClick={() => resolveMutation.mutate({ predictionId: p.id })}
+                        disabled={resolveMutation.isPending}
+                        data-testid={`button-resolve-${p.id}`}
+                      >
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        {resolveMutation.isPending ? 'Resolving...' : 'Resolve & Pay Winners'}
+                      </Button>
+                      <p className="text-gray-600 text-xs text-center">Auto-resolves within minutes, or tap to trigger now</p>
                     </div>
                   )}
 
                   {!isActive && !canResolve && (
                     <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30">
-                      {p.status === 'resolved_yes' ? 'Resolved: YES' : p.status === 'resolved_no' ? 'Resolved: NO' : 'Market Ended'}
+                      {p.status === 'resolved_yes' ? 'Resolved: YES Wins' : p.status === 'resolved_no' ? 'Resolved: NO Wins' : p.status === 'expired' ? 'Expired (No Bets)' : 'Market Ended'}
                     </Badge>
                   )}
 
