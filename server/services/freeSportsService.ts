@@ -139,13 +139,6 @@ const FREE_SPORTS_CONFIG: Record<string, {
     name: 'Handball',
     hasDraws: true
   },
-  nba: {
-    endpoint: 'https://v1.nba.api-sports.io/games',
-    apiHost: 'v1.nba.api-sports.io',
-    sportId: 13,
-    name: 'NBA',
-    hasDraws: false
-  },
   nfl: {
     endpoint: 'https://v1.nfl.api-sports.io/games',
     apiHost: 'v1.nfl.api-sports.io',
@@ -262,7 +255,7 @@ export class FreeSportsService {
     console.log('[FreeSports] 📅 Fetching upcoming matches for all free sports...');
     
     const allEvents: SportEvent[] = [];
-    const DAYS_TO_FETCH = 7;
+    const DAYS_TO_FETCH = 3;
 
     for (const [sportSlug, config] of Object.entries(FREE_SPORTS_CONFIG)) {
       try {
@@ -531,10 +524,9 @@ export class FreeSportsService {
    */
   isFreeSport(sportSlug: string): boolean {
     return sportSlug in FREE_SPORTS_CONFIG || 
-           sportSlug === 'hockey' || // alias
-           sportSlug === 'nba' || // alias
-           sportSlug === 'nfl' || // alias
-           sportSlug === 'mlb'; // alias
+           sportSlug === 'hockey' || 
+           sportSlug === 'nfl' || 
+           sportSlug === 'mlb';
   }
 
   /**

@@ -624,13 +624,13 @@ export class ApiSportsService {
       return [];
     }
 
-    console.log(`[ApiSportsService] Attempting to fetch live events for ${sport} with API key`);
-    
-    // Special handling for tennis since its API may not be accessible
-    if (sport === 'tennis') {
-      // We'll only show tennis data if it's available from the actual tennis API
-      return await this.getTennisLiveEvents();
+    const FREE_SPORTS = ['basketball', 'baseball', 'hockey', 'ice-hockey', 'rugby', 'handball', 'volleyball', 'mma', 'mma-ufc', 'american-football', 'american_football', 'afl', 'formula-1', 'formula_1', 'nba', 'nfl', 'tennis'];
+    if (FREE_SPORTS.includes(sport)) {
+      console.log(`[ApiSportsService] BLOCKED: ${sport} is a free sport - use freeSportsService cache instead (no API call)`);
+      return [];
     }
+
+    console.log(`[ApiSportsService] Attempting to fetch live events for ${sport} with API key`);
     
     try {
       // Get the appropriate sport ID for our system
@@ -825,6 +825,12 @@ export class ApiSportsService {
   async getUpcomingEvents(sport: string = 'football', limit: number = 10): Promise<SportEvent[]> {
     if (!this.apiKey) {
       console.warn('No SPORTSDATA_API_KEY available, returning empty upcoming events');
+      return [];
+    }
+
+    const FREE_SPORTS = ['basketball', 'baseball', 'hockey', 'ice-hockey', 'rugby', 'handball', 'volleyball', 'mma', 'mma-ufc', 'american-football', 'american_football', 'afl', 'formula-1', 'formula_1', 'nba', 'nfl', 'tennis'];
+    if (FREE_SPORTS.includes(sport)) {
+      console.log(`[ApiSportsService] BLOCKED: ${sport} is a free sport - use freeSportsService cache instead (no API call)`);
       return [];
     }
 

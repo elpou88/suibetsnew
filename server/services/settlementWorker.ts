@@ -549,81 +549,19 @@ class SettlementWorkerService {
   }
   
   /**
-   * Fetch a specific free sports game result by eventId (e.g., "basketball_489697")
-   * Used for on-demand lookback when parlay legs aren't in the current day's results
+   * Look up a free sports game result by eventId (e.g., "basketball_489697")
+   * CACHE-FIRST: Always checks cachedFreeSportsResults before making any API call.
+   * NO direct API calls - results come from the nightly 11 PM UTC fetch only.
    */
   private async fetchFreeSportsLegResult(eventId: string): Promise<FinishedMatch | null> {
-    const FREE_SPORT_API_MAP: Record<string, { endpoint: string; apiHost: string }> = {
-      basketball: { endpoint: 'https://v1.basketball.api-sports.io/games', apiHost: 'v1.basketball.api-sports.io' },
-      baseball: { endpoint: 'https://v1.baseball.api-sports.io/games', apiHost: 'v1.baseball.api-sports.io' },
-      'ice-hockey': { endpoint: 'https://v1.hockey.api-sports.io/games', apiHost: 'v1.hockey.api-sports.io' },
-      rugby: { endpoint: 'https://v1.rugby.api-sports.io/games', apiHost: 'v1.rugby.api-sports.io' },
-      handball: { endpoint: 'https://v1.handball.api-sports.io/games', apiHost: 'v1.handball.api-sports.io' },
-      volleyball: { endpoint: 'https://v1.volleyball.api-sports.io/games', apiHost: 'v1.volleyball.api-sports.io' },
-      mma: { endpoint: 'https://v1.mma.api-sports.io/fights', apiHost: 'v1.mma.api-sports.io' },
-      'american-football': { endpoint: 'https://v1.american-football.api-sports.io/games', apiHost: 'v1.american-football.api-sports.io' },
-      afl: { endpoint: 'https://v1.afl.api-sports.io/games', apiHost: 'v1.afl.api-sports.io' },
-      'formula-1': { endpoint: 'https://v1.formula-1.api-sports.io/races', apiHost: 'v1.formula-1.api-sports.io' },
-      nba: { endpoint: 'https://v1.nba.api-sports.io/games', apiHost: 'v1.nba.api-sports.io' },
-      nfl: { endpoint: 'https://v1.nfl.api-sports.io/games', apiHost: 'v1.nfl.api-sports.io' },
-    };
-
-    try {
-      // Split on last underscore to handle sport slugs with hyphens (e.g., "ice-hockey_404167")
-      const lastUnderscore = eventId.lastIndexOf('_');
-      if (lastUnderscore <= 0) return null;
-      const sportSlug = eventId.substring(0, lastUnderscore);
-      const gameId = eventId.substring(lastUnderscore + 1);
-      if (!gameId || !/^\d+$/.test(gameId)) return null;
-      const apiConfig = FREE_SPORT_API_MAP[sportSlug];
-      if (!apiConfig) return null;
-
-      const apiKey = process.env.API_SPORTS_KEY;
-      if (!apiKey) return null;
-
-      const axios = (await import('axios')).default;
-      const response = await axios.get(apiConfig.endpoint, {
-        params: { id: gameId },
-        headers: { 'x-rapidapi-key': apiKey, 'x-rapidapi-host': apiConfig.apiHost },
-        timeout: 10000
-      });
-
-      const game = response.data?.response?.[0];
-      if (!game) return null;
-
-      const status = game.status?.long || game.status?.short || '';
-      const isFinished = status.toLowerCase().includes('finished') ||
-                         status.toLowerCase().includes('final') ||
-                         status === 'FT' || status === 'AET' || status === 'AOT' || status === 'PEN';
-      if (!isFinished) return null;
-
-      let homeTeam = '', awayTeam = '';
-      if (sportSlug === 'mma') {
-        homeTeam = game.fighters?.home?.name || game.home?.name || 'Fighter 1';
-        awayTeam = game.fighters?.away?.name || game.away?.name || 'Fighter 2';
-      } else {
-        homeTeam = game.teams?.home?.name || game.home?.name || 'Home';
-        awayTeam = game.teams?.away?.name || game.away?.name || 'Away';
-      }
-
-      const homeScore = game.scores?.home?.total ?? game.scores?.home ?? 0;
-      const awayScore = game.scores?.away?.total ?? game.scores?.away ?? 0;
-      const hScore = typeof homeScore === 'number' ? homeScore : parseInt(homeScore) || 0;
-      const aScore = typeof awayScore === 'number' ? awayScore : parseInt(awayScore) || 0;
-
-      return {
-        eventId,
-        homeTeam,
-        awayTeam,
-        homeScore: hScore,
-        awayScore: aScore,
-        winner: hScore > aScore ? 'home' : aScore > hScore ? 'away' : 'draw',
-        status: 'finished'
-      };
-    } catch (error: any) {
-      console.warn(`⚠️ Failed to fetch free sports result for ${eventId}: ${error.message}`);
-      return null;
+    const cached = this.cachedFreeSportsResults.find(r => r.eventId === eventId);
+    if (cached) {
+      console.log(`✅ Found parlay leg ${eventId} in cached free sports results (no API call)`);
+      return cached;
     }
+
+    console.log(`⏳ Parlay leg ${eventId} not in nightly cache - will settle after next 11 PM UTC results fetch`);
+    return null;
   }
 
   private async settleParlaySingleBet(bet: UnsettledBet, match: FinishedMatch, isWinner: boolean) {
@@ -811,6 +749,11 @@ class SettlementWorkerService {
   }
 
   private async fetchFinishedForSport(sport: string): Promise<FinishedMatch[]> {
+    if (sport !== 'football' && sport !== 'soccer') {
+      console.log(`⛔ BLOCKED: fetchFinishedForSport('${sport}') - only football uses paid API. Free sports use nightly cache.`);
+      return [];
+    }
+
     const finished: FinishedMatch[] = [];
 
     const apiKey = process.env.API_SPORTS_KEY || process.env.SPORTSDATA_API_KEY || process.env.APISPORTS_KEY || '';
@@ -825,23 +768,8 @@ class SettlementWorkerService {
     
     const datesToCheck = [todayStr, yesterdayStr];
     
-    // ALL 15 sports API endpoints for settlement
     const sportEndpoints: Record<string, string> = {
       football: 'https://v3.football.api-sports.io/fixtures',
-      basketball: 'https://v1.basketball.api-sports.io/games',
-      baseball: 'https://v1.baseball.api-sports.io/games',
-      hockey: 'https://v1.hockey.api-sports.io/games',
-      volleyball: 'https://v1.volleyball.api-sports.io/games',
-      handball: 'https://v1.handball.api-sports.io/games',
-      rugby: 'https://v1.rugby.api-sports.io/games',
-      afl: 'https://v1.afl.api-sports.io/games',
-      mma: 'https://v1.mma.api-sports.io/fights',
-      'american-football': 'https://v1.american-football.api-sports.io/games',
-      tennis: 'https://v1.tennis.api-sports.io/games',
-      'formula-1': 'https://v1.formula-1.api-sports.io/races',
-      boxing: 'https://v1.boxing.api-sports.io/fights',
-      esports: 'https://v1.esports.api-sports.io/games',
-      nfl: 'https://v1.american-football.api-sports.io/games'
     };
 
     const url = sportEndpoints[sport];
