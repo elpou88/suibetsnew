@@ -90,6 +90,7 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
   const cardRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
+  const [betCopied, setBetCopied] = useState(false);
 
   const formatDate = (dateStr: string) => {
     try {
@@ -263,6 +264,41 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
         title: 'Link copied!',
         description: 'Share this link with friends',
       });
+    }
+  };
+
+  const handleCopyBet = async () => {
+    const legs = isParlay && parlayLegs.length > 0
+      ? parlayLegs
+      : (isParlay && bet.prediction?.includes(' | '))
+        ? parsePipeSeparatedLegs()
+        : [{ eventName: bet.eventName, selection: bet.prediction, odds: bet.odds }];
+
+    const lines = legs.map((leg, i) => {
+      const name = leg.eventName && leg.eventName !== 'Unknown Event' ? leg.eventName : '';
+      const sel = leg.selection || leg.prediction || '';
+      const display = name ? `${name}: ${sel}` : sel;
+      return legs.length > 1 ? `  Leg ${i + 1}: ${display} @ ${(leg.odds || 1).toFixed(2)}` : display;
+    });
+
+    const text = [
+      `SuiBets - Copy Bet`,
+      isParlay ? `Parlay (${legs.length} Legs)` : 'Single Bet',
+      ...lines,
+      `Combined Odds: ${bet.odds.toFixed(2)}`,
+      `Stake: ${bet.betAmount.toLocaleString()} ${bet.currency}`,
+      `Potential Win: ${bet.potentialPayout.toLocaleString()} ${bet.currency}`,
+      ``,
+      `Place this bet at suibets.com`,
+    ].join('\n');
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setBetCopied(true);
+      setTimeout(() => setBetCopied(false), 2000);
+      toast({ title: 'Bet Copied!', description: 'Bet details copied to clipboard. Share it with friends!' });
+    } catch {
+      toast({ title: 'Copy failed', description: 'Could not copy to clipboard', variant: 'destructive' });
     }
   };
 
@@ -452,6 +488,14 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
             >
               <Download className="w-4 h-4 mr-2" />
               Download
+            </Button>
+            <Button 
+              onClick={handleCopyBet}
+              className="flex-1 bg-[#1e3a3f] hover:bg-[#2a4a4f] text-white"
+              data-testid="button-copy-bet"
+            >
+              {betCopied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
+              {betCopied ? 'Copied!' : 'Copy Bet'}
             </Button>
             <Button 
               onClick={handleShare}
