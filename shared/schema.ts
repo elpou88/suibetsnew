@@ -692,3 +692,12 @@ export const socialChatMessages = pgTable("social_chat_messages", {
 export const insertSocialChatMessageSchema = createInsertSchema(socialChatMessages).omit({ id: true, createdAt: true });
 export type InsertSocialChatMessage = z.infer<typeof insertSocialChatMessageSchema>;
 export type SocialChatMessage = typeof socialChatMessages.$inferSelect;
+
+export const zkloginSalts = pgTable("zklogin_salts", {
+  id: serial("id").primaryKey(),
+  provider: text("provider").notNull(),
+  subject: text("subject").notNull(),
+  salt: text("salt").notNull(),
+  suiAddress: text("sui_address"),
+  createdAt: timestamp("created_at").defaultNow()
+});
