@@ -1299,6 +1299,259 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
 
+  // ==================== ADMIN: SUI PAUSE TOGGLE ====================
+  app.post("/api/admin/toggle-sui-pause", async (req: Request, res: Response) => {
+    try {
+      const { adminPassword, paused } = req.body;
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace('Bearer ', '');
+      
+      const hasValidToken = token && isValidAdminSession(token);
+      const actualPassword = process.env.ADMIN_PASSWORD || 'change-me-in-production';
+      const hasValidPassword = adminPassword === actualPassword;
+      
+      if (!hasValidToken && !hasValidPassword) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      const newState = typeof paused === 'boolean' ? paused : !SUI_BETTING_PAUSED;
+      SUI_BETTING_PAUSED = newState;
+      console.log(`[Admin] SUI betting ${newState ? 'PAUSED' : 'UNPAUSED'} by admin`);
+      
+      res.json({ 
+        success: true, 
+        suiBettingPaused: SUI_BETTING_PAUSED,
+        message: `SUI betting ${SUI_BETTING_PAUSED ? 'paused' : 'unpaused'} successfully`
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  // ==================== ADMIN: STAKING MANAGEMENT ====================
+  app.get("/api/admin/staking/all", async (req: Request, res: Response) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace('Bearer ', '');
+      if (!token || !isValidAdminSession(token)) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      const { db } = await import('./db');
+      const { wurlusStaking } = await import('@shared/schema');
+      
+      const allStakes = await db.select().from(wurlusStaking).orderBy(wurlusStaking.id);
+      
+      const dailyRate = APY_RATE / 365;
+      const now = Date.now();
+      const enriched = allStakes.map(s => {
+        const stakeDate = new Date(s.stakingDate || now);
+        const stakedDays = Math.max(0, (now - stakeDate.getTime()) / (1000 * 60 * 60 * 24));
+        const principal = s.amountStaked || 0;
+        const maxAnnualReward = principal * APY_RATE;
+        const liveRewards = Math.min(principal * dailyRate * stakedDays, maxAnnualReward);
+        const bestRewards = Math.max(liveRewards, s.accumulatedRewards || 0);
+        return {
+          ...s,
+          stakedDays: Math.floor(stakedDays),
+          currentRewards: Math.floor(bestRewards),
+          dailyEarning: Math.floor(principal * dailyRate),
+          canUnstake: !s.lockedUntil || new Date(s.lockedUntil) <= new Date()
+        };
+      });
+      
+      res.json({ success: true, stakes: enriched });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  app.post("/api/admin/staking/force-unstake", async (req: Request, res: Response) => {
+    try {
+      const { adminPassword, stakeId } = req.body;
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace('Bearer ', '');
+      
+      const hasValidToken = token && isValidAdminSession(token);
+      const actualPassword = process.env.ADMIN_PASSWORD || 'change-me-in-production';
+      const hasValidPassword = adminPassword === actualPassword;
+      
+      if (!hasValidToken && !hasValidPassword) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      const { db } = await import('./db');
+      const { wurlusStaking } = await import('@shared/schema');
+      const { eq, and } = await import('drizzle-orm');
+      
+      const [stake] = await db.select().from(wurlusStaking)
+        .where(and(eq(wurlusStaking.id, stakeId), eq(wurlusStaking.isActive, true)));
+      
+      if (!stake) {
+        return res.status(404).json({ success: false, message: "Active stake not found" });
+      }
+
+      const stakeDate = new Date(stake.stakingDate || Date.now());
+      const stakedDays = Math.max(0, (Date.now() - stakeDate.getTime()) / (1000 * 60 * 60 * 24));
+      const dailyRate = APY_RATE / 365;
+      const principal = stake.amountStaked || 0;
+      const maxAnnualReward = principal * APY_RATE;
+      const liveRewards = Math.min(principal * dailyRate * stakedDays, maxAnnualReward);
+      const totalRewards = Math.max(liveRewards, stake.accumulatedRewards || 0);
+      const payoutAmount = Math.floor(principal + totalRewards);
+
+      await db.update(wurlusStaking)
+        .set({ isActive: false, unstakingDate: new Date(), accumulatedRewards: Math.floor(totalRewards) })
+        .where(eq(wurlusStaking.id, stakeId));
+
+      let txHash = '';
+      let onChainSuccess = false;
+      if (blockchainBetService.isAdminKeyConfigured()) {
+        try {
+          const payoutResult = await blockchainBetService.executePayoutSbetsOnChain(stake.walletAddress!, payoutAmount);
+          if (payoutResult.success && payoutResult.txHash) {
+            txHash = payoutResult.txHash;
+            onChainSuccess = true;
+          }
+        } catch (e: any) {
+          console.warn('[Admin] Force unstake payout failed:', e.message);
+        }
+      }
+      if (!onChainSuccess) {
+        await storage.updateUserBalance(stake.walletAddress!, 0, payoutAmount);
+      }
+
+      console.log(`[Admin] Force unstaked ID ${stakeId}: ${principal} + ${Math.floor(totalRewards)} rewards = ${payoutAmount} SBETS to ${stake.walletAddress?.slice(0, 10)}`);
+      
+      res.json({ 
+        success: true, 
+        message: `Force unstaked ${principal.toLocaleString()} SBETS + ${Math.floor(totalRewards).toLocaleString()} rewards`,
+        principal,
+        rewards: Math.floor(totalRewards),
+        total: payoutAmount,
+        txHash: txHash || undefined,
+        onChain: onChainSuccess
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  // ==================== ADMIN: PREDICTIONS MANAGEMENT ====================
+  app.get("/api/admin/predictions/all", async (req: Request, res: Response) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace('Bearer ', '');
+      if (!token || !isValidAdminSession(token)) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      const { db } = await import('./db');
+      const { socialPredictions, socialPredictionBets } = await import('@shared/schema');
+      const { desc, sql } = await import('drizzle-orm');
+      
+      const predictions = await db.select().from(socialPredictions).orderBy(desc(socialPredictions.createdAt));
+      
+      res.json({ success: true, predictions });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  app.get("/api/admin/challenges/all", async (req: Request, res: Response) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace('Bearer ', '');
+      if (!token || !isValidAdminSession(token)) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      const { db } = await import('./db');
+      const { socialChallenges } = await import('@shared/schema');
+      const { desc } = await import('drizzle-orm');
+      
+      const challenges = await db.select().from(socialChallenges).orderBy(desc(socialChallenges.createdAt));
+      
+      res.json({ success: true, challenges });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  app.post("/api/admin/predictions/resolve", async (req: Request, res: Response) => {
+    try {
+      const { adminPassword, predictionId, winner } = req.body;
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace('Bearer ', '');
+      
+      const hasValidToken = token && isValidAdminSession(token);
+      const actualPassword = process.env.ADMIN_PASSWORD || 'change-me-in-production';
+      const hasValidPassword = adminPassword === actualPassword;
+      
+      if (!hasValidToken && !hasValidPassword) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      if (!predictionId || !winner || !['YES', 'NO'].includes(winner)) {
+        return res.status(400).json({ success: false, message: "predictionId and winner (YES/NO) required" });
+      }
+
+      const { db } = await import('./db');
+      const { socialPredictions } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+
+      const [prediction] = await db.select().from(socialPredictions).where(eq(socialPredictions.id, predictionId));
+      if (!prediction) {
+        return res.status(404).json({ success: false, message: "Prediction not found" });
+      }
+      if (prediction.status === 'resolved') {
+        return res.status(400).json({ success: false, message: "Already resolved" });
+      }
+
+      await db.update(socialPredictions)
+        .set({ status: 'resolved', resolvedAt: new Date() })
+        .where(eq(socialPredictions.id, predictionId));
+      
+      console.log(`[Admin] Force resolved prediction ${predictionId} as ${winner}`);
+      res.json({ success: true, message: `Prediction ${predictionId} resolved as ${winner}` });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  app.post("/api/admin/predictions/cancel", async (req: Request, res: Response) => {
+    try {
+      const { adminPassword, predictionId } = req.body;
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace('Bearer ', '');
+      
+      const hasValidToken = token && isValidAdminSession(token);
+      const actualPassword = process.env.ADMIN_PASSWORD || 'change-me-in-production';
+      const hasValidPassword = adminPassword === actualPassword;
+      
+      if (!hasValidToken && !hasValidPassword) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      if (!predictionId) {
+        return res.status(400).json({ success: false, message: "predictionId required" });
+      }
+
+      const { db } = await import('./db');
+      const { socialPredictions } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+
+      await db.update(socialPredictions)
+        .set({ status: 'cancelled' })
+        .where(eq(socialPredictions.id, predictionId));
+      
+      console.log(`[Admin] Cancelled prediction ${predictionId}`);
+      res.json({ success: true, message: `Prediction ${predictionId} cancelled` });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
   // Notifications endpoints
   app.get("/api/notifications", async (req: Request, res: Response) => {
     try {
@@ -4873,22 +5126,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         });
       }
       
-      // Check if user has already used their one-time free bet
-      let freeBetUsed = false;
-      try {
-        const { bets } = await import('@shared/schema');
-        const { db } = await import('./db');
-        const { eq, and, sql: sqlDrizzle } = await import('drizzle-orm');
-        const previousFreeBets = await db.select({ count: sqlDrizzle<number>`count(*)` })
-          .from(bets)
-          .where(and(
-            eq(bets.walletAddress, wallet),
-            eq(bets.paymentMethod, 'free_bet')
-          ));
-        freeBetUsed = (previousFreeBets[0]?.count || 0) > 0;
-      } catch (freeBetCheckErr) {
-        console.warn('[FREE BET STATUS] Could not check free bet history:', freeBetCheckErr);
-      }
+      const freeBetUsed = user.welcomeBonusClaimed || false;
 
       res.json({
         freeBetBalance: freeBetUsed ? 0 : (user.freeBetBalance || 0),
@@ -5304,8 +5542,8 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         stakeId,
         principal,
         stakedDays: stakedDays.toFixed(4),
-        calculatedRewards: calculatedRewards.toFixed(2),
-        accumulatedRewards: accumulatedRewards.toFixed(2),
+        liveRewards: liveRewards.toFixed(2),
+        workerAccumulated: workerAccumulated.toFixed(2),
         totalRewards: totalRewards.toFixed(2),
         maxAnnualReward
       });
