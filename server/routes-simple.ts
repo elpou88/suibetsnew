@@ -37,94 +37,94 @@ function isWalletBlocked(wallet: string): boolean {
 }
 
 // ANTI-EXPLOIT: Rate limiting for bet placement
-// Tracks bets per wallet per 24 hours to prevent spam/exploitation
-const BET_RATE_LIMIT = new Map<string, { count: number; resetTime: number }>();
+// Database-backed: counts actual bets in DB to survive server restarts
 const MAX_BETS_PER_DAY = 7; // Maximum 7 bets per wallet per 24 hours
-const RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
-
-function checkBetRateLimit(walletAddress: string): { allowed: boolean; remaining?: number; message?: string } {
-  const now = Date.now();
-  const key = walletAddress.toLowerCase();
-  
-  const existing = BET_RATE_LIMIT.get(key);
-  
-  if (!existing || now > existing.resetTime) {
-    BET_RATE_LIMIT.set(key, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
-    return { allowed: true, remaining: MAX_BETS_PER_DAY - 1 };
-  }
-  
-  if (existing.count >= MAX_BETS_PER_DAY) {
-    const hoursLeft = Math.ceil((existing.resetTime - now) / 3600000);
-    return { 
-      allowed: false,
-      remaining: 0,
-      message: `Daily bet limit reached. Maximum ${MAX_BETS_PER_DAY} bets per 24 hours. Try again in ${hoursLeft} hour${hoursLeft > 1 ? 's' : ''}.`
-    };
-  }
-  
-  existing.count++;
-  BET_RATE_LIMIT.set(key, existing);
-  return { allowed: true, remaining: MAX_BETS_PER_DAY - existing.count };
-}
-
-// Cleanup rate limit map every hour to prevent memory leaks
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of BET_RATE_LIMIT.entries()) {
-    if (now > value.resetTime) {
-      BET_RATE_LIMIT.delete(key);
-    }
-  }
-}, 60 * 60 * 1000);
-
-// ANTI-EXPLOIT: Bet cooldown - minimum 30 seconds between bets per wallet
-const BET_COOLDOWN = new Map<string, number>();
-const BET_COOLDOWN_MS = 30 * 1000; // 30 seconds between bets
-
-function checkBetCooldown(walletAddress: string): { allowed: boolean; secondsLeft?: number } {
-  const now = Date.now();
-  const key = walletAddress.toLowerCase();
-  const lastBetTime = BET_COOLDOWN.get(key);
-  
-  if (lastBetTime && (now - lastBetTime) < BET_COOLDOWN_MS) {
-    const secondsLeft = Math.ceil((BET_COOLDOWN_MS - (now - lastBetTime)) / 1000);
-    return { allowed: false, secondsLeft };
-  }
-  
-  BET_COOLDOWN.set(key, now);
-  return { allowed: true };
-}
-
-// ANTI-EXPLOIT: Max 2 bets per event per wallet (prevents stacking bets on same match)
-const EVENT_BET_TRACKER = new Map<string, Set<string>>();
 const MAX_BETS_PER_EVENT = 2;
 
-function checkEventBetLimit(walletAddress: string, eventId: string): { allowed: boolean; message?: string } {
+async function checkBetRateLimitDB(walletAddress: string): Promise<{ allowed: boolean; remaining?: number; message?: string }> {
   const key = walletAddress.toLowerCase();
-  const trackerKey = `${key}:${eventId}`;
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
   
-  if (!EVENT_BET_TRACKER.has(key)) {
-    EVENT_BET_TRACKER.set(key, new Set());
+  try {
+    const result = await db.execute(sql`
+      SELECT COUNT(*) as bet_count FROM bets 
+      WHERE LOWER(wallet_address) = ${key} 
+      AND created_at >= ${twentyFourHoursAgo}
+      AND status != 'voided'
+    `);
+    const betCount = Number(result.rows?.[0]?.bet_count || 0);
+    
+    if (betCount >= MAX_BETS_PER_DAY) {
+      return { 
+        allowed: false,
+        remaining: 0,
+        message: `Daily bet limit reached. Maximum ${MAX_BETS_PER_DAY} bets per 24 hours. Try again later.`
+      };
+    }
+    
+    return { allowed: true, remaining: MAX_BETS_PER_DAY - betCount };
+  } catch (error) {
+    console.error('[RateLimit] DB check failed, falling back to allow:', error);
+    return { allowed: true, remaining: 1 };
   }
-  
-  const userEvents = EVENT_BET_TRACKER.get(key)!;
-  const eventBetCount = Array.from(userEvents).filter(e => e === eventId).length;
-  
-  if (eventBetCount >= MAX_BETS_PER_EVENT) {
-    return { 
-      allowed: false, 
-      message: `Maximum ${MAX_BETS_PER_EVENT} bets per match. Choose a different match.` 
-    };
-  }
-  
-  userEvents.add(eventId);
-  return { allowed: true };
 }
 
-// Cleanup event bet tracker every 6 hours
-setInterval(() => {
-  EVENT_BET_TRACKER.clear();
-}, 6 * 60 * 60 * 1000);
+// ANTI-EXPLOIT: Bet cooldown - minimum 30 seconds between bets per wallet (DB-backed)
+const BET_COOLDOWN_MS = 30 * 1000; // 30 seconds between bets
+
+async function checkBetCooldownDB(walletAddress: string): Promise<{ allowed: boolean; secondsLeft?: number }> {
+  const key = walletAddress.toLowerCase();
+  
+  try {
+    const result = await db.execute(sql`
+      SELECT created_at FROM bets 
+      WHERE LOWER(wallet_address) = ${key}
+      ORDER BY created_at DESC 
+      LIMIT 1
+    `);
+    
+    if (result.rows?.length > 0 && result.rows[0].created_at) {
+      const lastBetTime = new Date(result.rows[0].created_at as string).getTime();
+      const elapsed = Date.now() - lastBetTime;
+      if (elapsed < BET_COOLDOWN_MS) {
+        const secondsLeft = Math.ceil((BET_COOLDOWN_MS - elapsed) / 1000);
+        return { allowed: false, secondsLeft };
+      }
+    }
+    
+    return { allowed: true };
+  } catch (error) {
+    console.error('[Cooldown] DB check failed, falling back to allow:', error);
+    return { allowed: true };
+  }
+}
+
+// ANTI-EXPLOIT: Max 2 bets per event per wallet (DB-backed)
+async function checkEventBetLimitDB(walletAddress: string, eventId: string): Promise<{ allowed: boolean; message?: string }> {
+  const key = walletAddress.toLowerCase();
+  
+  try {
+    const result = await db.execute(sql`
+      SELECT COUNT(*) as bet_count FROM bets 
+      WHERE LOWER(wallet_address) = ${key} 
+      AND event_id = ${Number(eventId)}
+      AND status != 'voided'
+    `);
+    const eventBetCount = Number(result.rows?.[0]?.bet_count || 0);
+    
+    if (eventBetCount >= MAX_BETS_PER_EVENT) {
+      return { 
+        allowed: false, 
+        message: `Maximum ${MAX_BETS_PER_EVENT} bets per match. Choose a different match.` 
+      };
+    }
+    
+    return { allowed: true };
+  } catch (error) {
+    console.error('[EventLimit] DB check failed, falling back to allow:', error);
+    return { allowed: true };
+  }
+}
 
 export async function registerRoutes(app: express.Express): Promise<Server> {
   // Initialize services
@@ -2381,12 +2381,12 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         });
       }
 
-      // ANTI-EXPLOIT: Rate limiting - max 7 bets per 24 hours
+      // ANTI-EXPLOIT: Rate limiting - max 7 bets per 24 hours (DB-backed, survives restarts)
       const rateLimitKey = walletAddress || userId;
       if (rateLimitKey && rateLimitKey.startsWith('0x')) {
-        const rateLimitResult = checkBetRateLimit(rateLimitKey);
+        const rateLimitResult = await checkBetRateLimitDB(rateLimitKey);
         if (!rateLimitResult.allowed) {
-          console.log(`❌ Daily bet limit hit for ${rateLimitKey.slice(0, 12)}... (7/7 used)`);
+          console.log(`❌ Daily bet limit hit for ${rateLimitKey.slice(0, 12)}... (7/7 used) [DB-enforced]`);
           return res.status(429).json({
             message: rateLimitResult.message,
             code: "RATE_LIMIT_EXCEEDED",
@@ -2394,12 +2394,12 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
             remaining: 0
           });
         }
-        console.log(`📊 Bet ${MAX_BETS_PER_DAY - (rateLimitResult.remaining || 0)}/${MAX_BETS_PER_DAY} for ${rateLimitKey.slice(0, 12)}...`);
+        console.log(`📊 Bet ${MAX_BETS_PER_DAY - (rateLimitResult.remaining || 0)}/${MAX_BETS_PER_DAY} for ${rateLimitKey.slice(0, 12)}... [DB-enforced]`);
       }
 
-      // ANTI-EXPLOIT: Bet cooldown - 30 seconds between bets
+      // ANTI-EXPLOIT: Bet cooldown - 30 seconds between bets (DB-backed)
       if (rateLimitKey && rateLimitKey.startsWith('0x')) {
-        const cooldownResult = checkBetCooldown(rateLimitKey);
+        const cooldownResult = await checkBetCooldownDB(rateLimitKey);
         if (!cooldownResult.allowed) {
           console.log(`❌ Cooldown active for ${rateLimitKey.slice(0, 12)}... (${cooldownResult.secondsLeft}s left)`);
           return res.status(429).json({
@@ -2409,11 +2409,11 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         }
       }
 
-      // ANTI-EXPLOIT: Max 2 bets per event per wallet
+      // ANTI-EXPLOIT: Max 2 bets per event per wallet (DB-backed)
       if (rateLimitKey && rateLimitKey.startsWith('0x') && eventId) {
-        const eventLimitResult = checkEventBetLimit(rateLimitKey, String(eventId));
+        const eventLimitResult = await checkEventBetLimitDB(rateLimitKey, String(eventId));
         if (!eventLimitResult.allowed) {
-          console.log(`❌ Event bet limit hit for ${rateLimitKey.slice(0, 12)}... on event ${eventId}`);
+          console.log(`❌ Event bet limit hit for ${rateLimitKey.slice(0, 12)}... on event ${eventId} [DB-enforced]`);
           return res.status(400).json({
             message: eventLimitResult.message,
             code: "EVENT_BET_LIMIT"
