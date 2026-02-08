@@ -6946,28 +6946,35 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       // Inject base tag for relative resource loading
       const baseTag = `<base href="${parsed.origin}/">`;
 
-      // Strip ad/popup scripts that cause "Remove sandbox" errors
+      // The embed page loads a fake "jquery.min.js" (614KB obfuscated) which contains
+      // the sandbox/iframe detection that shows the "Remove sandbox attributes" error.
+      // We remove that script entirely and keep only the actual video player (bundle-jw.js).
+      // Also strip ad scripts and ad iframes.
+      
+      // Remove the fake jquery.min.js that contains sandbox detection
+      html = html.replace(/<script[^>]*src="[^"]*jquery\.min\.js"[^>]*><\/script>/gi, '');
+      // Remove aclib.runPop ad scripts
       html = html.replace(/<script>[^<]*aclib\.runPop[^<]*<\/script>/gi, '');
-      // Remove the entire ad iframe IIFE block
+      // Remove the ad iframe IIFE block
       html = html.replace(/\(\(\)=>\{let\s+a=\(\)=>\{document\.body\.insertAdjacentHTML.*?a\(\)\}\)\(\)/gs, '');
       // Remove any remaining aclib references
       html = html.replace(/<script[^>]*>[^<]*aclib[^<]*<\/script>/gi, '');
 
-      // Inject anti-detection script before any other scripts to trick sandbox checks
-      const antiDetect = `<script>
-try{Object.defineProperty(window,'top',{get:function(){return window}});
-Object.defineProperty(window,'parent',{get:function(){return window}});
-Object.defineProperty(document,'referrer',{get:function(){return 'https://streamed.pk/'}});
-}catch(e){}
+      // Inject: stub for any jQuery usage + anti-detection overrides
+      const patchScript = `<script>
+window.$=window.jQuery=function(){return{ready:function(f){f()},on:function(){},off:function(){},find:function(){return[]},length:0}};
+window.$.fn={};window.$.ajax=function(){};window.$.get=function(){};window.$.post=function(){};
 window.aclib={runPop:function(){}};
+try{Object.defineProperty(window,'top',{get:function(){return window}});
+Object.defineProperty(window,'parent',{get:function(){return window}});}catch(e){}
 </script>`;
 
       if (html.match(/<head[^>]*>/i)) {
-        html = html.replace(/<head[^>]*>/i, `$&${baseTag}${antiDetect}`);
+        html = html.replace(/<head[^>]*>/i, `$&${baseTag}${patchScript}`);
       } else if (html.match(/<html[^>]*>/i)) {
-        html = html.replace(/<html[^>]*>/i, `$&<head>${baseTag}${antiDetect}</head>`);
+        html = html.replace(/<html[^>]*>/i, `$&<head>${baseTag}${patchScript}</head>`);
       } else {
-        html = baseTag + antiDetect + html;
+        html = baseTag + patchScript + html;
       }
 
       res.setHeader('Content-Type', 'text/html');
