@@ -2,47 +2,16 @@
 # This file should be checked in.
 
 [move]
-version = 3
-manifest_digest = "8ED232E5B88849C820F8FAF3858186D20C76CB95EC523C6AF839C0E781BA5FFE"
-deps_digest = "3C4103934B1E040BB6B23F1D610B4EF9F2F1166A50A104EADCF77467C004C600"
-dependencies = [
-  { id = "Sui", name = "Sui" },
-  { id = "sbets_token", name = "sbets_token" },
-]
-
-[[move.package]]
-id = "MoveStdlib"
-source = { git = "https://github.com/MystenLabs/sui.git", rev = "mainnet-v1.43.1", subdir = "crates/sui-framework/packages/move-stdlib" }
-
-[[move.package]]
-id = "Sui"
-source = { git = "https://github.com/MystenLabs/sui.git", rev = "mainnet-v1.43.1", subdir = "crates/sui-framework/packages/sui-framework" }
-
-dependencies = [
-  { id = "MoveStdlib", name = "MoveStdlib" },
-]
-
-[[move.package]]
-id = "sbets_token"
-source = { local = "sbets_token" }
-
-dependencies = [
-  { id = "Sui", name = "Sui" },
-]
-
-[move.toolchain-version]
-compiler-version = "1.43.1"
-edition = "2024.beta"
-flavor = "sui"
+version = 4
 
 [pinned.mainnet.MoveStdlib]
-source = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/move-stdlib", rev = "04dd28d5c5d92bff685ddfecb86f8acce18ce6df" }
+source = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/move-stdlib", rev = "c7566e601c9a64154850c1cb074a90d7fc11bba4" }
 use_environment = "mainnet"
 manifest_digest = "C4FE4C91DE74CBF223B2E380AE40F592177D21870DC2D7EB6227D2D694E05363"
 deps = {}
 
 [pinned.mainnet.Sui]
-source = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "04dd28d5c5d92bff685ddfecb86f8acce18ce6df" }
+source = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "c7566e601c9a64154850c1cb074a90d7fc11bba4" }
 use_environment = "mainnet"
 manifest_digest = "CD547CB1ACCE0880C835DAED2D8FFCB91D56C833AE5240D3AA5B918398263195"
 deps = { MoveStdlib = "MoveStdlib" }
@@ -50,43 +19,11 @@ deps = { MoveStdlib = "MoveStdlib" }
 [pinned.mainnet.sbets_token]
 source = { local = "sbets_token" }
 use_environment = "mainnet"
-manifest_digest = "BA49968BFF7C4A4D9F013B59535CF8B89D935A7C6D63C121606B1FE844829B72"
+manifest_digest = "955FCA342E02A00A825FFA3BF2DA695D75404D6C6EFC87B514F4238D4BB97B08"
 deps = { Sui = "Sui" }
 
 [pinned.mainnet.suibets]
 source = { root = true }
 use_environment = "mainnet"
-manifest_digest = "E6674101762FB84C6B4525E70A4C3CFD367FDC690E0094082834524A77CDFD8E"
+manifest_digest = "97B9430C87E32C4ADCD5F35B15FA2FB6451D87CF2A2F390F5164E12E1E07AD4A"
 deps = { Sui = "Sui", sbets_token = "sbets_token" }
-
-[pinned.testnet.MoveStdlib]
-source = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/move-stdlib", rev = "04dd28d5c5d92bff685ddfecb86f8acce18ce6df" }
-use_environment = "testnet"
-manifest_digest = "C4FE4C91DE74CBF223B2E380AE40F592177D21870DC2D7EB6227D2D694E05363"
-deps = {}
-
-[pinned.testnet.Sui]
-source = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "04dd28d5c5d92bff685ddfecb86f8acce18ce6df" }
-use_environment = "testnet"
-manifest_digest = "7AFB66695545775FBFBB2D3078ADFD084244D5002392E837FDE21D9EA1C6D01C"
-deps = { MoveStdlib = "MoveStdlib" }
-
-[pinned.testnet.sbets_token]
-source = { local = "sbets_token" }
-use_environment = "testnet"
-manifest_digest = "DEE42C89BB3F8EC67C17BC4AE0CEBE14A28F4FA787E857046EAF0FA38D556496"
-deps = { Sui = "Sui" }
-
-[pinned.testnet.suibets]
-source = { root = true }
-use_environment = "testnet"
-manifest_digest = "0EA31AD18F1766E74765DA41DDE381FC6D59CC424BE873FEAF6F22A92348D29C"
-deps = { Sui = "Sui", sbets_token = "sbets_token" }
-
-[env]
-
-[env.mainnet]
-chain-id = "35834a8a"
-original-published-id = "0x737324ddac9fb96e3d7ffab524f5489c1a0b3e5b4bffa2f244303005001b4ada"
-latest-published-id = "0x737324ddac9fb96e3d7ffab524f5489c1a0b3e5b4bffa2f244303005001b4ada"
-published-version = "1"

@@ -1,25 +1,15 @@
 ---
 compiled_package_info:
   package_name: suibets
-  address_alias_instantiation:
-    sbets_token: 6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285
-    std: "0000000000000000000000000000000000000000000000000000000000000001"
-    sui: "0000000000000000000000000000000000000000000000000000000000000002"
-    suibets: 737324ddac9fb96e3d7ffab524f5489c1a0b3e5b4bffa2f244303005001b4ada
-  source_digest: 9889383BBACA1449D84139D3C51D94ADB3880214673E875FF86FD86909A11F93
   build_flags:
-    dev_mode: false
     test_mode: false
     generate_docs: false
     save_disassembly: false
     install_dir: ~
     force_recompilation: false
-    lock_file: "./Move.lock"
-    fetch_deps_only: false
-    skip_fetch_latest_git_deps: false
-    default_flavor: sui
+    allow_dirty: false
+    default_flavor: ~
     default_edition: ~
-    deps_as_root: false
     silence_warnings: false
     warnings_are_errors: false
     json_errors: false
@@ -27,6 +17,11 @@ compiled_package_info:
     lint_flag:
       no_lint: false
       lint: false
+    modes: []
+    force_lock_file: false
+    root_as_zero: true
+    environment: ~
+    set_unpublished_deps_to_zero: false
 dependencies:
   - MoveStdlib
   - Sui
