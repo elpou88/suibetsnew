@@ -2906,6 +2906,30 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
 
       console.log(`✅ BET PLACED (${paymentMethod}): ${betId} - ${prediction} @ ${odds} odds, Stake: ${betAmount} ${currency}, Potential: ${potentialPayout} ${currency}`);
 
+      // LOYALTY PROGRAM: Award points based on USD value wagered (1 point per $1)
+      try {
+        const loyaltyWallet = walletAddress || userId;
+        if (loyaltyWallet && loyaltyWallet.startsWith('0x')) {
+          const pointsEarned = Math.floor(betUsdValue); // 1 point per $1 wagered
+          if (pointsEarned > 0) {
+            const { users: usersTable } = await import('@shared/schema');
+            const { db: loyaltyDb } = await import('./db');
+            const { eq: loyaltyEq, sql: loyaltySql } = await import('drizzle-orm');
+            
+            await loyaltyDb.update(usersTable)
+              .set({
+                loyaltyPoints: loyaltySql`COALESCE(${usersTable.loyaltyPoints}, 0) + ${pointsEarned}`,
+                totalBetVolume: loyaltySql`COALESCE(${usersTable.totalBetVolume}, 0) + ${betUsdValue}`
+              })
+              .where(loyaltyEq(usersTable.walletAddress, loyaltyWallet));
+            
+            console.log(`⭐ LOYALTY: +${pointsEarned} points for ${loyaltyWallet.slice(0, 10)}... ($${betUsdValue.toFixed(2)} wagered)`);
+          }
+        }
+      } catch (loyaltyError) {
+        console.warn('[LOYALTY] Failed to award points:', loyaltyError);
+      }
+
       // Track bet for promotion (only for on-chain bets with txHash)
       let promotionBonus = { bonusAwarded: false, bonusAmount: 0, newBonusBalance: 0 };
       if (txHash && walletAddress) {
@@ -4922,10 +4946,11 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const leaderboard = await Promise.all(leaderboardBase.map(async (entry) => {
         try {
           const user = await storage.getUserByWalletAddress(entry.wallet);
+          const pts = user?.loyaltyPoints || 0;
           return {
             ...entry,
-            loyaltyPoints: user?.loyaltyPoints || Math.floor(entry.totalBets * 10),
-            loyaltyTier: getLoyaltyTier(user?.loyaltyPoints || Math.floor(entry.totalBets * 10))
+            loyaltyPoints: pts,
+            loyaltyTier: getLoyaltyTier(pts)
           };
         } catch {
           return { ...entry, loyaltyPoints: 0, loyaltyTier: 'Bronze' };

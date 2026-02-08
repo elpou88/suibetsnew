@@ -299,12 +299,12 @@ export default function PromotionsPage() {
                       <div className="bg-black/20 p-3 rounded-lg">
                         <div className="flex justify-between text-sm mb-2 flex-wrap gap-1">
                           <span className="text-gray-400">Progress to {loyaltyStatus.nextTier}</span>
-                          <span className="text-yellow-400">{loyaltyStatus.pointsToNext} pts to go</span>
+                          <span className="text-yellow-400">{loyaltyStatus.pointsToNext.toLocaleString()} pts to go</span>
                         </div>
                         <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
                           <div
                             className="h-full bg-gradient-to-r from-yellow-500 to-yellow-400"
-                            style={{ width: `${Math.min(100, (1 - loyaltyStatus.pointsToNext / 1000) * 100)}%` }}
+                            style={{ width: `${Math.min(100, ((loyaltyStatus.points) / (loyaltyStatus.points + loyaltyStatus.pointsToNext)) * 100)}%` }}
                           />
                         </div>
                       </div>
