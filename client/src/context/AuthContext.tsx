@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { User } from '@/types';
 import { apiRequest } from '@/lib/queryClient';
 import { useCurrentAccount, useDisconnectWallet } from '@mysten/dapp-kit';
+import { useZkLogin } from '@/context/ZkLoginContext';
 
 type WalletType = string;
 
@@ -10,6 +11,7 @@ const AuthContext = createContext<{
   isAuthenticated: boolean;
   isLoading: boolean;
   walletAddress: string | null;
+  authSource: 'wallet' | 'zklogin' | null;
   disconnectWallet: () => void;
   login: (userData: User) => void;
   updateWalletBalance: (amount: number, currency: string) => void;
@@ -18,6 +20,7 @@ const AuthContext = createContext<{
   isAuthenticated: false,
   isLoading: true,
   walletAddress: null,
+  authSource: null,
   disconnectWallet: () => {},
   login: () => {},
   updateWalletBalance: () => {},
@@ -33,15 +36,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   
-  // Use dapp-kit hooks directly - SINGLE SOURCE OF TRUTH
   const currentAccount = useCurrentAccount();
   const { mutate: disconnectDappKit } = useDisconnectWallet();
   
-  // Derive wallet address from dapp-kit
-  const walletAddress = currentAccount?.address || null;
+  const { zkLoginAddress, isZkLoginActive, logout: zkLogout } = useZkLogin();
+  
+  const walletAddress = currentAccount?.address || (isZkLoginActive ? zkLoginAddress : null) || null;
+  const authSource: 'wallet' | 'zklogin' | null = currentAccount?.address ? 'wallet' : (isZkLoginActive ? 'zklogin' : null);
   const isAuthenticated = !!walletAddress;
 
-  // Clear stale localStorage on mount
   useEffect(() => {
     localStorage.removeItem('wallet_address');
     localStorage.removeItem('wallet_type');
@@ -49,26 +52,26 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     localStorage.removeItem('@mysten/wallet-kit:lastWallet');
   }, []);
 
-  // Sync user data when wallet connects via dapp-kit
   useEffect(() => {
-    if (currentAccount?.address) {
-      console.log('[AuthContext] Wallet connected via dapp-kit:', currentAccount.address);
+    const activeAddress = currentAccount?.address || (isZkLoginActive ? zkLoginAddress : null);
+    
+    if (activeAddress) {
+      const source = currentAccount?.address ? 'wallet' : 'zklogin';
+      console.log(`[AuthContext] Connected via ${source}:`, activeAddress);
       
-      // Set minimal user immediately
       const minimalUser: User = {
         id: 0,
-        username: currentAccount.address.substring(0, 8),
-        walletAddress: currentAccount.address,
-        walletType: 'sui',
+        username: activeAddress.substring(0, 8),
+        walletAddress: activeAddress,
+        walletType: source === 'zklogin' ? 'zklogin' : 'sui',
         createdAt: new Date().toISOString(),
         balance: { SUI: 0, SBETS: 0 }
       };
       setUser(minimalUser);
       
-      // Sync with server asynchronously
       apiRequest('POST', '/api/wallet/connect', {
-        address: currentAccount.address,
-        walletType: 'sui'
+        address: activeAddress,
+        walletType: source === 'zklogin' ? 'zklogin' : 'sui'
       })
         .then(res => res.json())
         .then(userData => {
@@ -77,23 +80,22 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             setUser(userData);
           }
           
-          // Check for referral code in localStorage and track referral
           const storedRefCode = localStorage.getItem('suibets_referral_code');
-          if (storedRefCode && currentAccount.address) {
+          if (storedRefCode && activeAddress) {
             console.log('[AuthContext] Tracking referral from code:', storedRefCode);
             fetch('/api/referral/track', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 referralCode: storedRefCode,
-                referredWallet: currentAccount.address
+                referredWallet: activeAddress
               })
             })
               .then(r => r.json())
               .then(result => {
                 if (result.success) {
                   console.log('[AuthContext] Referral tracked successfully');
-                  localStorage.removeItem('suibets_referral_code'); // Clear after use
+                  localStorage.removeItem('suibets_referral_code');
                 } else {
                   console.log('[AuthContext] Referral already tracked or invalid');
                 }
@@ -105,16 +107,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           console.error('[AuthContext] Server sync error (keeping minimal user):', err);
         });
     } else {
-      // Wallet disconnected
-      console.log('[AuthContext] Wallet disconnected');
+      console.log('[AuthContext] No active connection');
       setUser(null);
     }
-  }, [currentAccount?.address]);
+  }, [currentAccount?.address, zkLoginAddress, isZkLoginActive]);
 
   const disconnectWallet = () => {
-    console.log('[AuthContext] Disconnecting wallet');
+    console.log('[AuthContext] Disconnecting');
     setUser(null);
-    disconnectDappKit();
+    if (currentAccount?.address) {
+      disconnectDappKit();
+    }
+    if (isZkLoginActive) {
+      zkLogout();
+    }
   };
   
   const login = (userData: User) => {
@@ -153,6 +159,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         isAuthenticated,
         isLoading,
         walletAddress,
+        authSource,
         disconnectWallet,
         login,
         updateWalletBalance,

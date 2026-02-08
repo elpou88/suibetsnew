@@ -3688,6 +3688,66 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
 
+  // ============================================
+  // zkLogin Salt Management
+  // ============================================
+  app.post("/api/zklogin/salt", async (req: Request, res: Response) => {
+    try {
+      const { zkloginSalts } = await import('@shared/schema');
+      const { eq, and } = await import('drizzle-orm');
+      const { provider, subject } = req.body;
+
+      if (!provider || !subject) {
+        return res.status(400).json({ error: 'Provider and subject are required' });
+      }
+
+      const existing = await db.select().from(zkloginSalts)
+        .where(and(eq(zkloginSalts.provider, provider), eq(zkloginSalts.subject, subject)));
+
+      if (existing.length > 0) {
+        console.log(`[zkLogin] Salt retrieved for ${provider}:${subject.substring(0, 8)}...`);
+        return res.json({ salt: existing[0].salt });
+      }
+
+      const crypto = await import('crypto');
+      const newSalt = crypto.randomBytes(16).toString('hex');
+
+      await db.insert(zkloginSalts).values({
+        provider,
+        subject,
+        salt: newSalt
+      });
+
+      console.log(`[zkLogin] New salt created for ${provider}:${subject.substring(0, 8)}...`);
+      res.json({ salt: newSalt });
+    } catch (error: any) {
+      console.error('[zkLogin] Salt error:', error.message);
+      res.status(500).json({ error: 'Failed to get salt' });
+    }
+  });
+
+  app.post("/api/zklogin/save-address", async (req: Request, res: Response) => {
+    try {
+      const { zkloginSalts } = await import('@shared/schema');
+      const { eq, and } = await import('drizzle-orm');
+      const { provider, subject, suiAddress } = req.body;
+
+      if (!provider || !subject || !suiAddress) {
+        return res.status(400).json({ error: 'Provider, subject, and suiAddress required' });
+      }
+
+      await db.update(zkloginSalts)
+        .set({ suiAddress: suiAddress.toLowerCase() })
+        .where(and(eq(zkloginSalts.provider, provider), eq(zkloginSalts.subject, subject)));
+
+      console.log(`[zkLogin] Address saved: ${suiAddress.substring(0, 10)}... for ${provider}:${subject.substring(0, 8)}...`);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('[zkLogin] Save address error:', error.message);
+      res.status(500).json({ error: 'Failed to save address' });
+    }
+  });
+
   // Wallet connect endpoint - registers/retrieves user by wallet address
   app.post("/api/wallet/connect", async (req: Request, res: Response) => {
     try {
