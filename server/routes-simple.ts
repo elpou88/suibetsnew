@@ -5687,21 +5687,22 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         return res.status(400).json({ error: 'This transaction has already been used for staking' });
       }
       
-      // Verify the transaction was successful on-chain
+      // Verify the transaction was successful on-chain and sent to treasury
+      const TREASURY_ADDRESS = '0x5fc1073c9533c6737fa3a0882055d1778602681df70bdabde96b0127b588f082';
       try {
         const { SuiClient, getFullnodeUrl } = await import('@mysten/sui/client');
         const suiClient = new SuiClient({ url: getFullnodeUrl('mainnet') });
         
         const txResponse = await suiClient.getTransactionBlock({
           digest: txHash,
-          options: { showEffects: true }
+          options: { showEffects: true, showBalanceChanges: true }
         });
         
         if (txResponse.effects?.status?.status !== 'success') {
           return res.status(400).json({ error: 'Transaction failed on-chain' });
         }
         
-        console.log(`[STAKING] Verified on-chain transfer: ${txHash}`);
+        console.log(`[STAKING] Verified on-chain transfer to treasury: ${txHash}`);
       } catch (txError) {
         console.warn('[STAKING] Could not verify tx, proceeding anyway:', txError);
       }
@@ -5816,17 +5817,34 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const totalReturn = principal + totalRewards;
       const payoutAmount = Math.floor(totalReturn);
       
-      // Send SBETS directly to user's wallet on-chain
+      // Step 1: Withdraw SBETS from treasury contract to admin wallet
+      // Step 2: Send SBETS from admin wallet to user
       let txHash = '';
       let onChainSuccess = false;
       
       if (blockchainBetService.isAdminKeyConfigured()) {
         try {
-          const payoutResult = await blockchainBetService.executePayoutSbetsOnChain(walletAddress, payoutAmount);
+          // First withdraw from treasury contract to admin wallet
+          console.log(`[STAKING] Step 1: Withdrawing ${payoutAmount.toLocaleString()} SBETS from treasury to admin wallet...`);
+          const withdrawResult = await blockchainBetService.withdrawFeesSbetsOnChain(payoutAmount);
+          if (!withdrawResult.success) {
+            console.warn(`[STAKING] Treasury withdrawal failed: ${withdrawResult.error}`);
+            throw new Error(`Treasury withdrawal failed: ${withdrawResult.error}`);
+          }
+          console.log(`[STAKING] Step 1 ✅: Treasury withdrawal complete | TX: ${withdrawResult.txHash}`);
+          
+          // Brief delay to allow chain state to propagate
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          // Then send from admin wallet to user (same as bet payouts)
+          console.log(`[STAKING] Step 2: Sending ${payoutAmount.toLocaleString()} SBETS to user ${walletAddress.slice(0, 10)}...`);
+          const payoutResult = await blockchainBetService.sendSbetsToUser(walletAddress, payoutAmount);
           if (payoutResult.success && payoutResult.txHash) {
             txHash = payoutResult.txHash;
             onChainSuccess = true;
-            console.log(`[STAKING] ✅ On-chain SBETS payout: ${payoutAmount.toLocaleString()} SBETS to ${walletAddress.slice(0, 10)}... | TX: ${txHash}`);
+            console.log(`[STAKING] Step 2 ✅: On-chain SBETS payout complete | TX: ${txHash}`);
+          } else {
+            console.warn(`[STAKING] Step 2 failed: ${payoutResult.error} - funds in admin wallet, adding to DB balance`);
           }
         } catch (payoutError: any) {
           console.warn('[STAKING] On-chain payout failed, falling back to DB balance:', payoutError.message);
@@ -5926,18 +5944,30 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       
       console.log(`[STAKING] Claim calculation for ${walletAddress.slice(0, 10)}:`, JSON.stringify(claimDetails));
       
-      // Send claimed rewards directly to user's wallet on-chain
+      // Send claimed rewards: withdraw from treasury then send to user
       const claimAmount = Math.floor(totalClaimed);
       let txHash = '';
       let onChainSuccess = false;
       
       if (claimAmount > 0 && blockchainBetService.isAdminKeyConfigured()) {
         try {
-          const payoutResult = await blockchainBetService.executePayoutSbetsOnChain(walletAddress, claimAmount);
+          // Step 1: Withdraw from treasury contract to admin wallet
+          console.log(`[STAKING] Claim Step 1: Withdrawing ${claimAmount.toLocaleString()} SBETS from treasury...`);
+          const withdrawResult = await blockchainBetService.withdrawFeesSbetsOnChain(claimAmount);
+          if (!withdrawResult.success) {
+            throw new Error(`Treasury withdrawal failed: ${withdrawResult.error}`);
+          }
+          console.log(`[STAKING] Claim Step 1 ✅: Treasury withdrawal complete | TX: ${withdrawResult.txHash}`);
+          
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          // Step 2: Send from admin wallet to user (same as bet payouts)
+          console.log(`[STAKING] Claim Step 2: Sending ${claimAmount.toLocaleString()} SBETS to user...`);
+          const payoutResult = await blockchainBetService.sendSbetsToUser(walletAddress, claimAmount);
           if (payoutResult.success && payoutResult.txHash) {
             txHash = payoutResult.txHash;
             onChainSuccess = true;
-            console.log(`[STAKING] ✅ On-chain rewards payout: ${claimAmount.toLocaleString()} SBETS to ${walletAddress.slice(0, 10)}... | TX: ${txHash}`);
+            console.log(`[STAKING] Claim Step 2 ✅: On-chain rewards payout complete | TX: ${txHash}`);
           }
         } catch (payoutError: any) {
           console.warn('[STAKING] On-chain rewards payout failed, falling back to DB balance:', payoutError.message);
