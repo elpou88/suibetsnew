@@ -1483,12 +1483,10 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
             return timeA - timeB;
           });
           
-          // Filter out started football events (they move to live tab)
-          // Free sports stay visible all day since they have no live mode
+          // Filter out started events - football moves to live tab, free sports have no live mode so remove them
           const now = Date.now();
           allUpcomingEvents = allUpcomingEvents.filter(e => {
             if (!e.startTime) return true;
-            if (e.sportId !== 1) return true; // Keep free sports visible
             return new Date(e.startTime).getTime() > now;
           });
           
@@ -1572,18 +1570,16 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           return timeA - timeB;
         });
         
-        // Filter out events that have already started - BUT only for football (sportId 1)
-        // Football has live betting mode, so started events move to the live tab
-        // Free sports (sportId != 1) have NO live mode, so they stay visible all day
+        // Filter out events that have already started - all sports
+        // Football moves to live tab, free sports have no live mode so they disappear
         const now = Date.now();
         const beforeFilter = allUpcomingEvents.length;
         allUpcomingEvents = allUpcomingEvents.filter(e => {
           if (!e.startTime) return true;
-          if (e.sportId !== 1) return true; // Keep free sports events visible even after start
           return new Date(e.startTime).getTime() > now;
         });
         if (beforeFilter !== allUpcomingEvents.length) {
-          console.log(`📦 Filtered out ${beforeFilter - allUpcomingEvents.length} already-started football events from upcoming`);
+          console.log(`📦 Filtered out ${beforeFilter - allUpcomingEvents.length} already-started events from upcoming`);
         }
         
         // Filter by sport if requested
