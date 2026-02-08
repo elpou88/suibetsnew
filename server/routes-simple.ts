@@ -6879,5 +6879,46 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
 
+  // ==========================================
+  // STREAMING API PROXY (streamed.pk)
+  // ==========================================
+  
+  app.get("/api/streaming/football", async (_req: Request, res: Response) => {
+    try {
+      const response = await fetch("https://streamed.pk/api/matches/football");
+      if (!response.ok) throw new Error(`Streaming API error: ${response.status}`);
+      const data = await response.json();
+      res.json(data);
+    } catch (error: any) {
+      console.error("[Streaming] Football matches error:", error.message);
+      res.json([]);
+    }
+  });
+
+  app.get("/api/streaming/live", async (_req: Request, res: Response) => {
+    try {
+      const response = await fetch("https://streamed.pk/api/matches/live");
+      if (!response.ok) throw new Error(`Streaming API error: ${response.status}`);
+      const data = await response.json();
+      res.json(data);
+    } catch (error: any) {
+      console.error("[Streaming] Live matches error:", error.message);
+      res.json([]);
+    }
+  });
+
+  app.get("/api/streaming/stream/:source/:id", async (req: Request, res: Response) => {
+    try {
+      const { source, id } = req.params;
+      const response = await fetch(`https://streamed.pk/api/stream/${source}/${id}`);
+      if (!response.ok) throw new Error(`Stream source error: ${response.status}`);
+      const data = await response.json();
+      res.json(data);
+    } catch (error: any) {
+      console.error("[Streaming] Stream source error:", error.message);
+      res.json([]);
+    }
+  });
+
   return httpServer;
 }

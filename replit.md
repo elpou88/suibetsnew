@@ -53,6 +53,10 @@ Preferred communication style: Simple, everyday language.
   - **Settlement Payouts**: Winners receive real SBETS from treasury via blockchainBetService.sendSbetsToUser(). Per-wallet success/failure tracking with detailed logs.
   - Educational "How You Win" and "Predict vs Challenge" explainers. No mock/seed data - all content is user-generated.
 
+- **Live Streaming Section**: Accessible via More menu at /streaming. Proxies the streamed.pk API through backend (`/api/streaming/football`, `/api/streaming/live`, `/api/streaming/stream/:source/:id`) to avoid CORS. Shows live and upcoming football matches with stream counts, HD badges, viewer counts, and embedded iframe playback. Users can switch between multiple stream sources per match.
+
+- **zkLogin (Google OAuth)**: Full Sui zkLogin implementation for seedless wallet login via Google. Frontend: ZkLoginContext.tsx (ephemeral key pair generation, nonce creation, JWT-to-address derivation, ZK proof from Mysten prover, transaction signing). Auth callback page at /auth/callback processes OAuth redirect. Google login button in ConnectWalletModal (shown when VITE_GOOGLE_CLIENT_ID is configured). Backend: /api/zklogin/salt (deterministic salt per provider+subject, stored in zkloginSalts table), /api/zklogin/save-address (saves derived Sui address). Session stored in sessionStorage with 24hr expiry.
+
 - **SuiNS Integration**: Resolves wallet addresses to `.sui` domain names via `suix_resolveNameServiceNames` RPC. Backend service (`server/services/suinsService.ts`) with 30-min in-memory cache, batch resolution, and dedup of pending lookups. Frontend `SuiNSName` component and `useSuiNSName`/`useSuiNSNames` hooks replace all raw address displays across leaderboard, bet history, network/social, settings, activity, wallet dashboard, and more. Falls back to truncated `0x1234...abcd` for users without .sui names.
 
 ### Architecture Model

@@ -23,6 +23,7 @@ import LiveEventPage from "@/pages/live/[id]";
 // Context providers and shared components
 import { AuthProvider } from "@/context/AuthContext";
 import { BlockchainAuthProvider } from "@/hooks/useBlockchainAuth";
+import { ZkLoginProvider } from "@/context/ZkLoginContext";
 import { BettingProvider } from "@/context/BettingContext";
 import { SettingsProvider } from "@/context/SettingsContext";
 import { WalProvider } from "@/components/ui/wal-components";
@@ -54,6 +55,8 @@ import StakingPage from "@/pages/staking";
 import NetworkPage from "@/pages/network";
 import AdminPanel from "@/pages/admin-panel";
 import SharedBetPage from "@/pages/shared-bet";
+import StreamingPage from "@/pages/streaming";
+import AuthCallback from "@/pages/auth-callback";
 
 // Informational Pages
 import PrivacyPolicy from "@/pages/privacy";
@@ -137,6 +140,7 @@ function App() {
           <WalProvider>
               <WalrusProtocolProvider>
                 <BlockchainAuthProvider>
+                  <ZkLoginProvider>
                   <AuthProvider>
                     <SettingsProvider>
                       <BettingProvider>
@@ -202,6 +206,12 @@ function App() {
                           {/* Shared Bet Page */}
                           <Route path="/bet/:id" component={SharedBetPage} />
                           
+                          {/* Streaming */}
+                          <Route path="/streaming" component={StreamingPage} />
+                          
+                          {/* zkLogin OAuth Callback */}
+                          <Route path="/auth/callback" component={AuthCallback} />
+                          
                           {/* Admin Panel - Password Protected */}
                           <Route path="/admin" component={AdminPanel} />
                           
@@ -222,6 +232,7 @@ function App() {
                     </BettingProvider>
                     </SettingsProvider>
                   </AuthProvider>
+                </ZkLoginProvider>
                 </BlockchainAuthProvider>
               </WalrusProtocolProvider>
           </WalProvider>

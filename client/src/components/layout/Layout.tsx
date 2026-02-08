@@ -98,6 +98,7 @@ const Layout: React.FC<LayoutProps> = ({
   ];
 
   const moreMenuItems = [
+    { label: 'Streaming', href: '/streaming', icon: <TrendingUp className="h-4 w-4 mr-2" /> },
     { label: 'Activity', href: '/results', icon: <Activity className="h-4 w-4 mr-2" /> },
     { label: 'Parlays', href: '/parlay', icon: <Target className="h-4 w-4 mr-2" /> },
     { label: 'Withdraw', href: '/deposits-withdrawals', icon: <ArrowUpDown className="h-4 w-4 mr-2" /> },
