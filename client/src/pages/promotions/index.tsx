@@ -570,35 +570,46 @@ export default function PromotionsPage() {
               </CardHeader>
               
               <CardContent className="relative space-y-5 pt-4">
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-3 gap-2">
                   <div className="relative group">
                     <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 to-transparent rounded-xl blur-sm group-hover:blur-md transition-all" />
-                    <div className="relative bg-black/40 backdrop-blur-sm p-4 rounded-xl text-center border border-cyan-500/30 group-hover:border-cyan-400/50 transition-all">
-                      <div className="text-3xl font-black bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+                    <div className="relative bg-black/40 backdrop-blur-sm p-3 rounded-xl text-center border border-cyan-500/30 group-hover:border-cyan-400/50 transition-all min-w-0">
+                      <div className="text-xl sm:text-2xl font-black bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent truncate">
                         {stakingInfo?.apyRate || 5}%
                       </div>
-                      <p className="text-xs text-cyan-300/70 mt-1 font-medium">Annual Yield</p>
+                      <p className="text-[10px] sm:text-xs text-cyan-300/70 mt-1 font-medium">Annual Yield</p>
                     </div>
                   </div>
                   <div className="relative group">
                     <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-transparent rounded-xl blur-sm group-hover:blur-md transition-all" />
-                    <div className="relative bg-black/40 backdrop-blur-sm p-4 rounded-xl text-center border border-blue-500/30 group-hover:border-blue-400/50 transition-all">
-                      <div className="text-3xl font-black text-blue-300">
-                        {((stakingInfo?.totalStaked || 0) / 1e9).toFixed(1)}B
+                    <div className="relative bg-black/40 backdrop-blur-sm p-3 rounded-xl text-center border border-blue-500/30 group-hover:border-blue-400/50 transition-all min-w-0">
+                      <div className="text-xl sm:text-2xl font-black text-blue-300 truncate">
+                        {(stakingInfo?.totalStaked || 0) >= 1e9 
+                          ? `${((stakingInfo?.totalStaked || 0) / 1e9).toFixed(1)}B`
+                          : (stakingInfo?.totalStaked || 0) >= 1e6
+                            ? `${((stakingInfo?.totalStaked || 0) / 1e6).toFixed(1)}M`
+                            : (stakingInfo?.totalStaked || 0) >= 1e3
+                              ? `${((stakingInfo?.totalStaked || 0) / 1e3).toFixed(0)}K`
+                              : (stakingInfo?.totalStaked || 0).toLocaleString()
+                        }
                       </div>
-                      <p className="text-xs text-blue-300/70 mt-1 font-medium">Total Staked</p>
+                      <p className="text-[10px] sm:text-xs text-blue-300/70 mt-1 font-medium">Total Staked</p>
                     </div>
                   </div>
                   <div className="relative group">
                     <div className="absolute inset-0 bg-gradient-to-br from-green-500/20 to-transparent rounded-xl blur-sm group-hover:blur-md transition-all" />
-                    <div className="relative bg-black/40 backdrop-blur-sm p-4 rounded-xl text-center border border-green-500/30 group-hover:border-green-400/50 transition-all">
-                      <div className="text-3xl font-black text-green-400">
-                        {(stakingInfo?.userStaked || 0) >= 1000000 
-                          ? `${((stakingInfo?.userStaked || 0) / 1e6).toFixed(1)}M`
-                          : (stakingInfo?.userStaked || 0).toLocaleString()
+                    <div className="relative bg-black/40 backdrop-blur-sm p-3 rounded-xl text-center border border-green-500/30 group-hover:border-green-400/50 transition-all min-w-0">
+                      <div className="text-xl sm:text-2xl font-black text-green-400 truncate">
+                        {(stakingInfo?.userStaked || 0) >= 1e9
+                          ? `${((stakingInfo?.userStaked || 0) / 1e9).toFixed(1)}B`
+                          : (stakingInfo?.userStaked || 0) >= 1e6 
+                            ? `${((stakingInfo?.userStaked || 0) / 1e6).toFixed(1)}M`
+                            : (stakingInfo?.userStaked || 0) >= 1e3
+                              ? `${((stakingInfo?.userStaked || 0) / 1e3).toFixed(0)}K`
+                              : (stakingInfo?.userStaked || 0).toLocaleString()
                         }
                       </div>
-                      <p className="text-xs text-green-300/70 mt-1 font-medium">Your Stake</p>
+                      <p className="text-[10px] sm:text-xs text-green-300/70 mt-1 font-medium">Your Stake</p>
                     </div>
                   </div>
                 </div>
@@ -658,6 +669,33 @@ export default function PromotionsPage() {
                               {amt >= 1000000 ? `${amt / 1000000}M` : `${amt / 1000}K`}
                             </Button>
                           ))}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              if (!walletAddress) {
+                                toast({ title: "Connect wallet first", variant: "destructive" });
+                                return;
+                              }
+                              try {
+                                const coins = await suiClient.getCoins({ owner: walletAddress, coinType: SBETS_TYPE, limit: 50 });
+                                const totalBalance = coins.data.reduce((sum, c) => sum + Number(c.balance), 0);
+                                const displayBalance = Math.floor(totalBalance / 1_000_000_000);
+                                if (displayBalance > 0) {
+                                  setStakeAmount(displayBalance.toString());
+                                } else {
+                                  toast({ title: "No SBETS in wallet", variant: "destructive" });
+                                }
+                              } catch {
+                                toast({ title: "Failed to fetch balance", variant: "destructive" });
+                              }
+                            }}
+                            className="flex-1 border-green-500/40 text-green-400 hover:bg-green-500/20 hover:text-white text-xs font-bold"
+                            data-testid="btn-stake-max"
+                          >
+                            MAX
+                          </Button>
                         </div>
                         <Button 
                           onClick={handleStake}
