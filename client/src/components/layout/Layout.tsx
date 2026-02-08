@@ -89,16 +89,16 @@ const Layout: React.FC<LayoutProps> = ({
   const topNavItems = [
     { label: 'Bets', href: '/' },
     { label: 'Predict', href: '/network', highlight: true },
-    { label: 'Streaming', href: '/streaming' },
     { label: 'Dashboard', href: '/wallet-dashboard' },
     { label: 'My Bets', href: '/bet-history' },
     { label: 'Promotions', href: '/promotions' },
     { label: 'Revenue', href: '/revenue' },
-    { label: 'Leaderboard', href: '/leaderboard' },
     { label: 'Staking', href: '/staking' },
   ];
 
   const moreMenuItems = [
+    { label: 'Streaming', href: '/streaming', icon: <TrendingUp className="h-4 w-4 mr-2" /> },
+    { label: 'Leaderboard', href: '/leaderboard', icon: <Target className="h-4 w-4 mr-2" /> },
     { label: 'Activity', href: '/results', icon: <Activity className="h-4 w-4 mr-2" /> },
     { label: 'Parlays', href: '/parlay', icon: <Target className="h-4 w-4 mr-2" /> },
     { label: 'Withdraw', href: '/deposits-withdrawals', icon: <ArrowUpDown className="h-4 w-4 mr-2" /> },
