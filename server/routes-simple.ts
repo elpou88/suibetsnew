@@ -5076,6 +5076,51 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
   const APY_RATE = 0.05; // 5% APY
   const MIN_STAKE_SBETS = 100000; // 100K SBETS minimum
   const LOCK_PERIOD_DAYS = 7;
+
+  // AUTOMATED REWARD ACCRUAL WORKER - runs every hour to update accumulated_rewards
+  async function accrueStakingRewards() {
+    try {
+      const { db } = await import('./db');
+      const { wurlusStaking } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+
+      const activeStakes = await db.select().from(wurlusStaking).where(eq(wurlusStaking.isActive, true));
+      if (activeStakes.length === 0) return;
+
+      const now = Date.now();
+      const dailyRate = APY_RATE / 365;
+      let totalAccrued = 0;
+      let stakesUpdated = 0;
+
+      for (const stake of activeStakes) {
+        const stakeDate = new Date(stake.stakingDate || now);
+        const stakedDays = Math.max(0, (now - stakeDate.getTime()) / (1000 * 60 * 60 * 24));
+        const principal = stake.amountStaked || 0;
+        const maxAnnualReward = principal * APY_RATE;
+        const calculatedRewards = principal * dailyRate * stakedDays;
+        const newAccumulated = Math.min(calculatedRewards, maxAnnualReward);
+
+        if (Math.floor(newAccumulated) > Math.floor(stake.accumulatedRewards || 0)) {
+          await db.update(wurlusStaking)
+            .set({ accumulatedRewards: Math.floor(newAccumulated) })
+            .where(eq(wurlusStaking.id, stake.id));
+          totalAccrued += Math.floor(newAccumulated) - Math.floor(stake.accumulatedRewards || 0);
+          stakesUpdated++;
+        }
+      }
+
+      if (stakesUpdated > 0) {
+        console.log(`[STAKING WORKER] Accrued rewards for ${stakesUpdated}/${activeStakes.length} stakes | +${totalAccrued.toLocaleString()} SBETS total`);
+      }
+    } catch (error) {
+      console.error('[STAKING WORKER] Reward accrual error:', error);
+    }
+  }
+
+  // Run immediately on startup, then every hour
+  accrueStakingRewards();
+  setInterval(accrueStakingRewards, 60 * 60 * 1000);
+  console.log('📈 Staking reward accrual worker started - updates every hour');
   
   // Get staking info
   app.get('/api/staking/info', async (req: Request, res: Response) => {
@@ -5099,15 +5144,21 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           .where(and(eq(wurlusStaking.walletAddress, wallet), eq(wurlusStaking.isActive, true)));
         
         userStakes = stakes.map(s => {
-          const stakedDays = (Date.now() - new Date(s.stakingDate || Date.now()).getTime()) / (1000 * 60 * 60 * 24);
+          const stakeDate = new Date(s.stakingDate || Date.now());
+          const stakedDays = Math.max(0, (Date.now() - stakeDate.getTime()) / (1000 * 60 * 60 * 24));
           const dailyRate = APY_RATE / 365;
-          const rewards = (s.amountStaked || 0) * dailyRate * stakedDays;
+          const principal = s.amountStaked || 0;
+          const maxAnnualReward = principal * APY_RATE;
+          const liveRewards = Math.min(principal * dailyRate * stakedDays, maxAnnualReward);
+          const bestRewards = Math.max(liveRewards, s.accumulatedRewards || 0);
           return {
             id: s.id,
             amount: s.amountStaked,
             stakedAt: s.stakingDate,
             lockedUntil: s.lockedUntil,
-            accumulatedRewards: rewards + (s.accumulatedRewards || 0),
+            accumulatedRewards: bestRewards,
+            dailyEarning: Math.floor(principal * dailyRate),
+            stakedDays: Math.floor(stakedDays),
             canUnstake: !s.lockedUntil || new Date(s.lockedUntil) <= new Date()
           };
         });
@@ -5238,18 +5289,16 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         return res.status(400).json({ error: `Stake is locked for ${remainingDays} more days` });
       }
       
-      // Calculate final rewards precisely
       const stakeDate = new Date(stake.stakingDate || now);
       const stakedMs = now.getTime() - stakeDate.getTime();
       const stakedDays = Math.max(0, stakedMs / (1000 * 60 * 60 * 24));
       const dailyRate = APY_RATE / 365;
       const principal = stake.amountStaked || 0;
       
-      // Cap rewards at maximum annual yield to prevent exploits
       const maxAnnualReward = principal * APY_RATE;
-      const calculatedRewards = principal * dailyRate * stakedDays;
-      const accumulatedRewards = stake.accumulatedRewards || 0;
-      const totalRewards = Math.min(calculatedRewards + accumulatedRewards, maxAnnualReward);
+      const liveRewards = Math.min(principal * dailyRate * stakedDays, maxAnnualReward);
+      const workerAccumulated = stake.accumulatedRewards || 0;
+      const totalRewards = Math.max(liveRewards, workerAccumulated);
       
       console.log(`[STAKING] Unstake calculation for ${walletAddress.slice(0, 10)}:`, {
         stakeId,
@@ -5345,13 +5394,10 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         const dailyRate = APY_RATE / 365;
         const principal = stake.amountStaked || 0;
         
-        // Calculate rewards precisely - cannot exceed APY_RATE * principal per year
         const maxAnnualReward = principal * APY_RATE;
-        const calculatedRewards = principal * dailyRate * stakedDays;
-        const accumulatedRewards = stake.accumulatedRewards || 0;
-        
-        // Cap rewards at maximum possible (prevents any overflow/exploit)
-        const totalRewards = Math.min(calculatedRewards + accumulatedRewards, maxAnnualReward);
+        const liveRewards = Math.min(principal * dailyRate * stakedDays, maxAnnualReward);
+        const workerAccumulated = stake.accumulatedRewards || 0;
+        const totalRewards = Math.max(liveRewards, workerAccumulated);
         
         claimDetails.push({
           stakeId: stake.id,
@@ -5363,7 +5409,6 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         
         totalClaimed += totalRewards;
         
-        // Atomically reset accumulated rewards and staking date for next period
         await db.update(wurlusStaking)
           .set({ 
             accumulatedRewards: 0,
@@ -5371,7 +5416,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           })
           .where(and(
             eq(wurlusStaking.id, stake.id),
-            eq(wurlusStaking.isActive, true) // Double-check still active
+            eq(wurlusStaking.isActive, true)
           ));
       }
       

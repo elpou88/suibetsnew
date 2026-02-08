@@ -30,6 +30,8 @@ interface StakingInfo {
     stakedAt: string;
     lockedUntil: string;
     accumulatedRewards: number;
+    dailyEarning: number;
+    stakedDays: number;
     canUnstake: boolean;
   }>;
   minStake: number;
@@ -721,12 +723,16 @@ export default function PromotionsPage() {
                           const totalLockTime = 7 * 24 * 60 * 60 * 1000;
                           const timeRemaining = Math.max(0, lockEndDate.getTime() - now.getTime());
                           const progressPercent = Math.min(100, ((totalLockTime - timeRemaining) / totalLockTime) * 100);
+                          const hoursRemaining = Math.max(0, Math.floor(timeRemaining / (1000 * 60 * 60)));
+                          const daysRemaining = Math.floor(hoursRemaining / 24);
+                          const hrsLeft = hoursRemaining % 24;
                           
                           return (
                             <div key={stake.id} className="relative overflow-hidden bg-gradient-to-r from-cyan-900/40 to-blue-900/30 p-4 rounded-xl border border-cyan-500/30">
-                              <div className="flex justify-between items-start mb-3">
+                              <div className="absolute top-0 right-0 w-20 h-20 bg-cyan-500/10 rounded-full blur-2xl" />
+                              <div className="flex justify-between items-start mb-3 flex-wrap gap-2">
                                 <div>
-                                  <p className="text-xl font-black text-white">{stake.amount.toLocaleString()} SBETS</p>
+                                  <p className="text-xl font-black text-white">{(stake.amount || 0).toLocaleString()} SBETS</p>
                                   <p className="text-sm text-green-400 font-medium mt-1">
                                     +{Math.floor(stake.accumulatedRewards).toLocaleString()} SBETS earned
                                   </p>
@@ -737,7 +743,7 @@ export default function PromotionsPage() {
                                   onClick={() => handleUnstake(stake.id)}
                                   disabled={!stake.canUnstake}
                                   className={stake.canUnstake 
-                                    ? "bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-400 hover:to-orange-400 text-white font-bold shadow-lg" 
+                                    ? "bg-gradient-to-r from-red-500 to-orange-500 text-white font-bold shadow-lg" 
                                     : "bg-gray-700/50 text-gray-400 cursor-not-allowed"
                                   }
                                   data-testid={`btn-unstake-${stake.id}`}
@@ -746,12 +752,25 @@ export default function PromotionsPage() {
                                   {stake.canUnstake ? 'Unstake + Claim' : 'Locked'}
                                 </Button>
                               </div>
+
+                              <div className="grid grid-cols-2 gap-2 mb-3">
+                                <div className="bg-black/30 rounded-lg p-2 text-center">
+                                  <p className="text-[10px] text-cyan-300/60 uppercase tracking-wider">Daily Earning</p>
+                                  <p className="text-sm font-bold text-cyan-300">+{(stake.dailyEarning || 0).toLocaleString()}</p>
+                                </div>
+                                <div className="bg-black/30 rounded-lg p-2 text-center">
+                                  <p className="text-[10px] text-cyan-300/60 uppercase tracking-wider">Staked</p>
+                                  <p className="text-sm font-bold text-cyan-300">{stake.stakedDays || 0} days</p>
+                                </div>
+                              </div>
                               
                               {!stake.canUnstake && (
                                 <div className="space-y-2">
-                                  <div className="flex justify-between text-xs">
+                                  <div className="flex justify-between text-xs flex-wrap gap-1">
                                     <span className="text-cyan-300/70">Lock Progress</span>
-                                    <span className="text-cyan-300">Unlocks {lockEndDate.toLocaleDateString()}</span>
+                                    <span className="text-cyan-300">
+                                      {daysRemaining > 0 ? `${daysRemaining}d ${hrsLeft}h remaining` : `${hrsLeft}h remaining`}
+                                    </span>
                                   </div>
                                   <div className="h-2 bg-black/50 rounded-full overflow-hidden">
                                     <div 
@@ -759,6 +778,12 @@ export default function PromotionsPage() {
                                       style={{ width: `${progressPercent}%` }}
                                     />
                                   </div>
+                                </div>
+                              )}
+
+                              {stake.canUnstake && (
+                                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-2 text-center">
+                                  <p className="text-green-400 text-sm font-medium">Lock period complete - ready to unstake</p>
                                 </div>
                               )}
                             </div>

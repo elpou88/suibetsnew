@@ -101,6 +101,9 @@ Preferred communication style: Simple, everyday language.
   - Minimum stake: 100,000 SBETS
   - 7-day lock period
   - Stake/unstake/claim-rewards functionality via `wurlusStaking` table
+  - Automated hourly reward accrual worker (accrueStakingRewards) updates accumulated_rewards for all active stakes
+  - Reward model: max(liveCalculation, workerAccumulated) prevents double-counting; capped at maxAnnualReward
+  - Claim resets stakingDate + accumulatedRewards to 0 for next accrual period
 
 ### Payment Integration
 - **Stripe**: Optional fiat payment processing.
