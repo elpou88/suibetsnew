@@ -383,14 +383,10 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           await balanceService.addRevenue(stake, currency);
           console.log(`📊 ADMIN SETTLE: ${stake} ${currency} added to revenue from lost bet`);
         } else if (outcome === 'void') {
-          // Refund stake on void
-          const refundSuccess = await balanceService.addWinnings(walletId, stake, currency);
-          if (!refundSuccess) {
-            await storage.updateBetStatus(betId, 'pending');
-            console.error(`❌ SETTLEMENT REVERTED: Failed to refund stake for voided bet ${betId}`);
-            return res.status(500).json({ message: "Failed to refund stake - settlement reverted" });
-          }
-          console.log(`🔄 ADMIN SETTLE: ${walletId} refunded ${stake} ${currency} (void)`);
+          // VOID: Return stake to treasury (SBETS already in treasury from on-chain transfer)
+          // Do NOT refund to user - voided bets release funds back to treasury
+          await balanceService.addRevenue(stake, currency);
+          console.log(`🔄 ADMIN SETTLE (VOID): ${stake} ${currency} returned to treasury from voided bet ${betId} (wallet: ${walletId})`);
         }
       } else {
         console.log(`⚠️ Bet ${betId} already settled - no payout applied`);
@@ -3284,14 +3280,9 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           await balanceService.addRevenue(platformFee, bet.currency);
           console.log(`💰 AUTO-PAYOUT (DB): ${bet.userId} received ${netPayout} ${bet.currency} (fee: ${platformFee} ${bet.currency} -> revenue)`);
         } else if (settlement.status === 'void') {
-          // Refund stake on void using the bet's currency
-          const refundSuccess = await balanceService.addWinnings(bet.userId, settlement.payout, bet.currency);
-          if (!refundSuccess) {
-            await storage.updateBetStatus(betId, 'pending');
-            console.error(`❌ SETTLEMENT REVERTED: Failed to refund stake for voided bet ${betId}`);
-            return res.status(500).json({ message: "Failed to refund stake - settlement reverted" });
-          }
-          console.log(`🔄 STAKE REFUNDED (DB): ${bet.userId} received ${settlement.payout} ${bet.currency} back`);
+          // VOID: Return stake to treasury (SBETS already in treasury from on-chain transfer)
+          await balanceService.addRevenue(bet.betAmount, bet.currency);
+          console.log(`🔄 VOID -> TREASURY: ${bet.betAmount} ${bet.currency} returned to treasury from voided bet ${betId}`);
         } else if (settlement.status === 'lost') {
           // Add lost bet stake to platform revenue
           await balanceService.addRevenue(bet.betAmount, bet.currency);
