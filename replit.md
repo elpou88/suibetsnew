@@ -21,7 +21,7 @@ Preferred communication style: Simple, everyday language.
 - **Data Aggregation**: Multi-API with resilience and fallback mechanisms
 - **Authentication**: Session-based with optional blockchain authentication
 - **Security**: Server-authoritative betting cutoff (45 minutes for live betting), rejection of stale event data, anti-exploit protections.
-- **Anti-Exploit Measures**: Rate limiting (20 bets/hour/wallet), Unknown Event rejection, event validation before bet acceptance, settlement blocking for unverified events.
+- **Anti-Exploit Measures**: Rate limiting (7 bets/24 hours/wallet), 30-second cooldown between bets, max 2 bets per event per wallet, Unknown Event rejection, event validation before bet acceptance, settlement blocking for unverified events, live betting restricted to Match Winner only (first 45 min).
 
 ### Data Storage
 - **Primary Database**: PostgreSQL with Drizzle ORM
@@ -47,7 +47,7 @@ Preferred communication style: Simple, everyday language.
   - **On-Chain Prediction Bets**: Users sign real SBETS transfer to treasury wallet via wallet (Slush/Nightly). Backend verifies on-chain: sender, recipient=treasury, amount, SBETS coin type. No fake txIds - every bet is a real blockchain transaction.
   - **On-Chain Challenge Stakes**: Same pattern - joining a challenge requires signing SBETS transfer. Backend verifies before recording participation.
   - **Prediction Market Resolution**: Majority-wins model. When time expires, the side (YES/NO) with more SBETS wagered wins automatically. Auto-resolve worker runs every 2 minutes. Any connected wallet can also manually trigger resolution after expiry. Shared resolvingPredictions guard prevents double-resolution between auto-worker and manual endpoint. Winners split entire pool proportionally.
-  - **Anti-Exploit Security**: Creator self-bet blocked, duplicate join prevented (DB unique constraint on wallet+challengeId), duplicate tx hash reuse blocked (unique index on txId/txHash + in-memory Set), atomic SQL increments for pool totals (no race conditions), rate limiting (20 bets/hour, 30 chat/min), double-resolve/settle guards, early resolution blocked.
+  - **Anti-Exploit Security**: Creator self-bet blocked, duplicate join prevented (DB unique constraint on wallet+challengeId), duplicate tx hash reuse blocked (unique index on txId/txHash + in-memory Set), atomic SQL increments for pool totals (no race conditions), rate limiting (7 bets/24hrs, 30 chat/min), double-resolve/settle guards, early resolution blocked.
   - **Settlement Payouts**: Winners receive real SBETS from treasury via blockchainBetService.sendSbetsToUser(). Per-wallet success/failure tracking with detailed logs.
   - Educational "How You Win" and "Predict vs Challenge" explainers. No mock/seed data - all content is user-generated.
 
