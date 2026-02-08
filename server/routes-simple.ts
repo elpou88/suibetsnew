@@ -5512,6 +5512,18 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         return res.status(404).json({ error: 'User not found' });
       }
       
+      const { db } = await import('./db');
+      const { wurlusStaking } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      
+      // DUPLICATE TX HASH PREVENTION: Block reuse of same transaction
+      const [existingStake] = await db.select().from(wurlusStaking)
+        .where(eq(wurlusStaking.txHash, txHash));
+      if (existingStake) {
+        console.warn(`[STAKING] DUPLICATE TX BLOCKED: ${txHash} already used for stake ID ${existingStake.id}`);
+        return res.status(400).json({ error: 'This transaction has already been used for staking' });
+      }
+      
       // Verify the transaction was successful on-chain
       try {
         const { SuiClient, getFullnodeUrl } = await import('@mysten/sui/client');
@@ -5531,18 +5543,16 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         console.warn('[STAKING] Could not verify tx, proceeding anyway:', txError);
       }
       
-      const { db } = await import('./db');
-      const { wurlusStaking } = await import('@shared/schema');
-      
       // Create lock period (7 days from now)
       const lockedUntil = new Date(Date.now() + LOCK_PERIOD_DAYS * 24 * 60 * 60 * 1000);
       
-      // Insert stake record (SBETS already transferred on-chain)
+      // Insert stake record with txHash for dedup (SBETS already transferred on-chain)
       const [stake] = await db.insert(wurlusStaking).values({
         walletAddress,
         amountStaked: amount,
         stakingDate: new Date(),
         isActive: true,
+        txHash,
         lockedUntil,
         rewardRate: APY_RATE,
         accumulatedRewards: 0
@@ -5565,6 +5575,9 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
   
+  // In-memory lock to prevent concurrent claim/unstake race conditions
+  const stakingLocks = new Set<string>();
+  
   // Unstake SBETS tokens
   app.post('/api/staking/unstake', async (req: Request, res: Response) => {
     try {
@@ -5573,6 +5586,14 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         return res.status(400).json({ error: 'Wallet address and stake ID required' });
       }
       
+      // Prevent concurrent unstake for same wallet
+      const lockKey = `unstake:${walletAddress}:${stakeId}`;
+      if (stakingLocks.has(lockKey)) {
+        return res.status(429).json({ error: 'Unstake already in progress, please wait' });
+      }
+      stakingLocks.add(lockKey);
+      
+      try {
       const { db } = await import('./db');
       const { wurlusStaking } = await import('@shared/schema');
       const { eq, and } = await import('drizzle-orm');
@@ -5664,7 +5685,12 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         txHash: txHash || undefined,
         onChain: onChainSuccess
       });
+      } finally {
+        stakingLocks.delete(lockKey);
+      }
     } catch (error) {
+      const lk = `unstake:${req.body?.walletAddress}:${req.body?.stakeId}`;
+      stakingLocks.delete(lk);
       console.error('Unstaking error:', error);
       res.status(500).json({ error: 'Failed to unstake tokens' });
     }
@@ -5678,6 +5704,13 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         return res.status(400).json({ error: 'Wallet address required' });
       }
       
+      // Prevent concurrent claims for same wallet
+      if (stakingLocks.has(walletAddress)) {
+        return res.status(429).json({ error: 'Claim already in progress, please wait' });
+      }
+      stakingLocks.add(walletAddress);
+      
+      try {
       const { db } = await import('./db');
       const { wurlusStaking } = await import('@shared/schema');
       const { eq, and } = await import('drizzle-orm');
@@ -5716,6 +5749,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         
         totalClaimed += totalRewards;
         
+        // Reset staking date and rewards atomically
         await db.update(wurlusStaking)
           .set({ 
             accumulatedRewards: 0,
@@ -5760,7 +5794,11 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         txHash: txHash || undefined,
         onChain: onChainSuccess
       });
+      } finally {
+        stakingLocks.delete(walletAddress);
+      }
     } catch (error) {
+      stakingLocks.delete(req.body?.walletAddress);
       console.error('Claim rewards error:', error);
       res.status(500).json({ error: 'Failed to claim rewards' });
     }
