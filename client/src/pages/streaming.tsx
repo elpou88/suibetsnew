@@ -4,7 +4,7 @@ import Layout from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Play, Tv, Radio, Eye, ArrowLeft, Monitor, Signal } from 'lucide-react';
+import { Loader2, Play, Tv, Radio, Eye, ArrowLeft, Monitor, Signal, ExternalLink } from 'lucide-react';
 
 interface StreamTeam {
   name: string;
@@ -138,14 +138,29 @@ export default function StreamingPage() {
                 <span className="ml-3 text-gray-400">Loading stream...</span>
               </div>
             ) : selectedStream ? (
-              <iframe
-                src={selectedStream.embedUrl}
-                className="absolute inset-0 w-full h-full"
-                allowFullScreen
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                referrerPolicy="no-referrer"
-                data-testid="stream-iframe"
-              />
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-gray-900 to-black">
+                <Tv className="h-16 w-16 text-cyan-400 mb-4" />
+                <h3 className="text-xl font-bold text-white mb-2">{selectedMatch.title}</h3>
+                <p className="text-gray-400 text-sm mb-1">
+                  Stream {selectedStream.streamNo} {selectedStream.hd ? '- HD' : ''} {selectedStream.language ? `- ${selectedStream.language}` : ''}
+                </p>
+                <p className="text-gray-500 text-xs mb-6 flex items-center">
+                  <Eye className="h-3 w-3 mr-1" />
+                  {selectedStream.viewers} viewers
+                </p>
+                <a
+                  href={selectedStream.embedUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 bg-cyan-500 hover:bg-cyan-600 text-black font-bold px-8 py-4 rounded-lg text-lg transition-colors"
+                  data-testid="button-open-stream"
+                >
+                  <Play className="h-6 w-6" />
+                  Watch Stream
+                  <ExternalLink className="h-4 w-4 ml-1" />
+                </a>
+                <p className="text-gray-600 text-xs mt-4">Opens in a new tab for best playback</p>
+              </div>
             ) : (
               <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500">
                 <Tv className="h-12 w-12 mb-3" />
