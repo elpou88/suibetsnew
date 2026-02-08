@@ -6,8 +6,15 @@ import { useCurrentAccount } from '@mysten/dapp-kit';
 import { 
   Home, TrendingUp, Megaphone, Bell, Settings, 
   Clock, Wallet, ChevronLeft, Landmark, 
-  TrendingDown, Trophy, MenuIcon, MessageCircle, Gift, Star, Target
+  TrendingDown, Trophy, MenuIcon, MessageCircle, Gift, Star, Target,
+  MoreHorizontal, FileText, Activity, ArrowUpDown
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ConnectWalletModal } from '@/components/modals/ConnectWalletModal';
 import suibetsBackground from '@/assets/images/suibets-background.png';
 const suibetsLogo = "/images/suibets-logo.jpg";
@@ -84,13 +91,17 @@ const Layout: React.FC<LayoutProps> = ({
     { label: 'Predict', href: '/network', highlight: true },
     { label: 'Dashboard', href: '/wallet-dashboard' },
     { label: 'My Bets', href: '/bet-history' },
-    { label: 'Activity', href: '/results' },
-    { label: 'Parlays', href: '/parlays' },
     { label: 'Promotions', href: '/promotions' },
     { label: 'Revenue', href: '/revenue' },
     { label: 'Leaderboard', href: '/leaderboard' },
     { label: 'Staking', href: '/staking' },
-    { label: 'Whitepaper', href: '/whitepaper' },
+  ];
+
+  const moreMenuItems = [
+    { label: 'Activity', href: '/results', icon: <Activity className="h-4 w-4 mr-2" /> },
+    { label: 'Parlays', href: '/parlay', icon: <Target className="h-4 w-4 mr-2" /> },
+    { label: 'Withdraw', href: '/deposits-withdrawals', icon: <ArrowUpDown className="h-4 w-4 mr-2" /> },
+    { label: 'Whitepaper', href: '/whitepaper', icon: <FileText className="h-4 w-4 mr-2" /> },
   ];
 
   const bottomNavItems = [
@@ -191,6 +202,42 @@ const Layout: React.FC<LayoutProps> = ({
               )}
             </button>
           ))}
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className={`px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-1 ${
+                  moreMenuItems.some(item => location === item.href)
+                    ? 'text-cyan-400'
+                    : 'text-gray-300 hover:text-white'
+                }`}
+                data-testid="nav-more"
+              >
+                More
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent 
+              align="end" 
+              className="bg-[#0b1618] border border-[#1e3a3f] min-w-[180px]"
+            >
+              {moreMenuItems.map((item, index) => (
+                <DropdownMenuItem
+                  key={index}
+                  className={`cursor-pointer flex items-center px-4 py-3 text-sm font-medium ${
+                    location === item.href
+                      ? 'text-cyan-400'
+                      : 'text-gray-200 hover:text-white'
+                  }`}
+                  onClick={() => setLocation(item.href)}
+                  data-testid={`nav-more-${item.label.toLowerCase()}`}
+                >
+                  {item.icon}
+                  {item.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
       
