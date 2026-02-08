@@ -6928,16 +6928,6 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       }
 
       const parsed = new URL(embedUrl);
-      const allowedHosts = ['embedme.top', 'www.embedme.top', 'embtaku.pro', 'www.embtaku.pro',
-        'player.carstreamhd.com', 'rfrfrfrfrf.xyz', 'topembed.pw', 'streamcheck.link', 
-        'embedstreams.top', 'stream.crichd.vip', 'wigistream.to'];
-      const isAllowed = allowedHosts.some(h => parsed.hostname === h || parsed.hostname.endsWith('.' + h));
-      if (!isAllowed) {
-        const html = `<!DOCTYPE html><html><body style="background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif">
-          <div style="text-align:center"><p>Stream host not supported for embedding.</p>
-          <a href="${embedUrl}" target="_blank" style="color:#06b6d4">Open in new tab</a></div></body></html>`;
-        return res.type('html').send(html);
-      }
 
       const response = await fetch(embedUrl, {
         headers: {
@@ -6954,7 +6944,14 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const contentType = response.headers.get('content-type') || 'text/html';
       let html = await response.text();
 
-      html = html.replace(/<head>/i, `<head><base href="${parsed.origin}/">`);
+      const baseTag = `<base href="${parsed.origin}/">`;
+      if (html.match(/<head[^>]*>/i)) {
+        html = html.replace(/<head[^>]*>/i, `$&${baseTag}`);
+      } else if (html.match(/<html[^>]*>/i)) {
+        html = html.replace(/<html[^>]*>/i, `$&<head>${baseTag}</head>`);
+      } else {
+        html = baseTag + html;
+      }
 
       res.setHeader('Content-Type', contentType);
       res.setHeader('X-Frame-Options', 'ALLOWALL');
