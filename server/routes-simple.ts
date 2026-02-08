@@ -1023,6 +1023,53 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
 
+  app.post("/api/admin/withdraw-treasury-sbets", async (req: Request, res: Response) => {
+    try {
+      const { adminPassword, amount, recipientAddress } = req.body;
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace('Bearer ', '');
+      
+      const hasValidToken = token && isValidAdminSession(token);
+      const actualPassword = process.env.ADMIN_PASSWORD || 'change-me-in-production';
+      const hasValidPassword = adminPassword === actualPassword;
+      
+      if (!hasValidToken && !hasValidPassword) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ success: false, message: "Amount required" });
+      }
+
+      console.log(`[Admin] Treasury SBETS withdrawal: ${amount} SBETS`);
+      
+      const withdrawResult = await blockchainBetService.withdrawTreasurySbetsOnChain(amount);
+      if (!withdrawResult.success) {
+        return res.status(500).json({ success: false, message: `Treasury withdraw failed: ${withdrawResult.error}` });
+      }
+
+      let sendResult = null;
+      if (recipientAddress) {
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        sendResult = await blockchainBetService.sendSbetsToUser(recipientAddress, amount);
+        console.log(`[Admin] Send ${amount} SBETS to ${recipientAddress}: ${sendResult.success ? sendResult.txHash : sendResult.error}`);
+      }
+
+      res.json({
+        success: true,
+        withdrawTxHash: withdrawResult.txHash,
+        sendTxHash: sendResult?.txHash,
+        sendSuccess: sendResult?.success,
+        sendError: sendResult?.error,
+        amount,
+        recipientAddress,
+      });
+    } catch (error: any) {
+      console.error(`[Admin] Treasury SBETS withdraw error:`, error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Pay unpaid winners - manually trigger on-chain payouts for bets in 'won' status
   app.post("/api/admin/pay-unpaid-winners", async (req: Request, res: Response) => {
     try {

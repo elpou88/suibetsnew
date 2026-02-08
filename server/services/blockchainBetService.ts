@@ -1012,6 +1012,53 @@ export class BlockchainBetService {
     }
   }
 
+  async withdrawTreasurySbetsOnChain(
+    amount: number,
+  ): Promise<{ success: boolean; txHash?: string; error?: string }> {
+    if (!amount || amount <= 0) {
+      return { success: false, error: 'Amount must be positive' };
+    }
+
+    const keypair = this.getAdminKeypair();
+    if (!keypair) {
+      return { success: false, error: 'Admin private key not configured' };
+    }
+
+    if (!ADMIN_CAP_ID) {
+      return { success: false, error: 'ADMIN_CAP_ID not configured' };
+    }
+
+    try {
+      const amountMist = Math.floor(amount * 1e9);
+      const tx = new Transaction();
+      
+      tx.moveCall({
+        target: `${BETTING_PACKAGE_ID}::betting::withdraw_treasury_sbets`,
+        arguments: [
+          tx.object(ADMIN_CAP_ID),
+          tx.object(BETTING_PLATFORM_ID),
+          tx.pure.u64(amountMist),
+          tx.object('0x6'),
+        ],
+      });
+
+      const result = await this.client.signAndExecuteTransaction({
+        signer: keypair,
+        transaction: tx,
+        options: { showEffects: true },
+      });
+
+      if (result.effects?.status?.status === 'success') {
+        console.log(`✅ TREASURY SBETS WITHDRAWN: ${amount} SBETS | TX: ${result.digest}`);
+        return { success: true, txHash: result.digest };
+      } else {
+        return { success: false, error: result.effects?.status?.error || 'Failed' };
+      }
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  }
+
   /**
    * Send SUI directly from admin wallet (funded from treasury) to user's wallet
    * Used for DB settlement payouts when on-chain settlement isn't possible
