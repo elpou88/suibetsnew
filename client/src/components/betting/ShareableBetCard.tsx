@@ -3,6 +3,8 @@ import { Share2, Download, X, Copy, Check, CheckCircle2, XCircle, Clock, Trophy 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { formatAddress } from '@/hooks/useSuiNSName';
+import SuiNSName from '@/components/SuiNSName';
 import html2canvas from 'html2canvas';
 
 interface BetLeg {
@@ -84,7 +86,7 @@ function getMarketLabel(marketId?: string): string | null {
 function shortenWallet(address?: string): string {
   if (!address) return '';
   if (address.length <= 14) return address;
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  return formatAddress(address);
 }
 
 export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpen, onClose }: ShareableBetCardProps) {
@@ -375,10 +377,8 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
               </div>
 
               {bet.walletAddress && (
-                <div className="mb-3">
-                  <span className="text-gray-600 text-xs font-mono" data-testid="text-wallet-address">
-                    {shortenWallet(bet.walletAddress)}
-                  </span>
+                <div className="mb-3" data-testid="text-wallet-address">
+                  <SuiNSName address={bet.walletAddress} className="text-gray-600 text-xs font-mono" />
                 </div>
               )}
 

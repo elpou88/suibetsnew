@@ -51,6 +51,8 @@ Preferred communication style: Simple, everyday language.
   - **Settlement Payouts**: Winners receive real SBETS from treasury via blockchainBetService.sendSbetsToUser(). Per-wallet success/failure tracking with detailed logs.
   - Educational "How You Win" and "Predict vs Challenge" explainers. No mock/seed data - all content is user-generated.
 
+- **SuiNS Integration**: Resolves wallet addresses to `.sui` domain names via `suix_resolveNameServiceNames` RPC. Backend service (`server/services/suinsService.ts`) with 30-min in-memory cache, batch resolution, and dedup of pending lookups. Frontend `SuiNSName` component and `useSuiNSName`/`useSuiNSNames` hooks replace all raw address displays across leaderboard, bet history, network/social, settings, activity, wallet dashboard, and more. Falls back to truncated `0x1234...abcd` for users without .sui names.
+
 ### Architecture Model
 - **Full On-Chain Model**: Bets placed directly on smart contracts, tracked in PostgreSQL for UI, settlements automated on-chain.
 - **Capability-Based Security**: Smart contracts use AdminCap and OracleCap for access control.

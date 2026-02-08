@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useWalrusProtocolContext } from '@/context/WalrusProtocolContext';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient } from '@/lib/queryClient';
+import SuiNSName from '@/components/SuiNSName';
 const suibetsLogo = "/images/suibets-logo.png";
 import { 
   Shield, 
@@ -140,7 +141,7 @@ export default function AuditLogPage() {
               <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
             </button>
             {currentWallet?.address ? (
-              <span className="text-cyan-400 text-sm">{currentWallet.address.slice(0, 6)}...{currentWallet.address.slice(-4)}</span>
+              <SuiNSName address={currentWallet.address} className="text-cyan-400 text-sm" />
             ) : (
               <button onClick={handleConnectWallet} className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold px-4 py-2 rounded-lg text-sm flex items-center gap-2" data-testid="btn-connect">
                 <Wallet size={16} />

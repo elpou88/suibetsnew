@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useCurrentAccount } from '@mysten/dapp-kit';
 import { useBetting } from '@/context/BettingContext';
 import { useToast } from '@/hooks/use-toast';
+import SuiNSName from '@/components/SuiNSName';
+import { formatAddress } from '@/hooks/useSuiNSName';
 const suibetsLogo = "/images/suibets-logo.png";
 import { 
   Wallet, 
@@ -61,10 +63,6 @@ export default function WalletDashboardPage() {
     }
   };
 
-  const formatAddress = (address: string) => {
-    if (!address) return '';
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -116,7 +114,7 @@ export default function WalletDashboardPage() {
             </button>
             {walletAddress ? (
               <div className="flex items-center gap-3">
-                <span className="text-cyan-400 text-sm">{formatAddress(walletAddress)}</span>
+                <SuiNSName address={walletAddress} className="text-cyan-400 text-sm" />
                 <button onClick={copyAddress} className="text-gray-400 hover:text-white" data-testid="btn-copy">
                   <Copy size={16} />
                 </button>

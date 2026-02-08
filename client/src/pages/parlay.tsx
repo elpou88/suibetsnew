@@ -8,6 +8,7 @@ import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useOnChainBet } from '@/hooks/useOnChainBet';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import SuiNSName from '@/components/SuiNSName';
 const suibetsLogo = "/images/suibets-logo.png";
 import { 
   Layers, 
@@ -346,7 +347,7 @@ export default function ParlayPage() {
             {walletAddress ? (
               <div className="text-right">
                 <p className="text-green-400 text-xs" title="On-chain wallet balance">{walletSuiBalance.toFixed(4)} SUI | {walletSbetsBalance.toFixed(0)} SBETS</p>
-                <p className="text-gray-500 text-xs">{walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</p>
+                <SuiNSName address={walletAddress} className="text-gray-500 text-xs" />
               </div>
             ) : (
               <button onClick={handleConnectWallet} className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold px-4 py-2 rounded-lg text-sm flex items-center gap-2" data-testid="btn-connect">

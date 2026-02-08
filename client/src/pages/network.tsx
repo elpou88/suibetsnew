@@ -18,6 +18,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import SuiNSName from '@/components/SuiNSName';
+import { formatAddress } from '@/hooks/useSuiNSName';
 
 const suibetsLogo = "/images/suibets-logo.png";
 
@@ -46,7 +48,7 @@ const SBETS_TOKEN_TYPE = '0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975f
 
 function formatWallet(wallet: string) {
   if (!wallet) return 'Anonymous';
-  return `${wallet.slice(0, 6)}...${wallet.slice(-4)}`;
+  return formatAddress(wallet);
 }
 
 function timeAgo(date: string | Date) {
@@ -411,7 +413,7 @@ function ProfileModal({ wallet, onClose, myWallet }: { wallet: string; onClose: 
                     <Users className="h-5 w-5 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-white">{formatWallet(profile.wallet)}</h3>
+                    <h3 className="text-lg font-bold text-white"><SuiNSName address={profile.wallet} className="text-lg font-bold" /></h3>
                     <div className="flex items-center gap-2">
                       <p className="text-gray-500 text-xs">{profile.followers} followers / {profile.following} following</p>
                       {xHandle && (
@@ -652,7 +654,7 @@ function HomeTab({ onViewProfile }: { onViewProfile: (w: string) => void }) {
                         </div>
                       </div>
                       <div className="flex items-center justify-between text-xs text-gray-500">
-                        <span>by {formatWallet(c.creatorWallet)}</span>
+                        <span>by <SuiNSName address={c.creatorWallet} /></span>
                         <span>{timeLeft(c.expiresAt)}</span>
                       </div>
                     </CardContent>
@@ -693,7 +695,7 @@ function HomeTab({ onViewProfile }: { onViewProfile: (w: string) => void }) {
                         #{idx + 1}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-white font-medium text-sm">{formatWallet(user.wallet)}</p>
+                        <p className="text-white font-medium text-sm"><SuiNSName address={user.wallet} className="text-white font-medium text-sm" /></p>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className={`text-xs font-bold ${(user.totalProfitUsd || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                             {(user.totalProfitUsd || 0) >= 0 ? '+' : ''}${(user.totalProfitUsd || 0).toFixed(2)}
@@ -1095,7 +1097,7 @@ function PredictTab({ wallet }: { wallet?: string }) {
                         )}
 
                         <div className="flex items-center justify-between mt-2 text-xs text-gray-600">
-                          <span>by {formatWallet(p.creatorWallet)}</span>
+                          <span>by <SuiNSName address={p.creatorWallet} /></span>
                           <span>{timeAgo(p.createdAt)}</span>
                         </div>
                       </CardContent>
@@ -1226,7 +1228,7 @@ function PredictTab({ wallet }: { wallet?: string }) {
                         )}
 
                         <div className="flex items-center justify-between mt-2 text-xs text-gray-600">
-                          <span>by {formatWallet(p.creatorWallet)}</span>
+                          <span>by <SuiNSName address={p.creatorWallet} /></span>
                           <span>Ended {p.resolvedAt ? timeAgo(p.resolvedAt) : timeAgo(p.endDate)}</span>
                         </div>
                       </CardContent>
@@ -1422,7 +1424,7 @@ function ChallengeTab({ wallet }: { wallet?: string }) {
                   )}
 
                   <div className="flex items-center justify-between text-xs text-gray-600">
-                    <span>by {formatWallet(c.creatorWallet)}</span>
+                    <span>by <SuiNSName address={c.creatorWallet} /></span>
                     <span>{timeLeft(c.expiresAt)}</span>
                   </div>
                 </CardContent>
@@ -1526,7 +1528,7 @@ function LiveChat({ myWallet }: { myWallet?: string }) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-cyan-400 text-xs font-medium">{formatWallet(msg.wallet)}</span>
+                    <span className="text-cyan-400 text-xs font-medium"><SuiNSName address={msg.wallet} className="text-cyan-400 text-xs font-medium" /></span>
                     <span className="text-gray-600 text-xs">{timeAgo(msg.createdAt)}</span>
                   </div>
                   <p className="text-gray-300 text-sm break-words">{msg.message}</p>
@@ -1720,7 +1722,7 @@ function SocialTab({ onViewProfile, myWallet }: { onViewProfile: (w: string) => 
                         <Users className="h-4 w-4 text-white" />
                       </div>
                       <div>
-                        <span className="text-white text-sm">{formatWallet(w)}</span>
+                        <span className="text-white text-sm"><SuiNSName address={w} className="text-white text-sm" /></span>
                         {wXHandle && <p className="text-cyan-400 text-xs">@{wXHandle.replace('@', '')}</p>}
                       </div>
                     </div>
@@ -1775,7 +1777,7 @@ function SocialTab({ onViewProfile, myWallet }: { onViewProfile: (w: string) => 
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <p className="text-white text-sm font-medium">{formatWallet(user.wallet)}</p>
+                          <p className="text-white text-sm font-medium"><SuiNSName address={user.wallet} className="text-white text-sm font-medium" /></p>
                           {userXHandle && <span className="text-cyan-400 text-xs">@{userXHandle.replace('@', '')}</span>}
                         </div>
                         <div className="flex items-center gap-2 flex-wrap">
@@ -1879,7 +1881,7 @@ export default function NetworkPage() {
               <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
             </button>
             {myWallet ? (
-              <span className="text-cyan-400 text-sm font-medium">{formatWallet(myWallet)}</span>
+              <SuiNSName address={myWallet} className="text-cyan-400 text-sm font-medium" />
             ) : (
               <button onClick={handleConnectWallet} className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold px-4 py-2 rounded-lg text-sm flex items-center gap-2" data-testid="btn-connect">
                 <Wallet size={16} />

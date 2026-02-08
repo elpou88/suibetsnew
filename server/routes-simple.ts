@@ -4781,6 +4781,41 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
   }
 
   // =====================================================
+  // SUINS NAME RESOLUTION ROUTES
+  // =====================================================
+
+  app.post('/api/suins/resolve', async (req: Request, res: Response) => {
+    try {
+      const { addresses } = req.body;
+      if (!addresses || !Array.isArray(addresses)) {
+        return res.json({ names: {} });
+      }
+      const limited = addresses.slice(0, 50);
+      const { batchResolveSuiNSNames } = await import('./services/suinsService');
+      const names = await batchResolveSuiNSNames(limited);
+      res.json({ names });
+    } catch (error) {
+      console.error('[SuiNS] Batch resolve error:', error);
+      res.json({ names: {} });
+    }
+  });
+
+  app.get('/api/suins/resolve', async (req: Request, res: Response) => {
+    try {
+      const address = req.query.address as string;
+      if (!address || !address.startsWith('0x')) {
+        return res.json({ name: null });
+      }
+      const { resolveSuiNSName } = await import('./services/suinsService');
+      const name = await resolveSuiNSName(address);
+      res.json({ name });
+    } catch (error) {
+      console.error('[SuiNS] Resolve error:', error);
+      res.json({ name: null });
+    }
+  });
+
+  // =====================================================
   // LEADERBOARD ROUTES
   // =====================================================
   

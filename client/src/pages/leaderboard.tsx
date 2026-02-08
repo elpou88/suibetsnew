@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useLocation } from 'wouter';
 import { Trophy, Medal, TrendingUp, Calendar, Coins, ArrowLeft, Star } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useSuiNSNames, formatAddress } from '@/hooks/useSuiNSName';
 
 interface LeaderboardEntry {
   rank: number;
@@ -36,10 +37,11 @@ export default function LeaderboardPage() {
     }
   };
 
-  const formatWallet = (wallet: string) => {
-    if (!wallet) return 'Anonymous';
-    return `${wallet.slice(0, 6)}...${wallet.slice(-4)}`;
-  };
+  const walletAddresses = useMemo(() => 
+    (data?.leaderboard || []).map(e => e.wallet).filter(Boolean),
+    [data?.leaderboard]
+  );
+  const names = useSuiNSNames(walletAddresses);
 
   const getRankIcon = (rank: number) => {
     if (rank === 1) return <Trophy className="h-6 w-6 text-yellow-400" />;
@@ -129,7 +131,7 @@ export default function LeaderboardPage() {
                       {getRankIcon(entry.rank)}
                     </div>
                     <div>
-                      <p className="text-white font-bold text-lg group-hover:text-cyan-400 transition-colors">{formatWallet(entry.wallet)}</p>
+                      <p className="text-white font-bold text-lg group-hover:text-cyan-400 transition-colors" title={entry.wallet}>{names[entry.wallet] || formatAddress(entry.wallet)}</p>
                       <div className="flex items-center gap-3 mt-1 flex-wrap">
                         <span className="text-gray-400 text-xs flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded-full">
                           <TrendingUp className="h-3 w-3" /> {entry.totalBets} Bets

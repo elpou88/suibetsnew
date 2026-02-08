@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useBetting } from '@/context/BettingContext';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect } from 'react';
+import SuiNSName from '@/components/SuiNSName';
 const suibetsLogo = "/images/suibets-logo.png";
 import {
   CheckCircle2,
@@ -176,10 +177,6 @@ export default function SharedBetPage() {
     } catch { return dateStr; }
   };
 
-  const shortenWallet = (address?: string) => {
-    if (!address || address.length <= 14) return address || '';
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
 
   const getPnl = () => {
     if (!bet) return { value: 0, display: '0', isPositive: false };
@@ -273,7 +270,7 @@ export default function SharedBetPage() {
                       <div className="text-center mb-4">
                         <p className="text-gray-400 text-xs uppercase tracking-wider font-medium">Shared Bet</p>
                         {getWallet(bet) && (
-                          <p className="text-gray-500 text-xs mt-0.5">by {shortenWallet(getWallet(bet))}</p>
+                          <p className="text-gray-500 text-xs mt-0.5">by <SuiNSName address={getWallet(bet)} className="text-gray-500 text-xs" /></p>
                         )}
                       </div>
 

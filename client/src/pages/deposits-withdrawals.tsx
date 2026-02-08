@@ -4,6 +4,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import { useCurrentAccount, useSuiClientQuery } from '@mysten/dapp-kit';
 import { queryClient, apiRequest } from '@/lib/queryClient';
+import SuiNSName from '@/components/SuiNSName';
 const suibetsLogo = "/images/suibets-logo.png";
 import { 
   ArrowDownLeft, 
@@ -248,7 +249,7 @@ export default function DepositsWithdrawalsPage() {
               <div className="text-right">
                 <p className="text-green-400 text-xs" title="On-chain wallet balance">Wallet: {walletSuiBalance.toFixed(4)} SUI</p>
                 <p className="text-purple-400 text-xs" title="On-chain SBETS balance">Wallet: {walletSbetsBalance.toFixed(2)} SBETS</p>
-                <p className="text-gray-500 text-xs">{walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</p>
+                <SuiNSName address={walletAddress} className="text-gray-500 text-xs" />
               </div>
             ) : (
               <button onClick={handleConnectWallet} className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold px-4 py-2 rounded-lg text-sm flex items-center gap-2" data-testid="btn-connect">

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { Search, Clock, TrendingUp, TrendingDown, Wallet, LogOut, RefreshCw, Menu, X, Star, ChevronUp, ChevronDown, Trash2, Info, MoreHorizontal } from "lucide-react";
+import SuiNSName from '@/components/SuiNSName';
 import sportMarketsAdapter from "@/lib/sportMarketsAdapter";
 import { useBetting } from "@/context/BettingContext";
 import { useToast } from "@/hooks/use-toast";
@@ -295,7 +296,7 @@ export default function CleanHome() {
                   <div className="text-green-400 text-xs" title="Wallet balance (on-chain)">
                     🔗 Wallet: {walletSuiBalance.toFixed(4)} SUI | {walletSbetsBalance.toFixed(2)} SBETS
                   </div>
-                  <div className="text-gray-500 text-xs">{walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</div>
+                  <div className="text-gray-500 text-xs"><SuiNSName address={walletAddress} className="text-gray-500 text-xs" /></div>
                 </div>
                 <button 
                   onClick={() => window.location.reload()} 
