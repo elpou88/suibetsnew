@@ -50,6 +50,7 @@ import ResultsPage from "@/pages/results";
 import ActivityPage from "@/pages/activity";
 import DepositsWithdrawalsPage from "@/pages/deposits-withdrawals";
 import WhitepaperPage from "@/pages/whitepaper";
+import StakingPage from "@/pages/staking";
 import NetworkPage from "@/pages/network";
 import AdminPanel from "@/pages/admin-panel";
 import SharedBetPage from "@/pages/shared-bet";
@@ -170,6 +171,7 @@ function App() {
                           <Route path="/dashboard" component={WalletDashboard} />
                           <Route path="/activity" component={ActivityPage} />
                           <Route path="/deposits-withdrawals" component={DepositsWithdrawalsPage} />
+                          <Route path="/staking" component={StakingPage} />
                           <Route path="/whitepaper" component={WhitepaperPage} />
                           <Route path="/network" component={NetworkPage} />
                           <Route path="/join" component={JoinPage} />
