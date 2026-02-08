@@ -6920,113 +6920,57 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
 
-  // Full-page stream viewer - serves the embed page directly (no iframe) to avoid sandbox detection
-  // Accessed at /watch/:source/:id/:streamNo - renders stream with a "Back to SuiBets" overlay
+  // Full-page stream viewer with iframe to embedsports.top
   app.get("/watch/:source/:id/:streamNo?", async (req: Request, res: Response) => {
     try {
       const { source, id, streamNo } = req.params;
       const num = streamNo || '1';
       const embedUrl = `https://embedsports.top/embed/${source}/${id}/${num}`;
+      const matchTitle = id.replace(/-/g, ' ').replace(/vs/gi, ' vs ').replace(/\s+/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()).trim();
 
-      const response = await fetch(embedUrl, {
-        headers: {
-          'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Referer': 'https://streamed.pk/',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Stream fetch error: ${response.status}`);
-      }
-
-      let html = await response.text();
-
-      // Strip ad scripts
-      html = html.replace(/<script>[^<]*aclib\.runPop[^<]*<\/script>/gi, '');
-      html = html.replace(/\(\(\)=>\{let\s+a=\(\)=>\{document\.body\.insertAdjacentHTML.*?a\(\)\}\)\(\)/gs, '');
-      // Remove Cloudflare beacon
-      html = html.replace(/<script[^>]*cloudflareinsights[^>]*>[^<]*<\/script>/gi, '');
-      // REMOVE the fake "jquery.min.js" protection script - it does the sandbox detection
-      // via plugin/PDF loading test. It blocks playback in any CSP-restricted environment.
-      html = html.replace(/<script[^>]*src="[^"]*jquery\.min\.js"[^>]*><\/script>/gi, '');
-
-      // Rewrite ALL /js/ references to go through our proxy (both attributes and inline code)
-      html = html.replace(/["']\/js\//g, (match) => match[0] + '/api/streaming/js/');
-
-      // Provide jQuery stub + intercept sandbox detection via MutationObserver
-      const setupScript = `<script>
-window.$=window.jQuery=function(s){if(typeof s==='function')s();return{ready:function(f){f()},on:function(){return this},off:function(){return this},find:function(){return this},length:0,css:function(){return this},html:function(){return this},append:function(){return this},remove:function(){return this},addClass:function(){return this},removeClass:function(){return this},attr:function(){return this},each:function(){return this}}};
-window.$.fn={};window.$.ajax=function(){};window.$.get=function(){};window.$.post=function(){};window.$.getJSON=function(){};
-window.aclib={runPop:function(){}};
-// Intercept sandbox detection: the protection writes red error text to body
-// Use MutationObserver to remove any text nodes containing "sandbox" immediately
-var _mo=new MutationObserver(function(mutations){
-  mutations.forEach(function(m){
-    m.addedNodes.forEach(function(n){
-      if(n.nodeType===3&&n.textContent&&n.textContent.indexOf('sandbox')>-1){n.remove();}
-      if(n.nodeType===1){
-        if(n.textContent&&n.textContent.indexOf('sandbox')>-1){n.remove();}
-        if(n.innerHTML&&n.innerHTML.indexOf('sandbox')>-1){n.remove();}
-      }
-    });
-    if(m.type==='characterData'&&m.target.textContent&&m.target.textContent.indexOf('sandbox')>-1){
-      m.target.textContent='';
-    }
-  });
-});
-document.addEventListener('DOMContentLoaded',function(){
-  _mo.observe(document.body,{childList:true,subtree:true,characterData:true});
-  // Also strip any existing sandbox error text
-  setTimeout(function(){
-    var all=document.body.querySelectorAll('*');
-    for(var i=0;i<all.length;i++){
-      if(all[i].id!=='player'&&all[i].id!=='suibets-bar'&&!all[i].closest('#player')&&!all[i].closest('#suibets-bar')){
-        if(all[i].textContent&&all[i].textContent.indexOf('sandbox')>-1)all[i].style.display='none';
-      }
-    }
-    // Also remove direct text nodes from body
-    document.body.childNodes.forEach(function(n){
-      if(n.nodeType===3&&n.textContent.indexOf('sandbox')>-1)n.remove();
-    });
-    document.body.style.color='transparent';
-  },100);
-  setTimeout(function(){document.body.style.color='transparent';},500);
-  setTimeout(function(){document.body.style.color='transparent';},1500);
-},false);
-// Override body's red text color - make errors invisible
-</script>
-<style>body{color:transparent !important;}</style>`;
-      // Override the red error text styling
-      html = html.replace(/color:\s*red/gi, 'color:transparent');
-
-      // Add a floating "Back to SuiBets" bar at the top
-      const matchTitle = id.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
-      const overlayBar = `
-<div id="suibets-bar" style="position:fixed;top:0;left:0;right:0;z-index:999999;background:rgba(10,15,30,0.92);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:space-between;padding:8px 16px;font-family:Arial,sans-serif;border-bottom:1px solid rgba(6,182,212,0.3);">
-  <a href="/streaming" style="color:#06b6d4;text-decoration:none;font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px;">
+      const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${matchTitle} - SuiBets Live</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;width:100%;overflow:hidden;background:#000;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;}
+#bar{position:fixed;top:0;left:0;right:0;z-index:999999;background:rgba(10,15,30,0.95);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:space-between;padding:8px 16px;border-bottom:1px solid rgba(6,182,212,0.3);gap:8px;}
+#bar a{color:#06b6d4;text-decoration:none;font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px;white-space:nowrap;}
+#bar a:hover{color:#22d3ee;}
+.mt{color:#e2e8f0;font-size:13px;font-weight:500;text-align:center;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.lb{color:#06b6d4;font-size:11px;background:rgba(6,182,212,0.15);padding:3px 8px;border-radius:4px;white-space:nowrap;font-weight:600;}
+#sf{position:fixed;top:44px;left:0;right:0;bottom:0;width:100%;height:calc(100vh - 44px);border:none;background:#000;}
+.lo{position:fixed;top:44px;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#000;z-index:10;transition:opacity 0.5s;}
+.lo.h{opacity:0;pointer-events:none;}
+.sp{width:40px;height:40px;border:3px solid rgba(6,182,212,0.2);border-top-color:#06b6d4;border-radius:50%;animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.lt{color:#94a3b8;font-size:14px;margin-top:16px;}
+</style>
+</head>
+<body>
+<div id="bar">
+  <a href="/streaming">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
     Back to SuiBets
   </a>
-  <span style="color:#e2e8f0;font-size:13px;font-weight:500;">${matchTitle}</span>
-  <span style="color:#06b6d4;font-size:11px;background:rgba(6,182,212,0.15);padding:3px 8px;border-radius:4px;">LIVE</span>
+  <span class="mt">${matchTitle}</span>
+  <span class="lb">LIVE</span>
 </div>
-<style>#player{padding-top:44px !important;height:calc(100vh) !important;}</style>`;
-
-      if (html.match(/<head[^>]*>/i)) {
-        html = html.replace(/<head[^>]*>/i, `$&${setupScript}`);
-      } else if (html.match(/<html[^>]*>/i)) {
-        html = html.replace(/<html[^>]*>/i, `$&<head>${setupScript}</head>`);
-      } else {
-        html = setupScript + html;
-      }
-
-      // Inject the overlay bar before closing body or at end
-      if (html.match(/<body[^>]*>/i)) {
-        html = html.replace(/<body[^>]*>/i, `$&${overlayBar}`);
-      } else {
-        html = overlayBar + html;
-      }
+<div class="lo" id="lo">
+  <div class="sp"></div>
+  <div class="lt">Loading stream...</div>
+</div>
+<iframe id="sf" src="${embedUrl}" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture; fullscreen" referrerpolicy="no-referrer"></iframe>
+<script>
+var f=document.getElementById('sf'),l=document.getElementById('lo');
+f.addEventListener('load',function(){setTimeout(function(){l.classList.add('h');},800);});
+setTimeout(function(){l.classList.add('h');},6000);
+</script>
+</body>
+</html>`;
 
       res.setHeader('Content-Type', 'text/html');
       res.setHeader('Cache-Control', 'no-cache');
