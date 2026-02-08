@@ -6945,13 +6945,46 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       let html = await response.text();
 
       const baseTag = `<base href="${parsed.origin}/">`;
-      if (html.match(/<head[^>]*>/i)) {
-        html = html.replace(/<head[^>]*>/i, `$&${baseTag}`);
-      } else if (html.match(/<html[^>]*>/i)) {
-        html = html.replace(/<html[^>]*>/i, `$&<head>${baseTag}</head>`);
-      } else {
-        html = baseTag + html;
+      const antiSandboxScript = `<script>
+(function(){
+  var origWrite = document.write.bind(document);
+  document.write = function(s) {
+    if (typeof s === 'string' && s.toLowerCase().indexOf('sandbox') !== -1) return;
+    origWrite(s);
+  };
+  var ob = new MutationObserver(function(mutations) {
+    mutations.forEach(function(m) {
+      m.addedNodes.forEach(function(n) {
+        if (n.textContent && n.textContent.indexOf('sandbox') !== -1 && n.tagName !== 'SCRIPT') {
+          n.remove();
+        }
+      });
+      if (document.body) {
+        document.body.childNodes.forEach(function(c) {
+          if (c.nodeType === 3 && c.textContent.indexOf('sandbox') !== -1) c.remove();
+          if (c.nodeType === 1 && c.tagName !== 'DIV' && c.tagName !== 'SCRIPT' && c.tagName !== 'IFRAME' && c.textContent.indexOf('sandbox') !== -1) c.remove();
+        });
       }
+    });
+  });
+  ob.observe(document.documentElement, {childList:true, subtree:true});
+  Object.defineProperty(HTMLIFrameElement.prototype, 'sandbox', {
+    get: function() { return null; },
+    set: function() {},
+    configurable: true
+  });
+  try { window.__sandbox_bypass = true; } catch(e) {}
+})();
+</script>`;
+      if (html.match(/<head[^>]*>/i)) {
+        html = html.replace(/<head[^>]*>/i, `$&${baseTag}${antiSandboxScript}`);
+      } else if (html.match(/<html[^>]*>/i)) {
+        html = html.replace(/<html[^>]*>/i, `$&<head>${baseTag}${antiSandboxScript}</head>`);
+      } else {
+        html = baseTag + antiSandboxScript + html;
+      }
+
+      html = html.replace(/color:\s*red/g, 'color:transparent');
 
       res.setHeader('Content-Type', contentType);
       res.setHeader('X-Frame-Options', 'ALLOWALL');
