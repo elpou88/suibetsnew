@@ -1,6 +1,6 @@
 module suibets::betting {
     use sui::object::{Self, UID, ID};
-    use sui::transfer;
+    use sui::transfer::{Self, Receiving};
     use sui::tx_context::{Self, TxContext};
     use sui::coin::{Self, Coin};
     use sui::sui::SUI;
@@ -992,5 +992,29 @@ module suibets::betting {
     // Get bet market_id for settlement matching
     public fun get_bet_market_id(bet: &Bet): vector<u8> {
         bet.market_id
+    }
+
+    // ============ RECEIVE STUCK COINS ============
+    // Receives SBETS coin objects that were sent to the platform shared object
+    // and transfers them to the admin caller
+    public entry fun receive_sbets_coins(
+        _admin_cap: &AdminCap,
+        platform: &mut BettingPlatform,
+        coin_to_receive: Receiving<Coin<SBETS>>,
+        ctx: &mut TxContext
+    ) {
+        let coin = transfer::public_receive(&mut platform.id, coin_to_receive);
+        transfer::public_transfer(coin, tx_context::sender(ctx));
+    }
+
+    // Receives SUI coin objects that were sent to the platform shared object
+    public entry fun receive_sui_coins(
+        _admin_cap: &AdminCap,
+        platform: &mut BettingPlatform,
+        coin_to_receive: Receiving<Coin<SUI>>,
+        ctx: &mut TxContext
+    ) {
+        let coin = transfer::public_receive(&mut platform.id, coin_to_receive);
+        transfer::public_transfer(coin, tx_context::sender(ctx));
     }
 }
