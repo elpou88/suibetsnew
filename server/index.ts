@@ -80,21 +80,37 @@ app.use(express.urlencoded({ extended: false }));
 // Content Security Policy headers for Railway deployment
 // Allow inline scripts and eval for Vite/React/Sui wallet libraries
 app.use((req, res, next) => {
-  // Only set CSP for HTML pages, not API requests
-  if (!req.path.startsWith('/api')) {
+  // Skip CSP for API requests
+  if (req.path.startsWith('/api')) return next();
+  
+  // Relaxed CSP for streaming watch pages (player needs data: URIs, media sources, etc.)
+  if (req.path.startsWith('/watch/')) {
     res.setHeader(
       'Content-Security-Policy',
-      "default-src 'self'; " +
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://replit.com https://*.replit.com blob:; " +
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-      "font-src 'self' https://fonts.gstatic.com data:; " +
-      "img-src 'self' data: blob: https: http:; " +
-      "connect-src 'self' https: wss: ws: http:; " +
-      "frame-src 'self' https:; " +
-      "worker-src 'self' blob:; " +
-      "child-src 'self' blob:;"
+      "default-src * data: blob: 'unsafe-inline' 'unsafe-eval'; " +
+      "script-src * 'unsafe-inline' 'unsafe-eval' blob:; " +
+      "style-src * 'unsafe-inline'; " +
+      "img-src * data: blob:; " +
+      "media-src * data: blob:; " +
+      "connect-src * data: blob:; " +
+      "object-src * data:; " +
+      "frame-src * data: blob:;"
     );
+    return next();
   }
+
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://replit.com https://*.replit.com blob:; " +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+    "font-src 'self' https://fonts.gstatic.com data:; " +
+    "img-src 'self' data: blob: https: http:; " +
+    "connect-src 'self' https: wss: ws: http:; " +
+    "frame-src 'self' https:; " +
+    "worker-src 'self' blob:; " +
+    "child-src 'self' blob:;"
+  );
   next();
 });
 

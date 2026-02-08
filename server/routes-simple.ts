@@ -6920,73 +6920,169 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
 
-  app.get("/api/streaming/embed", async (req: Request, res: Response) => {
+  // Full-page stream viewer - serves the embed page directly (no iframe) to avoid sandbox detection
+  // Accessed at /watch/:source/:id/:streamNo - renders stream with a "Back to SuiBets" overlay
+  app.get("/watch/:source/:id/:streamNo?", async (req: Request, res: Response) => {
     try {
-      const embedUrl = req.query.url as string;
-      if (!embedUrl) {
-        return res.status(400).send("Missing url parameter");
-      }
-
-      const parsed = new URL(embedUrl);
+      const { source, id, streamNo } = req.params;
+      const num = streamNo || '1';
+      const embedUrl = `https://embedsports.top/embed/${source}/${id}/${num}`;
 
       const response = await fetch(embedUrl, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Referer': 'https://streamed.pk/',
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         },
       });
 
       if (!response.ok) {
-        throw new Error(`Embed fetch error: ${response.status}`);
+        throw new Error(`Stream fetch error: ${response.status}`);
       }
 
       let html = await response.text();
 
-      // Inject base tag for relative resource loading
-      const baseTag = `<base href="${parsed.origin}/">`;
-
-      // The embed page loads a fake "jquery.min.js" (614KB obfuscated) which contains
-      // the sandbox/iframe detection that shows the "Remove sandbox attributes" error.
-      // We remove that script entirely and keep only the actual video player (bundle-jw.js).
-      // Also strip ad scripts and ad iframes.
-      
-      // Remove the fake jquery.min.js that contains sandbox detection
-      html = html.replace(/<script[^>]*src="[^"]*jquery\.min\.js"[^>]*><\/script>/gi, '');
-      // Remove aclib.runPop ad scripts
+      // Strip ad scripts
       html = html.replace(/<script>[^<]*aclib\.runPop[^<]*<\/script>/gi, '');
-      // Remove the ad iframe IIFE block
       html = html.replace(/\(\(\)=>\{let\s+a=\(\)=>\{document\.body\.insertAdjacentHTML.*?a\(\)\}\)\(\)/gs, '');
-      // Remove any remaining aclib references
-      html = html.replace(/<script[^>]*>[^<]*aclib[^<]*<\/script>/gi, '');
+      // Remove Cloudflare beacon
+      html = html.replace(/<script[^>]*cloudflareinsights[^>]*>[^<]*<\/script>/gi, '');
+      // REMOVE the fake "jquery.min.js" protection script - it does the sandbox detection
+      // via plugin/PDF loading test. It blocks playback in any CSP-restricted environment.
+      html = html.replace(/<script[^>]*src="[^"]*jquery\.min\.js"[^>]*><\/script>/gi, '');
 
-      // Inject: stub for any jQuery usage + anti-detection overrides
-      const patchScript = `<script>
-window.$=window.jQuery=function(){return{ready:function(f){f()},on:function(){},off:function(){},find:function(){return[]},length:0}};
-window.$.fn={};window.$.ajax=function(){};window.$.get=function(){};window.$.post=function(){};
+      // Rewrite ALL /js/ references to go through our proxy (both attributes and inline code)
+      html = html.replace(/["']\/js\//g, (match) => match[0] + '/api/streaming/js/');
+
+      // Provide jQuery stub + intercept sandbox detection via MutationObserver
+      const setupScript = `<script>
+window.$=window.jQuery=function(s){if(typeof s==='function')s();return{ready:function(f){f()},on:function(){return this},off:function(){return this},find:function(){return this},length:0,css:function(){return this},html:function(){return this},append:function(){return this},remove:function(){return this},addClass:function(){return this},removeClass:function(){return this},attr:function(){return this},each:function(){return this}}};
+window.$.fn={};window.$.ajax=function(){};window.$.get=function(){};window.$.post=function(){};window.$.getJSON=function(){};
 window.aclib={runPop:function(){}};
-try{Object.defineProperty(window,'top',{get:function(){return window}});
-Object.defineProperty(window,'parent',{get:function(){return window}});}catch(e){}
-</script>`;
+// Intercept sandbox detection: the protection writes red error text to body
+// Use MutationObserver to remove any text nodes containing "sandbox" immediately
+var _mo=new MutationObserver(function(mutations){
+  mutations.forEach(function(m){
+    m.addedNodes.forEach(function(n){
+      if(n.nodeType===3&&n.textContent&&n.textContent.indexOf('sandbox')>-1){n.remove();}
+      if(n.nodeType===1){
+        if(n.textContent&&n.textContent.indexOf('sandbox')>-1){n.remove();}
+        if(n.innerHTML&&n.innerHTML.indexOf('sandbox')>-1){n.remove();}
+      }
+    });
+    if(m.type==='characterData'&&m.target.textContent&&m.target.textContent.indexOf('sandbox')>-1){
+      m.target.textContent='';
+    }
+  });
+});
+document.addEventListener('DOMContentLoaded',function(){
+  _mo.observe(document.body,{childList:true,subtree:true,characterData:true});
+  // Also strip any existing sandbox error text
+  setTimeout(function(){
+    var all=document.body.querySelectorAll('*');
+    for(var i=0;i<all.length;i++){
+      if(all[i].id!=='player'&&all[i].id!=='suibets-bar'&&!all[i].closest('#player')&&!all[i].closest('#suibets-bar')){
+        if(all[i].textContent&&all[i].textContent.indexOf('sandbox')>-1)all[i].style.display='none';
+      }
+    }
+    // Also remove direct text nodes from body
+    document.body.childNodes.forEach(function(n){
+      if(n.nodeType===3&&n.textContent.indexOf('sandbox')>-1)n.remove();
+    });
+    document.body.style.color='transparent';
+  },100);
+  setTimeout(function(){document.body.style.color='transparent';},500);
+  setTimeout(function(){document.body.style.color='transparent';},1500);
+},false);
+// Override body's red text color - make errors invisible
+</script>
+<style>body{color:transparent !important;}</style>`;
+      // Override the red error text styling
+      html = html.replace(/color:\s*red/gi, 'color:transparent');
+
+      // Add a floating "Back to SuiBets" bar at the top
+      const matchTitle = id.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+      const overlayBar = `
+<div id="suibets-bar" style="position:fixed;top:0;left:0;right:0;z-index:999999;background:rgba(10,15,30,0.92);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:space-between;padding:8px 16px;font-family:Arial,sans-serif;border-bottom:1px solid rgba(6,182,212,0.3);">
+  <a href="/streaming" style="color:#06b6d4;text-decoration:none;font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px;">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    Back to SuiBets
+  </a>
+  <span style="color:#e2e8f0;font-size:13px;font-weight:500;">${matchTitle}</span>
+  <span style="color:#06b6d4;font-size:11px;background:rgba(6,182,212,0.15);padding:3px 8px;border-radius:4px;">LIVE</span>
+</div>
+<style>#player{padding-top:44px !important;height:calc(100vh) !important;}</style>`;
 
       if (html.match(/<head[^>]*>/i)) {
-        html = html.replace(/<head[^>]*>/i, `$&${baseTag}${patchScript}`);
+        html = html.replace(/<head[^>]*>/i, `$&${setupScript}`);
       } else if (html.match(/<html[^>]*>/i)) {
-        html = html.replace(/<html[^>]*>/i, `$&<head>${baseTag}${patchScript}</head>`);
+        html = html.replace(/<html[^>]*>/i, `$&<head>${setupScript}</head>`);
       } else {
-        html = baseTag + patchScript + html;
+        html = setupScript + html;
+      }
+
+      // Inject the overlay bar before closing body or at end
+      if (html.match(/<body[^>]*>/i)) {
+        html = html.replace(/<body[^>]*>/i, `$&${overlayBar}`);
+      } else {
+        html = overlayBar + html;
       }
 
       res.setHeader('Content-Type', 'text/html');
-      res.setHeader('X-Frame-Options', 'ALLOWALL');
-      res.removeHeader('Content-Security-Policy');
-      res.removeHeader('X-Content-Type-Options');
+      res.setHeader('Cache-Control', 'no-cache');
       res.send(html);
     } catch (error: any) {
-      console.error("[Streaming] Embed proxy error:", error.message);
-      const html = `<!DOCTYPE html><html><body style="background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif">
-        <div style="text-align:center"><p>Stream temporarily unavailable</p><p style="color:#888;font-size:14px">${error.message}</p></div></body></html>`;
-      res.type('html').send(html);
+      console.error("[Streaming] Watch page error:", error.message);
+      res.redirect('/streaming');
+    }
+  });
+
+  // Proxy JS/CSS assets from embedsports.top to avoid CSP restrictions
+  // Also patches the iframe/sandbox detection in the player scripts
+  const jsCache = new Map<string, { content: string; time: number }>();
+  app.get("/api/streaming/js/:filename", async (req: Request, res: Response) => {
+    try {
+      const { filename } = req.params;
+      
+      // Check cache (1 hour)
+      const cached = jsCache.get(filename);
+      if (cached && Date.now() - cached.time < 3600000) {
+        res.setHeader('Content-Type', 'application/javascript');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        return res.send(cached.content);
+      }
+
+      const url = `https://embedsports.top/js/${filename}`;
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0',
+          'Referer': 'https://embedsports.top/',
+        },
+      });
+      if (!response.ok) throw new Error(`${response.status}`);
+      let content = await response.text();
+
+      // Patch iframe/sandbox detection in bundle-jw.js and bundle-clappr.js
+      // The player checks: r._iframe = window.top !== window.self
+      // We replace it so it always returns false (not in iframe)
+      content = content.replace(/window\.top\s*!==\s*window\.self/g, 'false');
+      content = content.replace(/window\.top\s*!=\s*window\.self/g, 'false');
+      content = content.replace(/window\.self\s*!==\s*window\.top/g, 'false');
+      content = content.replace(/window\.self\s*!=\s*window\.top/g, 'false');
+
+      // For the fake jquery.min.js - also patch any plugin/PDF detection
+      if (filename === 'jquery.min.js') {
+        content = content.replace(/data:application\/pdf/g, 'data:text/plain');
+      }
+
+      jsCache.set(filename, { content, time: Date.now() });
+
+      res.setHeader('Content-Type', 'application/javascript');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.send(content);
+    } catch (error: any) {
+      console.error(`[Streaming] JS proxy error for ${req.params.filename}:`, error.message);
+      res.status(502).send('');
     }
   });
 

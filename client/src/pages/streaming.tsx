@@ -135,17 +135,35 @@ export default function StreamingPage() {
             {loadingStreams ? (
               <div className="absolute inset-0 flex items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-cyan-400" />
-                <span className="ml-3 text-gray-400">Loading stream...</span>
+                <span className="ml-3 text-gray-400">Loading stream sources...</span>
               </div>
-            ) : selectedStream ? (
-              <iframe
-                src={`/api/streaming/embed?url=${encodeURIComponent(selectedStream.embedUrl)}`}
-                className="absolute inset-0 w-full h-full"
-                allowFullScreen
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-                referrerPolicy="no-referrer"
-                data-testid="stream-iframe"
-              />
+            ) : streams.length > 0 ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-gray-900 to-black">
+                <Tv className="h-14 w-14 text-cyan-400 mb-4" />
+                <h3 className="text-lg font-bold text-white mb-2">{selectedMatch.title}</h3>
+                <p className="text-gray-400 text-sm mb-5">
+                  {streams.length} stream{streams.length > 1 ? 's' : ''} available
+                </p>
+                <a
+                  href={(() => {
+                    const s = selectedStream || streams[0];
+                    try {
+                      const url = new URL(s.embedUrl);
+                      const parts = url.pathname.split('/').filter(Boolean);
+                      const source = parts[1] || 'alpha';
+                      const id = parts[2] || '';
+                      const num = parts[3] || '1';
+                      return `/watch/${source}/${id}/${num}`;
+                    } catch { return '#'; }
+                  })()}
+                  className="inline-flex items-center gap-2 bg-cyan-500 hover:bg-cyan-600 text-black font-bold px-8 py-3 rounded-lg text-base transition-colors no-underline"
+                  data-testid="button-play-stream"
+                >
+                  <Play className="h-5 w-5" />
+                  Play Stream
+                </a>
+                <p className="text-gray-500 text-xs mt-3">Stream opens full-screen with a back button to return here</p>
+              </div>
             ) : (
               <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500">
                 <Tv className="h-12 w-12 mb-3" />
@@ -154,19 +172,26 @@ export default function StreamingPage() {
             )}
           </div>
 
-          {streams.length > 0 && (
+          {streams.length > 1 && (
             <div className="space-y-2">
               <h3 className="text-sm font-medium text-gray-400">Available Streams</h3>
               <div className="flex flex-wrap gap-2">
-                {streams.map((stream) => (
-                  <Button
+                {streams.map((stream) => {
+                  let watchUrl = '#';
+                  try {
+                    const url = new URL(stream.embedUrl);
+                    const parts = url.pathname.split('/').filter(Boolean);
+                    watchUrl = `/watch/${parts[1] || 'alpha'}/${parts[2] || ''}/${parts[3] || '1'}`;
+                  } catch {}
+                  return (
+                  <a
                     key={`${stream.source}-${stream.streamNo}`}
-                    variant={selectedStream?.streamNo === stream.streamNo ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setSelectedStream(stream)}
-                    className={selectedStream?.streamNo === stream.streamNo 
-                      ? "bg-cyan-600 text-white" 
-                      : "border-gray-600 text-gray-300"}
+                    href={watchUrl}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm no-underline transition-colors ${
+                      selectedStream?.streamNo === stream.streamNo 
+                        ? "bg-cyan-600 text-white" 
+                        : "border border-gray-600 text-gray-300 hover:border-cyan-500"
+                    }`}
                     data-testid={`button-stream-${stream.streamNo}`}
                   >
                     <Monitor className="h-3 w-3 mr-1" />
@@ -176,8 +201,9 @@ export default function StreamingPage() {
                       <Eye className="h-3 w-3 mr-0.5" />
                       {stream.viewers}
                     </span>
-                  </Button>
-                ))}
+                  </a>
+                  );
+                })}
               </div>
             </div>
           )}
