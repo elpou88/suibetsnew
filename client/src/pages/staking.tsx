@@ -160,6 +160,8 @@ export default function StakingPage() {
       if (data.success) {
         toast({ title: "Unstaked!", description: `Received ${data.total?.toLocaleString()} SBETS (incl. rewards)` });
         refetchStaking();
+        queryClient.invalidateQueries({ queryKey: ['/api/user/balance'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/staking/info'] });
       } else {
         toast({ title: "Unstake failed", description: data.error, variant: "destructive" });
       }
@@ -176,6 +178,8 @@ export default function StakingPage() {
       if (data.success) {
         toast({ title: "Rewards Claimed!", description: data.message });
         refetchStaking();
+        queryClient.invalidateQueries({ queryKey: ['/api/user/balance'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/staking/info'] });
       } else {
         toast({ title: "Claim failed", description: data.error, variant: "destructive" });
       }
