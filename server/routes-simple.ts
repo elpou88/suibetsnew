@@ -25,7 +25,7 @@ import { freeSportsService } from "./services/freeSportsService";
 
 // SUI BETTING PAUSE - Set to true to pause SUI betting until treasury is funded
 // Users can still bet with SBETS
-const SUI_BETTING_PAUSED = true;
+let SUI_BETTING_PAUSED = true;
 const SUI_PAUSE_MESSAGE = "SUI betting is temporarily paused while we add funds to the treasury. Please bet with SBETS instead!";
 
 // ANTI-EXPLOIT: Blocked wallet addresses (known exploiters)
