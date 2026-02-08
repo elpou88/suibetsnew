@@ -8,6 +8,15 @@ import { blockchainStorage } from "./blockchain-storage";
 
 const app = express();
 
+app.use((req, res, next) => {
+  if (req.headers.accept?.includes('text/html')) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+  next();
+});
+
 // CORS configuration for Railway deployment
 const allowedOrigins = [
   process.env.CORS_ORIGIN,
