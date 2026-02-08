@@ -1,6 +1,12 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { Link, useLocation } from "wouter";
-import { Search, Clock, TrendingUp, TrendingDown, Wallet, LogOut, RefreshCw, Menu, X, Star, ChevronUp, ChevronDown, Trash2, Info, MoreHorizontal } from "lucide-react";
+import { Search, Clock, TrendingUp, TrendingDown, Wallet, LogOut, RefreshCw, Menu, X, Star, ChevronUp, ChevronDown, Trash2, Info, MoreHorizontal, FileText, Activity, ArrowUpDown, Target } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import SuiNSName from '@/components/SuiNSName';
 import sportMarketsAdapter from "@/lib/sportMarketsAdapter";
 import { useBetting } from "@/context/BettingContext";
@@ -268,12 +274,34 @@ export default function CleanHome() {
             <Link href="/network" className="text-yellow-400 hover:text-yellow-300 transition-colors text-sm font-bold flex items-center gap-1" data-testid="nav-predict">Predict<span className="inline-block w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" /></Link>
             <Link href="/dashboard" className="text-gray-400 hover:text-cyan-400 transition-colors text-sm font-medium" data-testid="nav-dashboard">Dashboard</Link>
             <Link href="/bet-history" className="text-gray-400 hover:text-cyan-400 transition-colors text-sm font-medium" data-testid="nav-my-bets">My Bets</Link>
-            <Link href="/activity" className="text-gray-400 hover:text-cyan-400 transition-colors text-sm font-medium" data-testid="nav-activity">Activity</Link>
-            <Link href="/deposits-withdrawals" className="text-gray-400 hover:text-cyan-400 transition-colors text-sm font-medium" data-testid="nav-withdraw">Withdraw</Link>
-            <Link href="/parlay" className="text-gray-400 hover:text-cyan-400 transition-colors text-sm font-medium" data-testid="nav-parlays">Parlays</Link>
+            <Link href="/promotions" className="text-gray-400 hover:text-cyan-400 transition-colors text-sm font-medium" data-testid="nav-promotions">Promotions</Link>
             <Link href="/revenue" className="text-yellow-400 hover:text-yellow-300 transition-colors text-sm font-bold" data-testid="nav-revenue">Revenue</Link>
             <Link href="/leaderboard" className="text-yellow-400 hover:text-yellow-300 transition-colors text-sm font-bold" data-testid="nav-leaderboard">Leaderboard</Link>
-            <Link href="/whitepaper" className="text-gray-400 hover:text-cyan-400 transition-colors text-sm font-medium" data-testid="nav-whitepaper">Whitepaper</Link>
+            <Link href="/staking" className="text-cyan-400 hover:text-cyan-300 transition-colors text-sm font-medium" data-testid="nav-staking">Staking</Link>
+            <DropdownMenu>
+              <DropdownMenuTrigger className="text-gray-400 hover:text-cyan-400 transition-colors text-sm font-medium flex items-center gap-1 outline-none" data-testid="nav-more">
+                More
+                <MoreHorizontal className="h-4 w-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-[#0b1618] border border-cyan-900/30 min-w-[180px]">
+                <DropdownMenuItem className="cursor-pointer text-gray-200 hover:text-white flex items-center px-4 py-3 text-sm" onClick={() => setLocation('/results')} data-testid="nav-more-activity">
+                  <Activity className="h-4 w-4 mr-2" />
+                  Activity
+                </DropdownMenuItem>
+                <DropdownMenuItem className="cursor-pointer text-gray-200 hover:text-white flex items-center px-4 py-3 text-sm" onClick={() => setLocation('/parlay')} data-testid="nav-more-parlays">
+                  <Target className="h-4 w-4 mr-2" />
+                  Parlays
+                </DropdownMenuItem>
+                <DropdownMenuItem className="cursor-pointer text-gray-200 hover:text-white flex items-center px-4 py-3 text-sm" onClick={() => setLocation('/deposits-withdrawals')} data-testid="nav-more-withdraw">
+                  <ArrowUpDown className="h-4 w-4 mr-2" />
+                  Withdraw
+                </DropdownMenuItem>
+                <DropdownMenuItem className="cursor-pointer text-gray-200 hover:text-white flex items-center px-4 py-3 text-sm" onClick={() => setLocation('/whitepaper')} data-testid="nav-more-whitepaper">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Whitepaper
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* Right Side - Wallet */}
@@ -332,13 +360,16 @@ export default function CleanHome() {
           <div className="md:hidden absolute top-full left-0 right-0 bg-black/95 backdrop-blur-md border-b border-cyan-900/30 py-4 px-4 z-50" data-testid="mobile-menu">
             <div className="flex flex-col gap-3">
               <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="text-cyan-400 hover:text-cyan-300 transition-colors text-base font-medium py-2 border-b border-cyan-900/20" data-testid="mobile-nav-bets">Bets</Link>
+              <Link href="/network" onClick={() => setIsMobileMenuOpen(false)} className="text-yellow-400 hover:text-yellow-300 transition-colors text-base font-bold py-2 border-b border-cyan-900/20" data-testid="mobile-nav-predict">Predict</Link>
               <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-cyan-400 transition-colors text-base font-medium py-2 border-b border-cyan-900/20" data-testid="mobile-nav-dashboard">Dashboard</Link>
               <Link href="/bet-history" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-cyan-400 transition-colors text-base font-medium py-2 border-b border-cyan-900/20" data-testid="mobile-nav-my-bets">My Bets</Link>
-              <Link href="/activity" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-cyan-400 transition-colors text-base font-medium py-2 border-b border-cyan-900/20" data-testid="mobile-nav-activity">Activity</Link>
-              <Link href="/deposits-withdrawals" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-cyan-400 transition-colors text-base font-medium py-2 border-b border-cyan-900/20" data-testid="mobile-nav-withdraw">Withdraw</Link>
-              <Link href="/parlay" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-cyan-400 transition-colors text-base font-medium py-2 border-b border-cyan-900/20" data-testid="mobile-nav-parlays">Parlays</Link>
+              <Link href="/promotions" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-cyan-400 transition-colors text-base font-medium py-2 border-b border-cyan-900/20" data-testid="mobile-nav-promotions">Promotions</Link>
               <Link href="/revenue" onClick={() => setIsMobileMenuOpen(false)} className="text-yellow-400 hover:text-yellow-300 transition-colors text-base font-bold py-2 border-b border-cyan-900/20" data-testid="mobile-nav-revenue">Revenue</Link>
               <Link href="/leaderboard" onClick={() => setIsMobileMenuOpen(false)} className="text-yellow-400 hover:text-yellow-300 transition-colors text-base font-bold py-2 border-b border-cyan-900/20" data-testid="mobile-nav-leaderboard">Leaderboard</Link>
+              <Link href="/staking" onClick={() => setIsMobileMenuOpen(false)} className="text-cyan-400 hover:text-cyan-300 transition-colors text-base font-medium py-2 border-b border-cyan-900/20" data-testid="mobile-nav-staking">Staking</Link>
+              <Link href="/results" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-cyan-400 transition-colors text-base font-medium py-2 border-b border-cyan-900/20" data-testid="mobile-nav-activity">Activity</Link>
+              <Link href="/parlay" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-cyan-400 transition-colors text-base font-medium py-2 border-b border-cyan-900/20" data-testid="mobile-nav-parlays">Parlays</Link>
+              <Link href="/deposits-withdrawals" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-cyan-400 transition-colors text-base font-medium py-2 border-b border-cyan-900/20" data-testid="mobile-nav-withdraw">Withdraw</Link>
               <Link href="/whitepaper" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-cyan-400 transition-colors text-base font-medium py-2" data-testid="mobile-nav-whitepaper">Whitepaper</Link>
             </div>
           </div>
