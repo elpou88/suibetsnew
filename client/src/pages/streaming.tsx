@@ -138,37 +138,14 @@ export default function StreamingPage() {
                 <span className="ml-3 text-gray-400">Loading stream...</span>
               </div>
             ) : selectedStream ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-gray-900 to-black">
-                <Tv className="h-16 w-16 text-cyan-400 mb-4" />
-                <h3 className="text-xl font-bold text-white mb-2">{selectedMatch.title}</h3>
-                <p className="text-gray-400 text-sm mb-1">
-                  Stream {selectedStream.streamNo} {selectedStream.hd ? '- HD' : ''} {selectedStream.language ? `- ${selectedStream.language}` : ''}
-                </p>
-                <p className="text-gray-500 text-xs mb-6 flex items-center gap-1">
-                  <Eye className="h-3 w-3" />
-                  {selectedStream.viewers} viewers
-                </p>
-                <button
-                  onClick={() => {
-                    const w = Math.min(1280, window.screen.availWidth - 100);
-                    const h = Math.min(720, window.screen.availHeight - 100);
-                    const left = Math.round((window.screen.availWidth - w) / 2);
-                    const top = Math.round((window.screen.availHeight - h) / 2);
-                    window.open(
-                      selectedStream.embedUrl,
-                      'suibets_stream',
-                      `width=${w},height=${h},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=no`
-                    );
-                  }}
-                  className="inline-flex items-center gap-2 bg-cyan-500 hover:bg-cyan-600 text-black font-bold px-8 py-4 rounded-lg text-lg transition-colors cursor-pointer"
-                  data-testid="button-open-stream"
-                >
-                  <Play className="h-6 w-6" />
-                  Launch Stream Player
-                </button>
-                <p className="text-gray-500 text-xs mt-3">Opens in a stream player window alongside your dApp</p>
-                <p className="text-gray-600 text-xs mt-1">You can resize and position it while continuing to use SuiBets</p>
-              </div>
+              <iframe
+                src={`/api/streaming/embed?url=${encodeURIComponent(selectedStream.embedUrl)}`}
+                className="absolute inset-0 w-full h-full"
+                allowFullScreen
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                referrerPolicy="no-referrer"
+                data-testid="stream-iframe"
+              />
             ) : (
               <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500">
                 <Tv className="h-12 w-12 mb-3" />
