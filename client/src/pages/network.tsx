@@ -89,17 +89,54 @@ function setXHandle(wallet: string, handle: string) {
 
 function CreatePredictionModal({ onClose, wallet }: { onClose: () => void; wallet: string }) {
   const { toast } = useToast();
+  const suiClient = useSuiClient();
+  const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('other');
   const [endDate, setEndDate] = useState('');
+  const [initialAmount, setInitialAmount] = useState('');
+  const [initialSide, setInitialSide] = useState<'yes' | 'no'>('yes');
+
+  const { data: treasuryWallet } = useQuery<string>({
+    queryKey: ['/api/social/treasury-wallet'],
+    queryFn: async () => {
+      const res = await fetch('/api/social/treasury-wallet');
+      if (!res.ok) throw new Error('Failed');
+      const data = await res.json();
+      return data.wallet;
+    }
+  });
 
   const createMutation = useMutation({
     mutationFn: async () => {
+      const amount = parseFloat(initialAmount) || 0;
+      let txHash: string | undefined;
+
+      if (amount > 0) {
+        if (amount < 100) throw new Error('Minimum initial bet is 100 SBETS');
+        if (amount > 1000000) throw new Error('Maximum initial bet is 1,000,000 SBETS');
+        if (!treasuryWallet) throw new Error('Treasury wallet not available');
+
+        toast({ title: 'Sending SBETS on-chain', description: `Sign the transaction to send ${amount.toLocaleString()} SBETS` });
+        const tx = await buildSbetsTransferTx(suiClient, wallet, treasuryWallet, amount);
+        const result = await signAndExecute({ transaction: tx } as any);
+        if (!result.digest) throw new Error('Transaction failed - no digest returned');
+        txHash = result.digest;
+        toast({ title: 'SBETS sent on-chain', description: `Verifying... TX: ${txHash.slice(0, 12)}...` });
+      }
+
       const res = await fetch('/api/social/predictions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description, category, endDate: new Date(endDate).toISOString(), wallet })
+        body: JSON.stringify({
+          title, description, category,
+          endDate: new Date(endDate).toISOString(),
+          wallet,
+          initialAmount: amount > 0 ? amount : undefined,
+          initialSide: amount > 0 ? initialSide : undefined,
+          txHash: txHash || undefined
+        })
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -107,9 +144,14 @@ function CreatePredictionModal({ onClose, wallet }: { onClose: () => void; walle
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/social/predictions'] });
-      toast({ title: 'Prediction Created', description: 'Your prediction market is now live!' });
+      queryClient.invalidateQueries({ queryKey: ['/api/social/predictions/bets'] });
+      const amount = parseFloat(initialAmount) || 0;
+      const desc = amount > 0
+        ? `Your market is live with ${amount.toLocaleString()} SBETS on ${initialSide.toUpperCase()}!`
+        : 'Your prediction market is now live!';
+      toast({ title: 'Prediction Created', description: desc });
       onClose();
     },
     onError: (err: Error) => {
@@ -117,9 +159,11 @@ function CreatePredictionModal({ onClose, wallet }: { onClose: () => void; walle
     }
   });
 
+  const parsedAmount = parseFloat(initialAmount) || 0;
+
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose} data-testid="modal-create-prediction">
-      <div className="bg-[#111111] border border-cyan-900/30 rounded-2xl p-6 w-full max-w-lg" onClick={e => e.stopPropagation()}>
+      <div className="bg-[#111111] border border-cyan-900/30 rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold text-white">Create Prediction Market</h3>
           <button onClick={onClose} className="text-gray-500 hover:text-white p-1"><X size={20} /></button>
@@ -172,15 +216,62 @@ function CreatePredictionModal({ onClose, wallet }: { onClose: () => void; walle
               />
             </div>
           </div>
+
+          <div className="border border-cyan-900/20 rounded-lg p-4 space-y-3 bg-cyan-900/5">
+            <div className="flex items-center justify-between flex-wrap gap-1">
+              <label className="text-gray-300 text-sm font-medium">Initial Bet (optional)</label>
+              <span className="text-gray-500 text-xs">Max: 1,000,000 SBETS</span>
+            </div>
+            <p className="text-gray-500 text-xs">Put SBETS on your own prediction to seed the pool and show confidence</p>
+            <input
+              type="number"
+              value={initialAmount}
+              onChange={e => setInitialAmount(e.target.value)}
+              placeholder="0"
+              min="0"
+              max="1000000"
+              className="w-full bg-muted/50 border border-cyan-900/30 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
+              data-testid="input-prediction-initial-amount"
+            />
+            {parsedAmount > 0 && (
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant={initialSide === 'yes' ? 'default' : 'outline'}
+                  className={initialSide === 'yes' ? 'flex-1 bg-green-600 text-white' : 'flex-1 border-green-600/30 text-green-400'}
+                  onClick={() => setInitialSide('yes')}
+                  data-testid="button-initial-side-yes"
+                >
+                  YES
+                </Button>
+                <Button
+                  size="sm"
+                  variant={initialSide === 'no' ? 'default' : 'outline'}
+                  className={initialSide === 'no' ? 'flex-1 bg-red-600 text-white' : 'flex-1 border-red-600/30 text-red-400'}
+                  onClick={() => setInitialSide('no')}
+                  data-testid="button-initial-side-no"
+                >
+                  NO
+                </Button>
+              </div>
+            )}
+            {parsedAmount > 0 && parsedAmount < 100 && (
+              <p className="text-red-400 text-xs">Minimum: 100 SBETS</p>
+            )}
+            {parsedAmount > 1000000 && (
+              <p className="text-red-400 text-xs">Maximum: 1,000,000 SBETS</p>
+            )}
+          </div>
+
           <div className="flex gap-3 pt-2">
             <Button variant="outline" className="flex-1 border-cyan-900/30 text-gray-400" onClick={onClose} data-testid="button-cancel-prediction">Cancel</Button>
             <Button
               className="flex-1 bg-cyan-500 hover:bg-cyan-600 text-black font-bold"
               onClick={() => createMutation.mutate()}
-              disabled={!title || !endDate || createMutation.isPending}
+              disabled={!title || !endDate || createMutation.isPending || (parsedAmount > 0 && (parsedAmount < 100 || parsedAmount > 1000000))}
               data-testid="button-submit-prediction"
             >
-              {createMutation.isPending ? 'Creating...' : 'Create Market'}
+              {createMutation.isPending ? 'Creating...' : parsedAmount > 0 ? `Create + Bet ${parsedAmount.toLocaleString()} SBETS` : 'Create Market'}
             </Button>
           </div>
         </div>

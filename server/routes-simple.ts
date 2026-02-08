@@ -153,6 +153,8 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
 
   // Shared guard: prevents both auto-resolve worker and manual endpoint from resolving the same prediction simultaneously
   const resolvingPredictions = new Set<number>();
+  // Shared guard: prevents both auto-settle worker and manual endpoint from settling the same challenge simultaneously
+  const settlingChallenges = new Set<number>();
 
   // Auto-resolve expired prediction markets every 2 minutes
   // Majority side (more SBETS wagered) wins and splits the pool
@@ -241,6 +243,82 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   }, 2 * 60 * 1000);
   console.log('🎯 Prediction auto-resolve worker started - checks every 2 minutes for expired markets');
+
+  // Auto-settle expired challenges every 2 minutes
+  // Refunds all participants their stake when a challenge expires without manual settlement
+  setInterval(async () => {
+    try {
+      const { socialChallenges, socialChallengeParticipants } = await import('@shared/schema');
+      const { eq, and, lt } = await import('drizzle-orm');
+      const now = new Date();
+      const expiredChallenges = await db.select().from(socialChallenges)
+        .where(and(eq(socialChallenges.status, 'open'), lt(socialChallenges.expiresAt, now)));
+
+      for (const challenge of expiredChallenges) {
+        if (settlingChallenges.has(challenge.id)) {
+          console.log(`[AutoSettle] Challenge #${challenge.id} already being settled, skipping`);
+          continue;
+        }
+        settlingChallenges.add(challenge.id);
+        try {
+          const [fresh] = await db.select().from(socialChallenges).where(eq(socialChallenges.id, challenge.id));
+          if (!fresh || fresh.status !== 'open') {
+            console.log(`[AutoSettle] Challenge #${challenge.id} already settled, skipping`);
+            continue;
+          }
+
+          const participants = await db.select().from(socialChallengeParticipants)
+            .where(eq(socialChallengeParticipants.challengeId, challenge.id));
+
+          const stakeAmount = challenge.stakeAmount || 0;
+          const allWallets = [challenge.creatorWallet!, ...participants.map(p => p.wallet)].filter(Boolean);
+
+          if (allWallets.length === 0 || stakeAmount === 0) {
+            await db.update(socialChallenges)
+              .set({ status: 'expired' })
+              .where(eq(socialChallenges.id, challenge.id));
+            console.log(`[AutoSettle] Challenge #${challenge.id} expired with no participants`);
+            continue;
+          }
+
+          console.log(`[AutoSettle] Challenge #${challenge.id} expired - refunding ${stakeAmount} SBETS to ${allWallets.length} participant(s)`);
+
+          let successCount = 0;
+          let failCount = 0;
+          for (let i = 0; i < allWallets.length; i++) {
+            const w = allWallets[i];
+            if (i > 0) await new Promise(r => setTimeout(r, 3000));
+            try {
+              const result = await blockchainBetService.sendSbetsToUser(w, stakeAmount);
+              if (result.success) {
+                successCount++;
+                console.log(`[AutoSettle] Refund: ${stakeAmount} SBETS -> ${w.slice(0,10)}...`);
+              } else {
+                failCount++;
+                console.error(`[AutoSettle] Refund failed: ${w.slice(0,10)}... | ${result.error}`);
+              }
+            } catch (err: any) {
+              failCount++;
+              console.error(`[AutoSettle] Refund error: ${w.slice(0,10)}... | ${err.message}`);
+            }
+          }
+
+          const finalStatus = failCount === 0 ? 'expired_refunded' : (successCount > 0 ? 'expired_partial_refund' : 'expired_refund_failed');
+          await db.update(socialChallenges)
+            .set({ status: finalStatus })
+            .where(eq(socialChallenges.id, challenge.id));
+          console.log(`[AutoSettle] Challenge #${challenge.id} settled: ${successCount}/${allWallets.length} refunds OK | Status: ${finalStatus}`);
+        } catch (err: any) {
+          console.error(`[AutoSettle] Error settling challenge #${challenge.id}:`, err.message);
+        } finally {
+          settlingChallenges.delete(challenge.id);
+        }
+      }
+    } catch (err: any) {
+      console.error('[AutoSettle] Challenge worker error:', err.message);
+    }
+  }, 2 * 60 * 1000);
+  console.log('🏆 Challenge auto-settle worker started - checks every 2 minutes for expired challenges');
 
   // Create HTTP server
   const httpServer = createServer(app);
@@ -5907,8 +5985,9 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
 
   app.post("/api/social/predictions", async (req: Request, res: Response) => {
     try {
-      const { socialPredictions } = await import('@shared/schema');
-      const { title, description, category, endDate, wallet } = req.body;
+      const { socialPredictions, socialPredictionBets } = await import('@shared/schema');
+      const { eq, sql } = await import('drizzle-orm');
+      const { title, description, category, endDate, wallet, initialAmount, initialSide, txHash } = req.body;
       if (!wallet || typeof wallet !== 'string' || !wallet.startsWith('0x') || wallet.length < 10) {
         return res.status(400).json({ error: 'Valid wallet address required' });
       }
@@ -5931,8 +6010,29 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const safeCategory = VALID_CATEGORIES.includes(category) ? category : 'other';
       const safeTitle = title.trim().slice(0, 200);
       const safeDescription = (description || '').trim().slice(0, 1000);
+      const walletLower = wallet.toLowerCase();
+
+      const parsedInitial = initialAmount ? parseFloat(initialAmount) : 0;
+      const validSide = initialSide === 'no' ? 'no' : 'yes';
+
+      if (parsedInitial > 0) {
+        if (parsedInitial < 100) return res.status(400).json({ error: 'Minimum initial bet is 100 SBETS' });
+        if (parsedInitial > 1000000) return res.status(400).json({ error: 'Maximum initial bet is 1,000,000 SBETS' });
+        if (!txHash || typeof txHash !== 'string' || txHash.length < 20) {
+          return res.status(400).json({ error: 'On-chain transaction hash required for initial bet' });
+        }
+        if (usedTxHashes.has(txHash)) {
+          return res.status(400).json({ error: 'Transaction already used' });
+        }
+        const verification = await blockchainBetService.verifySbetsTransfer(txHash, walletLower, parsedInitial);
+        if (!verification.verified) {
+          return res.status(400).json({ error: `On-chain verification failed: ${verification.error}` });
+        }
+        usedTxHashes.add(txHash);
+      }
+
       const [prediction] = await db.insert(socialPredictions).values({
-        creatorWallet: wallet.toLowerCase(),
+        creatorWallet: walletLower,
         title: safeTitle,
         description: safeDescription,
         category: safeCategory,
@@ -5942,8 +6042,36 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         totalNoAmount: 0,
         totalParticipants: 0
       }).returning();
-      console.log(`[Social] Prediction created: #${prediction.id} "${safeTitle}" by ${wallet.slice(0,10)}... | Ends: ${end.toISOString()}`);
-      res.json(prediction);
+
+      if (parsedInitial > 0) {
+        try {
+          await db.insert(socialPredictionBets).values({
+            predictionId: prediction.id,
+            wallet: walletLower,
+            side: validSide,
+            amount: parsedInitial,
+            currency: 'SBETS',
+            txId: txHash
+          });
+          const yesIncrement = validSide === 'yes' ? parsedInitial : 0;
+          const noIncrement = validSide === 'no' ? parsedInitial : 0;
+          await db.update(socialPredictions)
+            .set({
+              totalYesAmount: sql`COALESCE(${socialPredictions.totalYesAmount}, 0) + ${yesIncrement}`,
+              totalNoAmount: sql`COALESCE(${socialPredictions.totalNoAmount}, 0) + ${noIncrement}`,
+              totalParticipants: sql`COALESCE(${socialPredictions.totalParticipants}, 0) + 1`
+            })
+            .where(eq(socialPredictions.id, prediction.id));
+          console.log(`[Social] Prediction created WITH initial bet: #${prediction.id} "${safeTitle}" by ${walletLower.slice(0,10)}... | ${parsedInitial} SBETS on ${validSide.toUpperCase()} | TX: ${txHash} | VERIFIED`);
+        } catch (betErr: any) {
+          console.error(`[Social] Initial bet insert failed for prediction #${prediction.id}:`, betErr.message);
+        }
+      } else {
+        console.log(`[Social] Prediction created: #${prediction.id} "${safeTitle}" by ${walletLower.slice(0,10)}... | Ends: ${end.toISOString()}`);
+      }
+
+      const [finalPrediction] = await db.select().from(socialPredictions).where(eq(socialPredictions.id, prediction.id));
+      res.json(finalPrediction || prediction);
     } catch (error) {
       console.error('Create prediction error:', error);
       res.status(500).json({ error: 'Failed to create prediction' });
@@ -6435,8 +6563,6 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       res.status(500).json({ error: 'Failed to resolve prediction' });
     }
   });
-
-  const settlingChallenges = new Set<number>();
 
   app.post("/api/social/challenges/:id/settle", async (req: Request, res: Response) => {
     try {
