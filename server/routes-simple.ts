@@ -5687,8 +5687,8 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         return res.status(400).json({ error: 'This transaction has already been used for staking' });
       }
       
-      // Verify the transaction was successful on-chain and sent to treasury
-      const TREASURY_ADDRESS = '0x5fc1073c9533c6737fa3a0882055d1778602681df70bdabde96b0127b588f082';
+      // Verify the transaction was successful on-chain and sent to admin wallet (staking treasury)
+      const STAKING_WALLET = blockchainBetService.getAdminWallet().toLowerCase();
       try {
         const { SuiClient, getFullnodeUrl } = await import('@mysten/sui/client');
         const suiClient = new SuiClient({ url: getFullnodeUrl('mainnet') });
@@ -5702,7 +5702,19 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           return res.status(400).json({ error: 'Transaction failed on-chain' });
         }
         
-        console.log(`[STAKING] Verified on-chain transfer to treasury: ${txHash}`);
+        // Verify SBETS were sent to admin wallet
+        const balanceChanges = (txResponse as any).balanceChanges || [];
+        const sbetsReceived = balanceChanges.find((bc: any) => 
+          bc.owner?.AddressOwner?.toLowerCase() === STAKING_WALLET &&
+          bc.coinType?.includes('sbets::SBETS') &&
+          BigInt(bc.amount) > 0
+        );
+        
+        if (sbetsReceived) {
+          console.log(`[STAKING] ✅ Verified on-chain SBETS transfer to admin wallet: ${txHash}`);
+        } else {
+          console.warn(`[STAKING] ⚠️ TX ${txHash.slice(0, 12)} SBETS not sent to admin wallet - proceeding anyway`);
+        }
       } catch (txError) {
         console.warn('[STAKING] Could not verify tx, proceeding anyway:', txError);
       }

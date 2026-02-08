@@ -33,7 +33,7 @@ interface StakingInfo {
 }
 
 const SBETS_TYPE = '0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285::sbets::SBETS';
-const STAKING_TREASURY_WALLET = '0x5fc1073c9533c6737fa3a0882055d1778602681df70bdabde96b0127b588f082';
+const STAKING_TREASURY_WALLET = '0x20850db591c4d575b5238baf975e54580d800e69b8b5b421de796a311d3bea50';
 
 export default function StakingPage() {
   const [, setLocation] = useLocation();
