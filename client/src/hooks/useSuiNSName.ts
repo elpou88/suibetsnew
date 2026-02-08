@@ -20,7 +20,7 @@ export function useSuiNSName(address: string | undefined | null) {
 }
 
 export function useSuiNSNames(addresses: string[]) {
-  const filtered = [...new Set(addresses.filter(a => a && a.startsWith('0x')))];
+  const filtered = Array.from(new Set(addresses.filter(a => a && a.startsWith('0x'))));
 
   const { data: names } = useQuery<Record<string, string | null>>({
     queryKey: ['/api/suins/batch', ...filtered.sort()],

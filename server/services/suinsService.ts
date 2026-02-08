@@ -48,7 +48,7 @@ export async function resolveSuiNSName(address: string): Promise<string | null> 
 }
 
 export async function batchResolveSuiNSNames(addresses: string[]): Promise<Record<string, string | null>> {
-  const unique = [...new Set(addresses.filter(a => a && a.startsWith('0x')))];
+  const unique = Array.from(new Set(addresses.filter(a => a && a.startsWith('0x'))));
   const results: Record<string, string | null> = {};
 
   const toResolve: string[] = [];
