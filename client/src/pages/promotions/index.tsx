@@ -63,11 +63,22 @@ export default function PromotionsPage() {
   });
 
   const { data: referralData } = useQuery<ReferralStats>({
-    queryKey: ['/api/referral/code', walletAddress],
+    queryKey: ['/api/referral/full', walletAddress],
     queryFn: async () => {
-      const res = await fetch(`/api/referral/code?wallet=${walletAddress}`);
-      if (!res.ok) throw new Error('Failed to fetch');
-      return res.json();
+      const [codeRes, statsRes] = await Promise.all([
+        fetch(`/api/referral/code?wallet=${walletAddress}`),
+        fetch(`/api/referral/stats?wallet=${walletAddress}`),
+      ]);
+      const codeData = codeRes.ok ? await codeRes.json() : {};
+      const statsData = statsRes.ok ? await statsRes.json() : {};
+      return {
+        code: codeData.code || '',
+        link: codeData.link || '',
+        totalReferrals: statsData.totalReferrals || 0,
+        qualifiedReferrals: statsData.qualifiedReferrals || 0,
+        pendingReferrals: statsData.pendingReferrals || 0,
+        totalEarned: statsData.totalEarned || 0,
+      };
     },
     enabled: !!walletAddress,
   });

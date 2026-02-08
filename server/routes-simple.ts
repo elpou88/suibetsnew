@@ -5030,10 +5030,27 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         return res.status(400).json({ error: 'Wallet address required' });
       }
       
-      // Generate a unique referral code from wallet
       const code = wallet.slice(2, 10).toUpperCase();
-      referralCodeMap[code] = wallet; // Store mapping
-      res.json({ code, link: `https://www.suibets.com/?ref=${code}` });
+      referralCodeMap[code] = wallet;
+      
+      const { referrals } = await import('@shared/schema');
+      const { db } = await import('./db');
+      const { eq } = await import('drizzle-orm');
+      
+      const userReferrals = await db.select().from(referrals).where(eq(referrals.referrerWallet, wallet));
+      const totalReferrals = userReferrals.length;
+      const qualifiedReferrals = userReferrals.filter((r: any) => r.status === 'qualified' || r.status === 'rewarded').length;
+      const pendingReferrals = userReferrals.filter((r: any) => r.status === 'pending').length;
+      const totalEarned = userReferrals.reduce((sum: number, r: any) => sum + (r.rewardAmount || 0), 0);
+      
+      res.json({ 
+        code, 
+        link: `https://www.suibets.com/?ref=${code}`,
+        totalReferrals,
+        qualifiedReferrals,
+        pendingReferrals,
+        totalEarned
+      });
     } catch (error) {
       res.status(500).json({ error: 'Failed to generate referral code' });
     }
@@ -5084,27 +5101,43 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         return res.status(400).json({ error: 'Referral code and wallet required' });
       }
       
-      const { referrals } = await import('@shared/schema');
+      const { referrals, users } = await import('@shared/schema');
       const { db } = await import('./db');
-      const { eq } = await import('drizzle-orm');
+      const { eq, like } = await import('drizzle-orm');
       
-      // Look up referrer wallet from code mapping or reconstruct from known pattern
-      let referrerWallet = referralCodeMap[referralCode.toUpperCase()];
+      const code = referralCode.toUpperCase();
       
-      // If not in memory, try to find from existing referrals with same code
+      let referrerWallet = referralCodeMap[code];
+      
       if (!referrerWallet) {
         const [existingRef] = await db.select().from(referrals)
-          .where(eq(referrals.referralCode, referralCode.toUpperCase()));
+          .where(eq(referrals.referralCode, code));
         if (existingRef) {
           referrerWallet = existingRef.referrerWallet;
         }
       }
       
       if (!referrerWallet) {
+        const allUsers = await db.select({ walletAddress: users.walletAddress }).from(users);
+        for (const u of allUsers) {
+          if (u.walletAddress && u.walletAddress.startsWith('0x') && u.walletAddress.slice(2, 10).toUpperCase() === code) {
+            referrerWallet = u.walletAddress;
+            referralCodeMap[code] = referrerWallet;
+            console.log(`[REFERRAL] Resolved code ${code} to wallet ${referrerWallet.slice(0, 10)}... via users table`);
+            break;
+          }
+        }
+      }
+      
+      if (!referrerWallet) {
+        console.warn(`[REFERRAL] Could not resolve referral code: ${code}`);
         return res.status(400).json({ error: 'Invalid referral code' });
       }
       
-      // Check if already referred
+      if (referrerWallet.toLowerCase() === referredWallet.toLowerCase()) {
+        return res.json({ success: false, message: 'Cannot refer yourself' });
+      }
+      
       const [existing] = await db.select().from(referrals)
         .where(eq(referrals.referredWallet, referredWallet));
       
@@ -5115,10 +5148,11 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       await db.insert(referrals).values({
         referrerWallet,
         referredWallet,
-        referralCode: referralCode.toUpperCase(),
+        referralCode: code,
         status: 'pending'
       });
       
+      console.log(`[REFERRAL] ✅ Tracked: ${referredWallet.slice(0, 10)}... referred by ${referrerWallet.slice(0, 10)}... (code: ${code})`);
       res.json({ success: true });
     } catch (error) {
       console.error('Track referral error:', error);
