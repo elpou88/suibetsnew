@@ -69,6 +69,7 @@ export function BetSlip() {
   // Fetch free bet balance (welcome bonus + referral rewards)
   const { data: freeBetData, refetch: refetchFreeBet } = useQuery<{
     freeBetBalance: number;
+    freeBetUsed: boolean;
     welcomeBonusClaimed: boolean;
     canClaimWelcome: boolean;
   }>({
@@ -82,7 +83,7 @@ export function BetSlip() {
     refetchInterval: 30000, // Reduced from 10s
   });
   
-  const freeBetBalance = freeBetData?.freeBetBalance || 0;
+  const freeBetBalance = freeBetData?.freeBetUsed ? 0 : (freeBetData?.freeBetBalance || 0);
   const bonusBalance = promotionData?.bonusBalance || 0;
   const [useFreeBet, setUseFreeBet] = useState(false);
   

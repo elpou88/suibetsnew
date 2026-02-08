@@ -2247,24 +2247,47 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         }
       }
       
-      // Handle FREE SBETS usage (welcome bonus / referral rewards)
+      // Handle FREE SBETS usage (welcome bonus / referral rewards) - ONE TIME ONLY per user lifetime
       let freeSbetsUsed = 0;
       if (useFreeBet && betCurrency === 'SBETS') {
         try {
-          const { users } = await import('@shared/schema');
+          const { users, bets } = await import('@shared/schema');
           const { db } = await import('./db');
-          const { eq } = await import('drizzle-orm');
+          const { eq, and, sql: sqlDrizzle } = await import('drizzle-orm');
           
-          const [user] = await db.select().from(users).where(eq(users.walletAddress, walletAddress || userId));
+          const userWallet = walletAddress || userId;
+          const [user] = await db.select().from(users).where(eq(users.walletAddress, userWallet));
+          
+          // Check if user has EVER used a free bet before (lifetime one-time only)
+          let hasUsedFreeBet = false;
+          try {
+            const previousFreeBets = await db.select({ count: sqlDrizzle<number>`count(*)` })
+              .from(bets)
+              .where(and(
+                eq(bets.walletAddress, userWallet),
+                eq(bets.paymentMethod, 'free_bet')
+              ));
+            hasUsedFreeBet = (previousFreeBets[0]?.count || 0) > 0;
+          } catch (checkErr) {
+            console.warn('[FREE BET] Could not check previous free bets:', checkErr);
+          }
+
+          if (hasUsedFreeBet) {
+            console.log(`❌ FREE BET BLOCKED: ${userWallet.slice(0, 10)}... already used their one-time free bet`);
+            return res.status(400).json({
+              message: "You have already used your free bet. Each user gets one free bet for life.",
+              code: "FREE_BET_ALREADY_USED"
+            });
+          }
+
           if (user && (user.freeBetBalance || 0) >= betAmount) {
-            // Deduct from freeBetBalance instead of regular balance
             const newFreeBetBalance = (user.freeBetBalance || 0) - betAmount;
             await db.update(users)
               .set({ freeBetBalance: newFreeBetBalance })
-              .where(eq(users.walletAddress, walletAddress || userId));
+              .where(eq(users.walletAddress, userWallet));
             
             freeSbetsUsed = betAmount;
-            console.log(`🎁 FREE SBETS: Used ${betAmount.toLocaleString()} SBETS from welcome/referral bonus for ${(walletAddress || userId).slice(0, 10)}...`);
+            console.log(`🎁 FREE SBETS: Used ${betAmount.toLocaleString()} SBETS (ONE-TIME free bet) for ${userWallet.slice(0, 10)}...`);
           } else {
             console.warn(`[FREE SBETS] Insufficient free balance: have ${user?.freeBetBalance || 0}, need ${betAmount}`);
           }
@@ -4859,18 +4882,36 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         });
       }
       
+      // Check if user has already used their one-time free bet
+      let freeBetUsed = false;
+      try {
+        const { bets } = await import('@shared/schema');
+        const { db } = await import('./db');
+        const { eq, and, sql: sqlDrizzle } = await import('drizzle-orm');
+        const previousFreeBets = await db.select({ count: sqlDrizzle<number>`count(*)` })
+          .from(bets)
+          .where(and(
+            eq(bets.walletAddress, wallet),
+            eq(bets.paymentMethod, 'free_bet')
+          ));
+        freeBetUsed = (previousFreeBets[0]?.count || 0) > 0;
+      } catch (freeBetCheckErr) {
+        console.warn('[FREE BET STATUS] Could not check free bet history:', freeBetCheckErr);
+      }
+
       res.json({
-        freeBetBalance: user.freeBetBalance || 0,
+        freeBetBalance: freeBetUsed ? 0 : (user.freeBetBalance || 0),
+        freeBetUsed,
         welcomeBonusClaimed: user.welcomeBonusClaimed || false,
-        welcomeBonusAmount: 1000, // 1000 SBETS welcome bonus
+        welcomeBonusAmount: 1000,
         welcomeBonusCurrency: 'SBETS',
         loyaltyPoints: user.loyaltyPoints || 0
       });
     } catch (error) {
       console.error('Free bet status error:', error);
-      // Return safe defaults instead of 500 error
       res.json({ 
         freeBetBalance: 0, 
+        freeBetUsed: false,
         welcomeBonusClaimed: false,
         welcomeBonusAmount: 1000,
         welcomeBonusCurrency: 'SBETS',
