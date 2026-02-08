@@ -220,7 +220,7 @@ const Layout: React.FC<LayoutProps> = ({
             </DropdownMenuTrigger>
             <DropdownMenuContent 
               align="end" 
-              className="bg-[#0b1618] border border-[#1e3a3f] min-w-[180px]"
+              className="bg-[#0b1618] border border-[#1e3a3f] min-w-[180px] z-[9999]"
             >
               {moreMenuItems.map((item, index) => (
                 <DropdownMenuItem

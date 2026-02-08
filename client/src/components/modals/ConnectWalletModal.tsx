@@ -421,8 +421,18 @@ export function ConnectWalletModal({ isOpen, onClose }: ConnectWalletModalProps)
             <Button
               variant="outline"
               className="w-full py-3 border-gray-600"
-              onClick={startGoogleLogin}
-              disabled={zkLoading || !googleClientId}
+              onClick={() => {
+                if (!googleClientId) {
+                  toast({
+                    title: 'Google Login Not Configured',
+                    description: 'Google Client ID needs to be set up. Please contact the admin to enable Google login.',
+                    variant: 'destructive',
+                  });
+                  return;
+                }
+                startGoogleLogin();
+              }}
+              disabled={zkLoading}
               data-testid="button-google-login"
             >
               {zkLoading ? (
