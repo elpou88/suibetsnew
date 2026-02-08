@@ -56,6 +56,7 @@ VITE_BETTING_PLATFORM_ID = "0x5fc1073c9533c6737fa3a0882055d1778602681df70bdabde9
 SPORTS_LIST = "football,basketball,hockey,mma,tennis,baseball"
 SINGLE_SPORT_MODE = "true"
 CURRENT_SPORT = "football"
+VITE_GOOGLE_CLIENT_ID = "4356122538-r1efdepcdcpt8uib5a8gko9f8l86n96s.apps.googleusercontent.com"
 
 [agent]
 integrations = ["javascript_openai_ai_integrations:1.0.0"]
