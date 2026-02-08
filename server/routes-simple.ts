@@ -6928,65 +6928,94 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       }
 
       const parsed = new URL(embedUrl);
+      const pathParts = parsed.pathname.split('/');
+      const streamSource = pathParts[2] || '';
+      const streamId = pathParts.slice(3, -1).join('/') || '';
+      const streamNo = pathParts[pathParts.length - 1] || '1';
 
-      const response = await fetch(embedUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Referer': parsed.origin + '/',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Embed fetch error: ${response.status}`);
-      }
-
-      const contentType = response.headers.get('content-type') || 'text/html';
-      let html = await response.text();
-
-      const baseTag = `<base href="${parsed.origin}/">`;
-      const antiSandboxScript = `<script>
-(function(){
-  var origWrite = document.write.bind(document);
-  document.write = function(s) {
-    if (typeof s === 'string' && s.toLowerCase().indexOf('sandbox') !== -1) return;
-    origWrite(s);
-  };
-  var ob = new MutationObserver(function(mutations) {
-    mutations.forEach(function(m) {
-      m.addedNodes.forEach(function(n) {
-        if (n.textContent && n.textContent.indexOf('sandbox') !== -1 && n.tagName !== 'SCRIPT') {
-          n.remove();
-        }
-      });
-      if (document.body) {
-        document.body.childNodes.forEach(function(c) {
-          if (c.nodeType === 3 && c.textContent.indexOf('sandbox') !== -1) c.remove();
-          if (c.nodeType === 1 && c.tagName !== 'DIV' && c.tagName !== 'SCRIPT' && c.tagName !== 'IFRAME' && c.textContent.indexOf('sandbox') !== -1) c.remove();
+      const html = `<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;overflow:hidden;height:100vh;width:100vw}
+#player-container{position:relative;width:100vw;height:100vh;background:#000}
+video{width:100%;height:100%;object-fit:contain;background:#000}
+.loading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#06b6d4;font-family:Arial;text-align:center}
+.loading .spinner{width:40px;height:40px;border:3px solid #333;border-top-color:#06b6d4;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error{color:#ef4444;font-family:Arial;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center}
+.controls{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,0.8));padding:12px;display:flex;align-items:center;gap:10px;opacity:0;transition:opacity 0.3s}
+#player-container:hover .controls{opacity:1}
+.controls button{background:none;border:none;color:#fff;cursor:pointer;padding:6px;font-size:18px}
+.controls button:hover{color:#06b6d4}
+</style>
+</head>
+<body>
+<div id="player-container">
+  <div class="loading" id="loading"><div class="spinner"></div>Loading stream...</div>
+  <video id="video" autoplay playsinline></video>
+  <div class="controls">
+    <button onclick="document.getElementById('video').paused?document.getElementById('video').play():document.getElementById('video').pause()" title="Play/Pause">&#9654;&#xFE0E;</button>
+    <button onclick="document.getElementById('video').muted=!document.getElementById('video').muted" title="Mute/Unmute">&#128266;</button>
+    <button onclick="var v=document.getElementById('video');v.requestFullscreen?v.requestFullscreen():v.webkitRequestFullscreen&&v.webkitRequestFullscreen()" title="Fullscreen">&#x26F6;</button>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js"></script>
+<script>
+(async function(){
+  var loading = document.getElementById('loading');
+  var video = document.getElementById('video');
+  
+  try {
+    // Try to get stream info from the backend API
+    var resp = await fetch('/api/streaming/resolve?source=${streamSource}&id=${streamId}&stream=${streamNo}');
+    var data = await resp.json();
+    
+    if (data.url) {
+      loading.textContent = 'Connecting to stream...';
+      if (data.url.includes('.m3u8') && Hls.isSupported()) {
+        var hls = new Hls({enableWorker:true,lowLatencyMode:true});
+        hls.loadSource(data.url);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, function(){
+          loading.style.display='none';
+          video.play().catch(function(){});
         });
-      }
-    });
-  });
-  ob.observe(document.documentElement, {childList:true, subtree:true});
-  Object.defineProperty(HTMLIFrameElement.prototype, 'sandbox', {
-    get: function() { return null; },
-    set: function() {},
-    configurable: true
-  });
-  try { window.__sandbox_bypass = true; } catch(e) {}
-})();
-</script>`;
-      if (html.match(/<head[^>]*>/i)) {
-        html = html.replace(/<head[^>]*>/i, `$&${baseTag}${antiSandboxScript}`);
-      } else if (html.match(/<html[^>]*>/i)) {
-        html = html.replace(/<html[^>]*>/i, `$&<head>${baseTag}${antiSandboxScript}</head>`);
+        hls.on(Hls.Events.ERROR, function(ev,d){
+          if(d.fatal){
+            loading.innerHTML='<div style="color:#ef4444">Stream unavailable - try another source</div>';
+            loading.style.display='block';
+          }
+        });
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = data.url;
+        video.addEventListener('loadedmetadata', function(){loading.style.display='none';});
+        video.play().catch(function(){});
       } else {
-        html = baseTag + antiSandboxScript + html;
+        video.src = data.url;
+        video.addEventListener('loadedmetadata', function(){loading.style.display='none';});
+        video.play().catch(function(){});
       }
+    } else {
+      // Fallback: embed the original page in a sub-iframe with no sandbox
+      loading.style.display='none';
+      var iframe = document.createElement('iframe');
+      iframe.src = '${embedUrl}';
+      iframe.style.cssText = 'width:100%;height:100%;border:none;position:absolute;top:0;left:0';
+      iframe.allowFullscreen = true;
+      iframe.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+      document.getElementById('player-container').appendChild(iframe);
+    }
+  } catch(e) {
+    loading.innerHTML = '<div style="color:#ef4444">Stream temporarily unavailable</div>';
+  }
+})();
+</script>
+</body></html>`;
 
-      html = html.replace(/color:\s*red/g, 'color:transparent');
-
-      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Type', 'text/html');
       res.setHeader('X-Frame-Options', 'ALLOWALL');
       res.removeHeader('Content-Security-Policy');
       res.send(html);
@@ -6995,6 +7024,88 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const html = `<!DOCTYPE html><html><body style="background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif">
         <div style="text-align:center"><p>Stream temporarily unavailable</p><p style="color:#888;font-size:14px">${error.message}</p></div></body></html>`;
       res.type('html').send(html);
+    }
+  });
+
+  // Resolve actual stream URL from embed page
+  app.get("/api/streaming/resolve", async (req: Request, res: Response) => {
+    try {
+      const { source, id, stream } = req.query as { source: string; id: string; stream: string };
+      if (!source || !id) {
+        return res.json({ url: null });
+      }
+
+      const embedUrl = `https://embedsports.top/embed/${source}/${id}/${stream || '1'}`;
+      
+      // Fetch the embed page to extract stream data
+      const response = await fetch(embedUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Referer': 'https://streamed.pk/',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        },
+      });
+
+      if (!response.ok) {
+        return res.json({ url: null });
+      }
+
+      const html = await response.text();
+      
+      // Try to find m3u8 or stream URLs in the page
+      const m3u8Match = html.match(/https?:\/\/[^"'\s]+\.m3u8[^"'\s]*/);
+      if (m3u8Match) {
+        return res.json({ url: m3u8Match[0] });
+      }
+
+      // Try fetching the JW player config which may have stream URL
+      const jwConfigUrl = `https://embedsports.top/api/stream/${source}/${id}/${stream || '1'}`;
+      try {
+        const configResp = await fetch(jwConfigUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Referer': 'https://embedsports.top/',
+          },
+        });
+        if (configResp.ok) {
+          const configData = await configResp.text();
+          const urlMatch = configData.match(/https?:\/\/[^"'\s]+\.m3u8[^"'\s]*/);
+          if (urlMatch) {
+            return res.json({ url: urlMatch[0] });
+          }
+          // Try to parse as JSON
+          try {
+            const json = JSON.parse(configData);
+            if (json.url || json.source || json.file || json.stream) {
+              return res.json({ url: json.url || json.source || json.file || json.stream });
+            }
+          } catch {}
+        }
+      } catch {}
+
+      // Try the rr endpoint used by some stream providers
+      const rrUrl = `https://embedsports.top/rr/${source}/${id}/${stream || '1'}`;
+      try {
+        const rrResp = await fetch(rrUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Referer': 'https://embedsports.top/',
+          },
+          redirect: 'follow',
+        });
+        if (rrResp.ok) {
+          const rrData = await rrResp.text();
+          const urlMatch = rrData.match(/https?:\/\/[^"'\s]+\.m3u8[^"'\s]*/);
+          if (urlMatch) {
+            return res.json({ url: urlMatch[0] });
+          }
+        }
+      } catch {}
+
+      res.json({ url: null });
+    } catch (error: any) {
+      console.error("[Streaming] Resolve error:", error.message);
+      res.json({ url: null });
     }
   });
 
