@@ -5603,11 +5603,11 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     return 'Bronze';
   }
 
-  // ==================== SBETS STAKING (5% APY from Treasury) ====================
+  // ==================== SBETS STAKING (8% APY from Treasury) ====================
   
-  const APY_RATE = 0.05; // 5% APY
+  const APY_RATE = 0.08; // 8% APY
   const MIN_STAKE_SBETS = 100000; // 100K SBETS minimum
-  const LOCK_PERIOD_DAYS = 7;
+  const LOCK_PERIOD_DAYS = 90; // 3 months
 
   // AUTOMATED REWARD ACCRUAL WORKER - runs every hour to update accumulated_rewards
   async function accrueStakingRewards() {

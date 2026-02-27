@@ -138,7 +138,7 @@ export default function StakingPage() {
       });
       const data = await res.json();
       if (data.success) {
-        toast({ title: "Staked Successfully!", description: `${amount.toLocaleString()} SBETS locked for 7 days` });
+        toast({ title: "Staked Successfully!", description: `${amount.toLocaleString()} SBETS locked for 3 months at 8% APY` });
         setStakeAmount("");
         refetchStaking();
       } else {
@@ -252,7 +252,7 @@ export default function StakingPage() {
               <div className="relative bg-black/40 backdrop-blur-sm p-4 rounded-xl text-center border border-purple-500/30 group-hover:border-purple-400/50 transition-all">
                 <Clock className="h-5 w-5 text-purple-400 mx-auto mb-1" />
                 <div className="text-2xl md:text-3xl font-black text-purple-300" data-testid="text-lock-period">
-                  {stakingInfo?.lockPeriod || '7 days'}
+                  {stakingInfo?.lockPeriod || '90 days'}
                 </div>
                 <p className="text-xs text-purple-300/70 mt-1 font-medium">Lock Period</p>
               </div>
@@ -371,7 +371,7 @@ export default function StakingPage() {
                       </div>
                       <div>
                         <p className="text-yellow-300 font-semibold">Connect Wallet to Start Staking</p>
-                        <p className="text-yellow-300/60 text-sm">Earn {stakingInfo?.apyRate || 5}% APY on your SBETS</p>
+                        <p className="text-yellow-300/60 text-sm">Earn {stakingInfo?.apyRate || 8}% APY on your SBETS</p>
                       </div>
                     </div>
                   )}
@@ -476,7 +476,7 @@ export default function StakingPage() {
                       </div>
                       <div>
                         <p className="text-white text-sm font-semibold">Lock Your SBETS</p>
-                        <p className="text-gray-400 text-xs">Stake a minimum of 100,000 SBETS. Tokens are locked for 7 days.</p>
+                        <p className="text-gray-400 text-xs">Stake a minimum of 100,000 SBETS. Tokens are locked for 3 months.</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
@@ -484,7 +484,7 @@ export default function StakingPage() {
                         <TrendingUp className="h-3.5 w-3.5 text-green-400" />
                       </div>
                       <div>
-                        <p className="text-white text-sm font-semibold">Earn 5% APY</p>
+                        <p className="text-white text-sm font-semibold">Earn 8% APY</p>
                         <p className="text-gray-400 text-xs">Rewards accrue hourly from a 50 billion SBETS treasury pool.</p>
                       </div>
                     </div>
@@ -494,7 +494,7 @@ export default function StakingPage() {
                       </div>
                       <div>
                         <p className="text-white text-sm font-semibold">Claim Anytime</p>
-                        <p className="text-gray-400 text-xs">Claim accumulated rewards without unstaking. Or unstake after lock period to get principal + rewards.</p>
+                        <p className="text-gray-400 text-xs">Withdraw your earned rewards daily without unstaking. Or unstake after 3 months to get principal + rewards.</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
@@ -521,7 +521,7 @@ export default function StakingPage() {
                   <div className="space-y-2.5">
                     <div className="flex justify-between items-center py-2 border-b border-cyan-500/10">
                       <span className="text-gray-400 text-sm">Annual Yield</span>
-                      <span className="text-cyan-300 font-bold text-sm" data-testid="text-detail-apy">{stakingInfo?.apyRate || 5}% APY</span>
+                      <span className="text-cyan-300 font-bold text-sm" data-testid="text-detail-apy">{stakingInfo?.apyRate || 8}% APY</span>
                     </div>
                     <div className="flex justify-between items-center py-2 border-b border-cyan-500/10">
                       <span className="text-gray-400 text-sm">Min Stake</span>
@@ -529,7 +529,7 @@ export default function StakingPage() {
                     </div>
                     <div className="flex justify-between items-center py-2 border-b border-cyan-500/10">
                       <span className="text-gray-400 text-sm">Lock Period</span>
-                      <span className="text-white font-bold text-sm">7 days</span>
+                      <span className="text-white font-bold text-sm">{stakingInfo?.lockPeriod || '90 days'}</span>
                     </div>
                     <div className="flex justify-between items-center py-2 border-b border-cyan-500/10">
                       <span className="text-gray-400 text-sm">Reward Accrual</span>
@@ -549,7 +549,7 @@ export default function StakingPage() {
 
               <div className="bg-gradient-to-br from-cyan-900/20 to-blue-900/10 p-4 rounded-xl border border-cyan-500/20">
                 <p className="text-xs text-cyan-300/60 leading-relaxed">
-                  Staking rewards are calculated using a 5% annual rate from the treasury pool. Rewards are accrued hourly by the system and can be claimed at any time. The reward model uses the higher of live calculation or worker-accumulated values to ensure accuracy. Early unstaking before the 7-day lock period is not permitted.
+                  Staking rewards are calculated using an 8% annual rate from the treasury pool. Rewards accrue hourly and can be withdrawn daily at any time. The reward model uses the higher of live calculation or worker-accumulated values to ensure accuracy. Your principal is locked for 3 months - early unstaking before the lock period is not permitted.
                 </p>
               </div>
             </div>
