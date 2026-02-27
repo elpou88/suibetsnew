@@ -1,0 +1,112 @@
+Suibets – Phase 1 (Tech Breakdown)
+
+Phase 1 is about proving a new betting surface, not scaling yet.
+
+We focused on rendering on TV while keeping everything stateless, safe, and on-chain aware.
+
+1️⃣ Stateless UI, On-Chain Truth
+
+The TV app itself does not hold user state.
+
+No private keys on TV
+
+No wallets stored on device
+
+No session persistence locally
+
+Instead, the TV client:
+
+Reads on-chain objects
+
+Reacts to live match events
+
+Renders only what is currently valid
+
+This dramatically reduces attack surface and makes TV a read + intent layer, not a custody layer.
+
+2️⃣ Object-Based Betting (Sui Native)
+
+Each bet opportunity is an object, not a mutable global state.
+
+Bet = discrete on-chain object
+
+Time-bound
+
+Context-bound (specific live moment)
+
+Immutable once resolved
+
+This is why:
+
+Bets only appear during live moments
+
+Once the match ends, new bets cannot exist
+
+No race conditions or post-match exploits
+
+This model is only practical because of Sui’s object-centric design.
+
+3️⃣ One-Click TV Betting via dApp Session
+
+The TV app is fully powered by your existing Suibets dApp session.
+
+Flow:
+
+User authenticates on mobile/web
+
+Session is mirrored on-chain
+
+TV app reads that session
+
+User confirms bets with a single action
+
+The TV never signs transactions directly — it requests intent, the session executes on-chain.
+
+4️⃣ Live Rendering Engine
+
+The UI is event-driven, not static.
+
+Live match feeds trigger bet objects
+
+UI components spawn only when conditions are valid
+
+Odds, timers, and availability are enforced on-chain
+
+No live match = no bet surface.
+No valid object = nothing to render.
+
+5️⃣ Why This Is Phase 1
+
+Phase 1 proves:
+
+TV as a first-class Web3 interface
+
+Stateless UX can still feel instant
+
+On-chain rules can drive UI availability
+
+We intentionally did not optimize for scale or liquidity yet.
+
+Next phases will add:
+
+Extension upgrades
+
+More bet types
+
+Deeper session control
+
+Cross-device continuity
+
+TL;DR (Short Version)
+
+Phase 1 is:
+
+Stateless TV UI
+
+Object-based live bets
+
+On-chain session powered
+
+Context-aware rendering
+
+Built specifically for Sui
