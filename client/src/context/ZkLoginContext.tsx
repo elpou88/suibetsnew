@@ -6,9 +6,9 @@ import { Transaction } from '@mysten/sui/transactions';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 const SUI_NETWORK = (import.meta.env.VITE_SUI_NETWORK as string) || 'mainnet';
-const SUI_PROVER_URL = SUI_NETWORK === 'mainnet'
-  ? 'https://prover.mystenlabs.com/v1'
-  : 'https://prover-dev.mystenlabs.com/v1';
+const SUI_PROVER_URLS = SUI_NETWORK === 'mainnet'
+  ? ['https://prover.mystenlabs.com/v1']
+  : ['https://prover-dev.mystenlabs.com/v1'];
 
 const suiClient = new SuiClient({ url: getFullnodeUrl(SUI_NETWORK as any) });
 
@@ -218,27 +218,49 @@ export function ZkLoginProvider({ children }: { children: ReactNode }) {
       const extendedEphemeralPublicKey = getExtendedEphemeralPublicKey(ephemeralKeyPair.getPublicKey());
 
       console.log('[zkLogin] Requesting ZK proof from prover...');
-      const proofRes = await fetch(SUI_PROVER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jwt,
-          extendedEphemeralPublicKey,
-          maxEpoch,
-          jwtRandomness: randomness,
-          salt: saltBigInt.toString(),
-          keyClaimName: 'sub',
-        }),
-      });
+      
+      const proverPayload = {
+        jwt,
+        extendedEphemeralPublicKey,
+        maxEpoch,
+        jwtRandomness: randomness,
+        salt: saltBigInt.toString(),
+        keyClaimName: 'sub',
+      };
 
-      if (!proofRes.ok) {
-        const errText = await proofRes.text();
-        console.error('[zkLogin] Prover error:', errText);
-        throw new Error('Failed to generate ZK proof');
+      let proof: any = null;
+      let lastError = '';
+      
+      for (const proverUrl of SUI_PROVER_URLS) {
+        try {
+          console.log(`[zkLogin] Trying prover: ${proverUrl}`);
+          const proofRes = await fetch(proverUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(proverPayload),
+          });
+
+          if (proofRes.ok) {
+            proof = await proofRes.json();
+            console.log('[zkLogin] ZK proof obtained successfully from', proverUrl);
+            break;
+          } else {
+            const errText = await proofRes.text();
+            console.warn(`[zkLogin] Prover ${proverUrl} error:`, errText);
+            lastError = errText;
+          }
+        } catch (fetchErr: any) {
+          console.warn(`[zkLogin] Prover ${proverUrl} fetch error:`, fetchErr.message);
+          lastError = fetchErr.message;
+        }
       }
 
-      const proof = await proofRes.json();
-      console.log('[zkLogin] ZK proof obtained successfully');
+      if (!proof) {
+        if (lastError.includes('audience') && lastError.includes('not supported')) {
+          throw new Error('Google Client ID not registered with Sui ZK prover. Please contact support to register your app.');
+        }
+        throw new Error('Failed to generate ZK proof. Please try again later.');
+      }
 
       const sessionData: ZkLoginSession = {
         ephemeralKeyPair: ephemeralKeyPairExport,

@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { calculatePotentialWinnings, calculateParlayOdds } from '@/lib/utils';
 import { useOnChainBet } from '@/hooks/useOnChainBet';
 import { useCurrentAccount } from '@mysten/dapp-kit';
+import { useZkLogin } from './ZkLoginContext';
 
 // Create betting context
 const BettingContext = createContext<BettingContextType>({
@@ -42,7 +43,9 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
   
   // On-chain betting hook (SUI and SBETS)
   const currentAccount = useCurrentAccount();
+  const { zkLoginAddress, isZkLoginActive } = useZkLogin();
   const { placeBetOnChain, getSbetsCoins, isLoading: isOnChainLoading } = useOnChainBet();
+  const activeWalletAddress = currentAccount?.address || (isZkLoginActive ? zkLoginAddress : null);
   
   // Save bets to localStorage whenever they change
   useEffect(() => {
@@ -194,8 +197,8 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
         if (betOptions.paymentMethod === 'platform') {
           try {
             const response = await apiRequest('POST', '/api/bets', {
-              userId: user.walletAddress || currentAccount?.address,
-              walletAddress: user.walletAddress || currentAccount?.address,
+              userId: user.walletAddress || activeWalletAddress,
+              walletAddress: user.walletAddress || activeWalletAddress,
               eventId: bet.eventId,
               eventName: bet.eventName,
               market: bet.market,
@@ -260,12 +263,10 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
           }
         }
 
-        // OPTION 2: Direct Wallet (on-chain for SUI, off-chain for SBETS)
-        // Check if wallet is connected
-        if (!currentAccount?.address) {
+        if (!activeWalletAddress) {
           toast({
             title: "Wallet Required",
-            description: "Connect your Sui wallet to place bets",
+            description: "Connect your Sui wallet or sign in with Google to place bets",
             variant: "destructive",
           });
           
@@ -280,8 +281,8 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
           
           try {
             const response = await apiRequest('POST', '/api/bets', {
-              userId: currentAccount.address,
-              walletAddress: currentAccount.address,
+              userId: activeWalletAddress,
+              walletAddress: activeWalletAddress,
               eventId: String(selectedBets[0].eventId),
               eventName: selectedBets[0].eventName,
               marketId: String(selectedBets[0].marketId || 'match_winner'),
@@ -345,8 +346,8 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
         // IMPORTANT: Always fetch fresh coins - object versions change after each transaction
         let sbetsCoinObjectId: string | undefined;
         if (betOptions.currency === 'SBETS') {
-          console.log('[BettingContext] Fetching fresh SBETS coins for wallet:', currentAccount.address);
-          const sbetsCoins = await getSbetsCoins(currentAccount.address);
+          console.log('[BettingContext] Fetching fresh SBETS coins for wallet:', activeWalletAddress);
+          const sbetsCoins = await getSbetsCoins(activeWalletAddress!);
           console.log('[BettingContext] Found SBETS coins:', sbetsCoins.length, 'total balance:', sbetsCoins.reduce((a, c) => a + c.balance, 0));
           if (sbetsCoins.length === 0 || sbetsCoins[0].balance < stakeAmount) {
             toast({
@@ -391,16 +392,15 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
           walrusBlobId: '',
           coinType: betOptions.currency as 'SUI' | 'SBETS',
           sbetsCoinObjectId,
-          walletAddress: currentAccount.address,
+          walletAddress: activeWalletAddress!,
         });
 
         if (onChainResult.success) {
-          // Record in database
           try {
             console.log('[BettingContext] On-chain bet successful, recording in DB:', onChainResult.txDigest);
             const response = await apiRequest('POST', '/api/bets', {
-              userId: currentAccount.address,
-              walletAddress: currentAccount.address,
+              userId: activeWalletAddress,
+              walletAddress: activeWalletAddress,
               eventId: String(selectedBets[0].eventId),
               eventName: selectedBets[0].eventName,
               homeTeam: selectedBets[0].homeTeam,
@@ -495,10 +495,10 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
         const parlayOdds = calculateParlayOdds(selectedBets);
         const potentialPayout = calculatePotentialWinnings(betAmount, parlayOdds);
 
-        if (!currentAccount?.address) {
+        if (!activeWalletAddress) {
           toast({
             title: "Wallet Required",
-            description: "Connect your Sui wallet to place parlay bets",
+            description: "Connect your Sui wallet or sign in with Google to place parlay bets",
             variant: "destructive",
           });
           const connectWalletEvent = new CustomEvent('suibets:connect-wallet-required');
@@ -511,7 +511,7 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
         let sbetsCoinObjectId: string | undefined;
         if (betOptions.currency === 'SBETS') {
           console.log('[BettingContext] Parlay: Fetching fresh SBETS coins');
-          const sbetsCoins = await getSbetsCoins(currentAccount.address);
+          const sbetsCoins = await getSbetsCoins(activeWalletAddress!);
           console.log('[BettingContext] Parlay: Found SBETS coins:', sbetsCoins.length);
           if (sbetsCoins.length === 0 || sbetsCoins[0].balance < betAmount) {
             toast({
@@ -540,16 +540,15 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
           walrusBlobId: '',
           coinType: betOptions.currency as 'SUI' | 'SBETS',
           sbetsCoinObjectId,
-          walletAddress: currentAccount.address,
+          walletAddress: activeWalletAddress!,
         });
 
         if (onChainResult.success) {
           try {
             console.log('[BettingContext] On-chain parlay successful, recording in DB:', onChainResult.txDigest);
-            // Save to database after successful on-chain transaction
             const response = await apiRequest('POST', '/api/parlays', {
-              userId: currentAccount.address,
-              walletAddress: currentAccount.address,
+              userId: activeWalletAddress,
+              walletAddress: activeWalletAddress,
               totalOdds: parlayOdds,
               betAmount: betAmount,
               potentialPayout: potentialPayout,

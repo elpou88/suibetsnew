@@ -23,10 +23,10 @@ export default function AuthCallback() {
         
         if (address) {
           setStatus('success');
-          setTimeout(() => setLocation('/'), 1500);
+          setTimeout(() => setLocation('/'), 2000);
         } else {
           setStatus('error');
-          setErrorMsg('Login failed. Please try again.');
+          setErrorMsg('Login failed. The ZK proof could not be generated. Please try again or use a wallet extension instead.');
         }
       } catch (err: any) {
         setStatus('error');

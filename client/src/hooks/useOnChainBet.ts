@@ -3,6 +3,7 @@ import { useSignAndExecuteTransaction, useSuiClient, useCurrentAccount } from '@
 import { Transaction } from '@mysten/sui/transactions';
 import { bcs } from '@mysten/sui/bcs';
 import { useToast } from '@/hooks/use-toast';
+import { useZkLogin } from '@/context/ZkLoginContext';
 
 // Helper to convert string to SerializedBcs with proper vector<u8> type metadata
 // This is required for Nightly wallet to properly parse the transaction
@@ -48,6 +49,7 @@ export function useOnChainBet() {
   const suiClient = useSuiClient();
   const currentAccount = useCurrentAccount();
   const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
+  const { isZkLoginActive, zkLoginAddress, signAndExecuteZkLogin } = useZkLogin();
 
   // Check treasury can cover a potential payout before betting
   const checkTreasuryCapacity = useCallback(async (
@@ -142,19 +144,18 @@ export function useOnChainBet() {
     setIsLoading(true);
     setError(null);
 
-    // Get fresh account status
-    const activeAccount = currentAccount;
+    const useZkLogin = isZkLoginActive && !!zkLoginAddress && !currentAccount?.address;
+    const activeAddress = currentAccount?.address || (useZkLogin ? zkLoginAddress : null);
 
     try {
-      // CRITICAL: Check wallet is still connected before attempting transaction
-      // This prevents "Not connected" errors when placing multiple bets
-      if (!activeAccount?.address) {
-        console.error('[useOnChainBet] Wallet not connected, aborting transaction');
+      if (!activeAddress) {
+        console.error('[useOnChainBet] No wallet connected, aborting transaction');
         throw new Error('Wallet disconnected. Please reconnect your wallet and try again.');
       }
-      console.log('[useOnChainBet] Wallet connected:', activeAccount.address);
+      console.log('[useOnChainBet] Wallet connected:', activeAddress, useZkLogin ? '(zkLogin)' : '(extension)');
       
-      const { eventId, marketId, prediction, betAmount, odds, walrusBlobId = '', coinType = 'SUI', sbetsCoinObjectId, walletAddress } = params;
+      const { eventId, marketId, prediction, betAmount, odds, walrusBlobId = '', coinType = 'SUI', sbetsCoinObjectId } = params;
+      const walletAddress = params.walletAddress || activeAddress;
       
       // On-chain bet limits (separate for SUI and SBETS)
       const MIN_BET_SUI = 0.05;       // 50,000,000 MIST
@@ -294,15 +295,24 @@ export function useOnChainBet() {
         throw new Error(`Unsupported coin type: ${coinType}`);
       }
 
-      console.log('[useOnChainBet] Transaction built, requesting wallet signature...');
+      console.log('[useOnChainBet] Transaction built, requesting signature...', useZkLogin ? '(zkLogin)' : '(wallet)');
       toast({
         title: "Signing Transaction",
-        description: `Please approve the ${coinType} bet in your wallet...`,
+        description: useZkLogin 
+          ? `Processing ${coinType} bet via Google login...`
+          : `Please approve the ${coinType} bet in your wallet...`,
       });
 
-      const result = await signAndExecute({
-        transaction: tx,
-      } as any);
+      let result: { digest: string; effects?: any; objectChanges?: any };
+      
+      if (useZkLogin) {
+        const zkResult = await signAndExecuteZkLogin(tx);
+        result = { digest: zkResult.digest, effects: zkResult.effects };
+      } else {
+        result = await signAndExecute({
+          transaction: tx,
+        } as any);
+      }
       console.log('[useOnChainBet] Transaction signed, result:', JSON.stringify(result, null, 2));
 
       if (!result.digest) {
@@ -472,7 +482,7 @@ export function useOnChainBet() {
         error: errorMessage,
       };
     }
-  }, [signAndExecute, suiClient, toast, getSuiCoins, checkTreasuryCapacity, currentAccount]);
+  }, [signAndExecute, suiClient, toast, getSuiCoins, checkTreasuryCapacity, currentAccount, isZkLoginActive, zkLoginAddress, signAndExecuteZkLogin]);
 
   return {
     placeBetOnChain,
