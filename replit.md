@@ -109,9 +109,10 @@ Preferred communication style: Simple, everyday language.
   - Tiers: Bronze (<1000 pts), Silver (1000+), Gold (2500+), Platinum (5000+), Diamond (10000+)
   - Points displayed on leaderboard with tier badges
 - **SBETS Staking**: 
-  - 8% APY from treasury pool (50 billion SBETS pool)
+  - Two plans: 1-Week lock (5% APY) and 3-Month lock (8% APY)
+  - Treasury pool: 50 billion SBETS
   - Minimum stake: 100,000 SBETS
-  - 3-month (90-day) lock period
+  - Per-stake APY stored in `rewardRate` column; lock period derived from `lockedUntil - stakingDate`
   - Daily reward withdrawals allowed (claim rewards anytime without unstaking)
   - Stake/unstake/claim-rewards functionality via `wurlusStaking` table
   - Automated hourly reward accrual worker (accrueStakingRewards) updates accumulated_rewards for all active stakes

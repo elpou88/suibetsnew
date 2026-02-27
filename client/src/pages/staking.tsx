@@ -12,6 +12,12 @@ import { Coins, ArrowLeft, Wallet, Lock, Unlock, TrendingUp, Shield, Clock, Zap,
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
+interface StakingPlan {
+  days: number;
+  apyRate: number;
+  label: string;
+}
+
 interface StakingInfo {
   treasuryPool: number;
   totalStaked: number;
@@ -27,9 +33,15 @@ interface StakingInfo {
     dailyEarning: number;
     stakedDays: number;
     canUnstake: boolean;
+    lockDays: number;
+    apyRate: number;
+    planLabel: string;
   }>;
   minStake: number;
-  lockPeriod: string;
+  plans: {
+    '1week': StakingPlan;
+    '3month': StakingPlan;
+  };
 }
 
 const SBETS_TYPE = '0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285::sbets::SBETS';
@@ -41,6 +53,7 @@ export default function StakingPage() {
   const { toast } = useToast();
   const [stakeAmount, setStakeAmount] = useState("");
   const [isStaking, setIsStaking] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<'1week' | '3month'>('3month');
 
   const suiClient = useSuiClient();
   const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
@@ -57,6 +70,9 @@ export default function StakingPage() {
       return res.json();
     },
   });
+
+  const currentPlan = stakingInfo?.plans?.[selectedPlan] || { days: selectedPlan === '1week' ? 7 : 90, apyRate: selectedPlan === '1week' ? 0.05 : 0.08, label: selectedPlan === '1week' ? '1 Week' : '3 Months' };
+  const currentApyPercent = currentPlan.apyRate * 100;
 
   const handleStake = async () => {
     if (!walletAddress) {
@@ -134,11 +150,12 @@ export default function StakingPage() {
       const res = await apiRequest("POST", "/api/staking/stake", {
         walletAddress,
         amount,
-        txHash: result.digest
+        txHash: result.digest,
+        lockPeriod: selectedPlan
       });
       const data = await res.json();
       if (data.success) {
-        toast({ title: "Staked Successfully!", description: `${amount.toLocaleString()} SBETS locked for 3 months at 8% APY` });
+        toast({ title: "Staked Successfully!", description: `${amount.toLocaleString()} SBETS locked for ${currentPlan.label} at ${currentApyPercent}% APY` });
         setStakeAmount("");
         refetchStaking();
       } else {
@@ -222,9 +239,9 @@ export default function StakingPage() {
               <div className="relative bg-black/40 backdrop-blur-sm p-4 rounded-xl text-center border border-cyan-500/30 group-hover:border-cyan-400/50 transition-all">
                 <TrendingUp className="h-5 w-5 text-cyan-400 mx-auto mb-1" />
                 <div className="text-2xl md:text-3xl font-black bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent" data-testid="text-apy-rate">
-                  {stakingInfo?.apyRate || 5}%
+                  5-8%
                 </div>
-                <p className="text-xs text-cyan-300/70 mt-1 font-medium">APY</p>
+                <p className="text-xs text-cyan-300/70 mt-1 font-medium">APY Range</p>
               </div>
             </div>
             <div className="relative group">
@@ -252,9 +269,9 @@ export default function StakingPage() {
               <div className="relative bg-black/40 backdrop-blur-sm p-4 rounded-xl text-center border border-purple-500/30 group-hover:border-purple-400/50 transition-all">
                 <Clock className="h-5 w-5 text-purple-400 mx-auto mb-1" />
                 <div className="text-2xl md:text-3xl font-black text-purple-300" data-testid="text-lock-period">
-                  {stakingInfo?.lockPeriod || '90 days'}
+                  2 Plans
                 </div>
-                <p className="text-xs text-purple-300/70 mt-1 font-medium">Lock Period</p>
+                <p className="text-xs text-purple-300/70 mt-1 font-medium">Lock Options</p>
               </div>
             </div>
           </div>
@@ -298,6 +315,47 @@ export default function StakingPage() {
                 </CardHeader>
 
                 <CardContent className="relative space-y-4">
+                  <div className="space-y-2">
+                    <p className="text-sm text-cyan-300/80 font-medium">Select Lock Period</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        onClick={() => setSelectedPlan('1week')}
+                        className={`p-3 rounded-xl border-2 transition-all text-left ${
+                          selectedPlan === '1week'
+                            ? 'border-cyan-400 bg-cyan-500/15 shadow-lg shadow-cyan-500/20'
+                            : 'border-gray-700 bg-black/30 hover:border-gray-500'
+                        }`}
+                        data-testid="btn-plan-1week"
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <Clock className="h-4 w-4 text-cyan-400" />
+                          <span className="text-white font-bold text-sm">1 Week</span>
+                        </div>
+                        <div className="text-cyan-400 text-lg font-black">5% APY</div>
+                        <p className="text-gray-400 text-[10px] mt-0.5">7-day lock period</p>
+                      </button>
+                      <button
+                        onClick={() => setSelectedPlan('3month')}
+                        className={`p-3 rounded-xl border-2 transition-all text-left relative ${
+                          selectedPlan === '3month'
+                            ? 'border-cyan-400 bg-cyan-500/15 shadow-lg shadow-cyan-500/20'
+                            : 'border-gray-700 bg-black/30 hover:border-gray-500'
+                        }`}
+                        data-testid="btn-plan-3month"
+                      >
+                        <Badge className="absolute -top-2 -right-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[9px] px-1.5 py-0 border-0">
+                          Best Value
+                        </Badge>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Lock className="h-4 w-4 text-cyan-400" />
+                          <span className="text-white font-bold text-sm">3 Months</span>
+                        </div>
+                        <div className="text-cyan-400 text-lg font-black">8% APY</div>
+                        <p className="text-gray-400 text-[10px] mt-0.5">90-day lock period</p>
+                      </button>
+                    </div>
+                  </div>
+
                   {walletAddress ? (
                     <>
                       <Input
@@ -354,6 +412,24 @@ export default function StakingPage() {
                           MAX
                         </Button>
                       </div>
+
+                      {stakeAmount && parseInt(stakeAmount) >= 100000 && (
+                        <div className="bg-black/40 rounded-lg p-3 border border-cyan-500/20">
+                          <div className="flex justify-between text-xs text-gray-400 mb-1">
+                            <span>Estimated daily earning</span>
+                            <span className="text-cyan-300 font-bold">
+                              +{Math.floor(parseInt(stakeAmount) * (currentPlan.apyRate / 365)).toLocaleString()} SBETS
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-xs text-gray-400">
+                            <span>Estimated total ({currentPlan.label})</span>
+                            <span className="text-green-400 font-bold">
+                              +{Math.floor(parseInt(stakeAmount) * (currentPlan.apyRate / 365) * currentPlan.days).toLocaleString()} SBETS
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
                       <Button
                         onClick={handleStake}
                         disabled={isStaking}
@@ -361,7 +437,7 @@ export default function StakingPage() {
                         data-testid="btn-stake"
                       >
                         <Lock className="h-4 w-4 mr-2" />
-                        {isStaking ? 'Staking...' : 'Stake Now'}
+                        {isStaking ? 'Staking...' : `Stake for ${currentPlan.label} (${currentApyPercent}% APY)`}
                       </Button>
                     </>
                   ) : (
@@ -371,7 +447,7 @@ export default function StakingPage() {
                       </div>
                       <div>
                         <p className="text-yellow-300 font-semibold">Connect Wallet to Start Staking</p>
-                        <p className="text-yellow-300/60 text-sm">Earn {stakingInfo?.apyRate || 8}% APY on your SBETS</p>
+                        <p className="text-yellow-300/60 text-sm">Earn up to 8% APY on your SBETS</p>
                       </div>
                     </div>
                   )}
@@ -387,7 +463,7 @@ export default function StakingPage() {
                   {stakingInfo.userStakes.map((stake) => {
                     const lockEndDate = new Date(stake.lockedUntil);
                     const now = new Date();
-                    const totalLockTime = 7 * 24 * 60 * 60 * 1000;
+                    const totalLockTime = stake.lockDays * 24 * 60 * 60 * 1000;
                     const timeRemaining = Math.max(0, lockEndDate.getTime() - now.getTime());
                     const progressPercent = Math.min(100, ((totalLockTime - timeRemaining) / totalLockTime) * 100);
                     const hoursRemaining = Math.max(0, Math.floor(timeRemaining / (1000 * 60 * 60)));
@@ -399,7 +475,16 @@ export default function StakingPage() {
                         <div className="absolute top-0 right-0 w-20 h-20 bg-cyan-500/10 rounded-full blur-2xl" />
                         <div className="flex justify-between items-start mb-3 flex-wrap gap-2">
                           <div>
-                            <p className="text-xl font-black text-white">{(stake.amount || 0).toLocaleString()} SBETS</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-xl font-black text-white">{(stake.amount || 0).toLocaleString()} SBETS</p>
+                              <Badge className={`text-[10px] px-1.5 py-0 border-0 ${
+                                stake.lockDays <= 7
+                                  ? 'bg-blue-500/30 text-blue-300'
+                                  : 'bg-amber-500/30 text-amber-300'
+                              }`}>
+                                {stake.planLabel} · {stake.apyRate}% APY
+                              </Badge>
+                            </div>
                             <p className="text-sm text-green-400 font-medium mt-1">
                               +{Math.floor(stake.accumulatedRewards).toLocaleString()} SBETS earned
                             </p>
@@ -475,8 +560,8 @@ export default function StakingPage() {
                         <Lock className="h-3.5 w-3.5 text-cyan-400" />
                       </div>
                       <div>
-                        <p className="text-white text-sm font-semibold">Lock Your SBETS</p>
-                        <p className="text-gray-400 text-xs">Stake a minimum of 100,000 SBETS. Tokens are locked for 3 months.</p>
+                        <p className="text-white text-sm font-semibold">Choose Your Plan</p>
+                        <p className="text-gray-400 text-xs">1-Week lock (5% APY) for flexibility, or 3-Month lock (8% APY) for higher returns.</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
@@ -484,7 +569,7 @@ export default function StakingPage() {
                         <TrendingUp className="h-3.5 w-3.5 text-green-400" />
                       </div>
                       <div>
-                        <p className="text-white text-sm font-semibold">Earn 8% APY</p>
+                        <p className="text-white text-sm font-semibold">Earn Rewards</p>
                         <p className="text-gray-400 text-xs">Rewards accrue hourly from a 50 billion SBETS treasury pool.</p>
                       </div>
                     </div>
@@ -494,7 +579,7 @@ export default function StakingPage() {
                       </div>
                       <div>
                         <p className="text-white text-sm font-semibold">Claim Anytime</p>
-                        <p className="text-gray-400 text-xs">Withdraw your earned rewards daily without unstaking. Or unstake after 3 months to get principal + rewards.</p>
+                        <p className="text-gray-400 text-xs">Withdraw your earned rewards daily without unstaking. Or unstake after the lock period to get principal + rewards.</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
@@ -514,22 +599,30 @@ export default function StakingPage() {
                 <CardHeader className="pb-3">
                   <CardTitle className="text-white text-lg flex items-center gap-2">
                     <Coins className="h-4 w-4 text-cyan-400" />
-                    Staking Details
+                    Staking Plans
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-2.5">
-                    <div className="flex justify-between items-center py-2 border-b border-cyan-500/10">
-                      <span className="text-gray-400 text-sm">Annual Yield</span>
-                      <span className="text-cyan-300 font-bold text-sm" data-testid="text-detail-apy">{stakingInfo?.apyRate || 8}% APY</span>
+                  <div className="space-y-3">
+                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-blue-300 font-bold text-sm">1-Week Plan</span>
+                        <span className="text-cyan-300 font-black text-sm">5% APY</span>
+                      </div>
+                      <p className="text-gray-400 text-xs">7-day lock · Lower commitment · Great for trying staking</p>
                     </div>
+                    <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-amber-300 font-bold text-sm">3-Month Plan</span>
+                        <span className="text-cyan-300 font-black text-sm">8% APY</span>
+                      </div>
+                      <p className="text-gray-400 text-xs">90-day lock · Higher returns · Best for long-term holders</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 space-y-2.5">
                     <div className="flex justify-between items-center py-2 border-b border-cyan-500/10">
                       <span className="text-gray-400 text-sm">Min Stake</span>
                       <span className="text-white font-bold text-sm">100,000 SBETS</span>
-                    </div>
-                    <div className="flex justify-between items-center py-2 border-b border-cyan-500/10">
-                      <span className="text-gray-400 text-sm">Lock Period</span>
-                      <span className="text-white font-bold text-sm">{stakingInfo?.lockPeriod || '90 days'}</span>
                     </div>
                     <div className="flex justify-between items-center py-2 border-b border-cyan-500/10">
                       <span className="text-gray-400 text-sm">Reward Accrual</span>
@@ -549,7 +642,7 @@ export default function StakingPage() {
 
               <div className="bg-gradient-to-br from-cyan-900/20 to-blue-900/10 p-4 rounded-xl border border-cyan-500/20">
                 <p className="text-xs text-cyan-300/60 leading-relaxed">
-                  Staking rewards are calculated using an 8% annual rate from the treasury pool. Rewards accrue hourly and can be withdrawn daily at any time. The reward model uses the higher of live calculation or worker-accumulated values to ensure accuracy. Your principal is locked for 3 months - early unstaking before the lock period is not permitted.
+                  Two staking plans available: 1-Week (5% APY) and 3-Month (8% APY). Rewards accrue hourly and can be claimed daily at any time. Your principal is locked until the lock period ends - early unstaking is not permitted. All transactions are verified on the Sui blockchain.
                 </p>
               </div>
             </div>

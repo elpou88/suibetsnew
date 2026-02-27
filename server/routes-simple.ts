@@ -5644,7 +5644,11 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
   
   const APY_RATE = 0.08; // 8% APY
   const MIN_STAKE_SBETS = 100000; // 100K SBETS minimum
-  const LOCK_PERIOD_DAYS = 90; // 3 months
+  const STAKING_PLANS = {
+    '1week': { days: 7, apyRate: 0.05, label: '1 Week' },
+    '3month': { days: 90, apyRate: 0.08, label: '3 Months' }
+  } as const;
+  type StakingPlanKey = keyof typeof STAKING_PLANS;
 
   // AUTOMATED REWARD ACCRUAL WORKER - runs every hour to update accumulated_rewards
   async function accrueStakingRewards() {
@@ -5657,7 +5661,6 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       if (activeStakes.length === 0) return;
 
       const now = Date.now();
-      const dailyRate = APY_RATE / 365;
       let totalAccrued = 0;
       let stakesUpdated = 0;
 
@@ -5665,7 +5668,9 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         const stakeDate = new Date(stake.stakingDate || now);
         const stakedDays = Math.max(0, (now - stakeDate.getTime()) / (1000 * 60 * 60 * 24));
         const principal = stake.amountStaked || 0;
-        const maxAnnualReward = principal * APY_RATE;
+        const stakeApyRate = stake.rewardRate || APY_RATE;
+        const dailyRate = stakeApyRate / 365;
+        const maxAnnualReward = principal * stakeApyRate;
         const calculatedRewards = principal * dailyRate * stakedDays;
         const newAccumulated = Math.min(calculatedRewards, maxAnnualReward);
 
@@ -5708,18 +5713,21 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       let userStakes: any[] = [];
       
       if (wallet) {
-        // Get user's active stakes
         const stakes = await db.select().from(wurlusStaking)
           .where(and(eq(wurlusStaking.walletAddress, wallet), eq(wurlusStaking.isActive, true)));
         
         userStakes = stakes.map(s => {
           const stakeDate = new Date(s.stakingDate || Date.now());
           const stakedDays = Math.max(0, (Date.now() - stakeDate.getTime()) / (1000 * 60 * 60 * 24));
-          const dailyRate = APY_RATE / 365;
+          const stakeApyRate = s.rewardRate || APY_RATE;
+          const dailyRate = stakeApyRate / 365;
           const principal = s.amountStaked || 0;
-          const maxAnnualReward = principal * APY_RATE;
+          const maxAnnualReward = principal * stakeApyRate;
           const liveRewards = Math.min(principal * dailyRate * stakedDays, maxAnnualReward);
           const bestRewards = Math.max(liveRewards, s.accumulatedRewards || 0);
+          const lockDays = (s.lockedUntil && s.stakingDate) 
+            ? Math.round((new Date(s.lockedUntil).getTime() - new Date(s.stakingDate).getTime()) / (1000 * 60 * 60 * 24))
+            : 90;
           return {
             id: s.id,
             amount: s.amountStaked,
@@ -5728,7 +5736,10 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
             accumulatedRewards: bestRewards,
             dailyEarning: Math.floor(principal * dailyRate),
             stakedDays: Math.floor(stakedDays),
-            canUnstake: !s.lockedUntil || new Date(s.lockedUntil) <= new Date()
+            canUnstake: !s.lockedUntil || new Date(s.lockedUntil) <= new Date(),
+            lockDays,
+            apyRate: stakeApyRate * 100,
+            planLabel: lockDays <= 7 ? '1 Week' : '3 Months'
           };
         });
         
@@ -5737,14 +5748,14 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       }
       
       res.json({
-        treasuryPool: 50000000000, // 50 billion SBETS treasury pool
+        treasuryPool: 50000000000,
         totalStaked,
-        apyRate: APY_RATE * 100, // 5%
+        apyRate: APY_RATE * 100,
         userStaked,
         userRewards,
         userStakes,
         minStake: MIN_STAKE_SBETS,
-        lockPeriod: `${LOCK_PERIOD_DAYS} days`
+        plans: STAKING_PLANS
       });
     } catch (error) {
       console.error('Staking info error:', error);
@@ -5755,7 +5766,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
   // Stake SBETS tokens (requires on-chain transfer first)
   app.post('/api/staking/stake', async (req: Request, res: Response) => {
     try {
-      const { walletAddress, amount, txHash } = req.body;
+      const { walletAddress, amount, txHash, lockPeriod } = req.body;
       if (!walletAddress || !amount) {
         return res.status(400).json({ error: 'Wallet address and amount required' });
       }
@@ -5763,6 +5774,12 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       if (!txHash) {
         return res.status(400).json({ error: 'Transaction hash required - SBETS must be transferred on-chain first' });
       }
+      
+      if (lockPeriod && lockPeriod !== '1week' && lockPeriod !== '3month') {
+        return res.status(400).json({ error: 'Invalid lock period. Choose "1week" or "3month"' });
+      }
+      const planKey: StakingPlanKey = (lockPeriod === '1week') ? '1week' : '3month';
+      const plan = STAKING_PLANS[planKey];
       
       if (amount < MIN_STAKE_SBETS) {
         return res.status(400).json({ error: `Minimum stake is ${MIN_STAKE_SBETS.toLocaleString()} SBETS` });
@@ -5818,10 +5835,8 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         console.warn('[STAKING] Could not verify tx, proceeding anyway:', txError);
       }
       
-      // Create lock period (7 days from now)
-      const lockedUntil = new Date(Date.now() + LOCK_PERIOD_DAYS * 24 * 60 * 60 * 1000);
+      const lockedUntil = new Date(Date.now() + plan.days * 24 * 60 * 60 * 1000);
       
-      // Insert stake record with txHash for dedup (SBETS already transferred on-chain)
       const [stake] = await db.insert(wurlusStaking).values({
         walletAddress,
         amountStaked: amount,
@@ -5829,20 +5844,21 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         isActive: true,
         txHash,
         lockedUntil,
-        rewardRate: APY_RATE,
+        rewardRate: plan.apyRate,
         accumulatedRewards: 0
       }).returning();
       
-      console.log(`[STAKING] User ${walletAddress.slice(0, 10)}... staked ${amount.toLocaleString()} SBETS (ID: ${stake.id}) - TX: ${txHash.slice(0, 12)}...`);
+      console.log(`[STAKING] User ${walletAddress.slice(0, 10)}... staked ${amount.toLocaleString()} SBETS (${plan.label}, ${plan.apyRate * 100}% APY, ID: ${stake.id}) - TX: ${txHash.slice(0, 12)}...`);
       
       res.json({ 
         success: true, 
-        message: `Successfully staked ${amount.toLocaleString()} SBETS`,
+        message: `Successfully staked ${amount.toLocaleString()} SBETS for ${plan.label}`,
         stakeId: stake.id,
         stakedAmount: amount,
         lockedUntil,
         txHash,
-        estimatedApy: APY_RATE * 100
+        estimatedApy: plan.apyRate * 100,
+        plan: planKey
       });
     } catch (error) {
       console.error('Staking error:', error);
@@ -5895,10 +5911,11 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const stakeDate = new Date(stake.stakingDate || now);
       const stakedMs = now.getTime() - stakeDate.getTime();
       const stakedDays = Math.max(0, stakedMs / (1000 * 60 * 60 * 24));
-      const dailyRate = APY_RATE / 365;
+      const stakeApyRate = stake.rewardRate || APY_RATE;
+      const dailyRate = stakeApyRate / 365;
       const principal = stake.amountStaked || 0;
       
-      const maxAnnualReward = principal * APY_RATE;
+      const maxAnnualReward = principal * stakeApyRate;
       const liveRewards = Math.min(principal * dailyRate * stakedDays, maxAnnualReward);
       const workerAccumulated = stake.accumulatedRewards || 0;
       const totalRewards = Math.max(liveRewards, workerAccumulated);
@@ -6023,10 +6040,11 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         const stakeDate = new Date(stake.stakingDate || Date.now());
         const stakedMs = claimTimestamp.getTime() - stakeDate.getTime();
         const stakedDays = Math.max(0, stakedMs / (1000 * 60 * 60 * 24));
-        const dailyRate = APY_RATE / 365;
+        const stakeApyRate = stake.rewardRate || APY_RATE;
+        const dailyRate = stakeApyRate / 365;
         const principal = stake.amountStaked || 0;
         
-        const maxAnnualReward = principal * APY_RATE;
+        const maxAnnualReward = principal * stakeApyRate;
         const liveRewards = Math.min(principal * dailyRate * stakedDays, maxAnnualReward);
         const workerAccumulated = stake.accumulatedRewards || 0;
         const totalRewards = Math.max(liveRewards, workerAccumulated);
