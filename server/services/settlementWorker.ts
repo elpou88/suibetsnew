@@ -485,36 +485,71 @@ class SettlementWorkerService {
     }
   }
   
+  private static readonly KNOWN_SPORT_SLUGS = new Set([
+    'basketball', 'baseball', 'ice-hockey', 'mma', 'american-football',
+    'afl', 'formula-1', 'handball', 'nfl', 'rugby', 'volleyball',
+    'tennis', 'boxing', 'horse-racing'
+  ]);
+
+  private extractEventIdsFromParlayExtId(extId: string): string[] {
+    const parts = extId.split('_');
+    const remaining = parts.slice(2);
+    const eventIds: string[] = [];
+    let i = 0;
+
+    while (i < remaining.length) {
+      const current = remaining[i];
+
+      if (SettlementWorkerService.KNOWN_SPORT_SLUGS.has(current) && i + 1 < remaining.length) {
+        eventIds.push(`${current}_${remaining[i + 1]}`);
+        i += 2;
+      } else if (i + 1 < remaining.length) {
+        const hyphenated = `${current}-${remaining[i + 1]}`;
+        if (SettlementWorkerService.KNOWN_SPORT_SLUGS.has(hyphenated) && i + 2 < remaining.length) {
+          eventIds.push(`${hyphenated}_${remaining[i + 2]}`);
+          i += 3;
+        } else {
+          eventIds.push(current);
+          i += 1;
+        }
+      } else {
+        eventIds.push(current);
+        i += 1;
+      }
+    }
+
+    return eventIds;
+  }
+
   private parsePipeSeparatedParlay(bet: UnsettledBet): Array<{ eventId: string; prediction: string; marketId?: string; outcomeId?: string }> {
-    // Parse parlays like "Al-Faisaly FC vs Al Zulfi: Over 2.5 | Pdrm vs Kuala Lumpur FA: Over 2.5"
-    // external_event_id format: "parlay_1769778304571_1437339_1404202" contains the event IDs
     const legs: Array<{ eventId: string; prediction: string; marketId?: string; outcomeId?: string }> = [];
     
     try {
       const extId = bet.externalEventId || '';
       const pred = bet.prediction || '';
       
-      // Extract event IDs from external_event_id (format: parlay_timestamp_eventId1_eventId2...)
-      const parts = extId.split('_');
-      const eventIds = parts.slice(2); // Skip "parlay" and timestamp
+      const eventIds = this.extractEventIdsFromParlayExtId(extId);
       
-      // Parse predictions from pipe-separated format
       const predParts = pred.split('|').map(p => p.trim());
+      
+      console.log(`🔍 Parlay event IDs extracted: [${eventIds.join(', ')}] (${eventIds.length} legs from ${predParts.length} predictions)`);
+      
+      if (eventIds.length !== predParts.length) {
+        console.warn(`⚠️ Parlay leg/prediction count mismatch: ${eventIds.length} event IDs vs ${predParts.length} predictions for ${extId}`);
+      }
       
       for (let i = 0; i < Math.min(eventIds.length, predParts.length); i++) {
         const eventId = eventIds[i];
-        const fullPred = predParts[i]; // e.g., "Al-Faisaly FC vs Al Zulfi: Over 2.5"
+        const fullPred = predParts[i];
         
-        // Extract just the prediction part after the colon
         const colonIdx = fullPred.lastIndexOf(':');
         const prediction = colonIdx !== -1 ? fullPred.slice(colonIdx + 1).trim() : fullPred;
         
-        // Determine market type from prediction
         let marketId = 'match-winner';
         let outcomeId = '';
         
         if (prediction.includes('Over')) {
-          marketId = '5'; // Over/Under market
+          marketId = '5';
           outcomeId = 'ou_over';
         } else if (prediction.includes('Under')) {
           marketId = '5';

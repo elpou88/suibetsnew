@@ -60,10 +60,46 @@ export class BlockchainBetService {
   private client: SuiClient;
   private network: 'mainnet' | 'testnet' | 'devnet';
 
+  private static readonly KNOWN_SPORT_SLUGS = new Set([
+    'basketball', 'baseball', 'ice-hockey', 'mma', 'american-football',
+    'afl', 'formula-1', 'handball', 'nfl', 'rugby', 'volleyball',
+    'tennis', 'boxing', 'horse-racing'
+  ]);
+
   constructor() {
     this.network = (process.env.SUI_NETWORK as 'mainnet' | 'testnet' | 'devnet') || 'mainnet';
     this.client = new SuiClient({ url: getFullnodeUrl(this.network) });
     console.log(`BlockchainBetService initialized on ${this.network}`);
+  }
+
+  private extractParlayLegIds(extId: string): string[] {
+    const parts = extId.split('_');
+    const remaining = parts.slice(2);
+    const eventIds: string[] = [];
+    let i = 0;
+
+    while (i < remaining.length) {
+      const current = remaining[i];
+
+      if (BlockchainBetService.KNOWN_SPORT_SLUGS.has(current) && i + 1 < remaining.length) {
+        eventIds.push(`${current}_${remaining[i + 1]}`);
+        i += 2;
+      } else if (i + 1 < remaining.length) {
+        const hyphenated = `${current}-${remaining[i + 1]}`;
+        if (BlockchainBetService.KNOWN_SPORT_SLUGS.has(hyphenated) && i + 2 < remaining.length) {
+          eventIds.push(`${hyphenated}_${remaining[i + 2]}`);
+          i += 3;
+        } else {
+          eventIds.push(current);
+          i += 1;
+        }
+      } else {
+        eventIds.push(current);
+        i += 1;
+      }
+    }
+
+    return eventIds;
   }
 
   async buildBetTransaction(
@@ -1444,24 +1480,19 @@ export class BlockchainBetService {
                 eventName = `${homeTeam} vs ${awayTeam}`;
                 console.log(`✅ Free sport event verified: ${eventId} (${eventName})`);
               } else if (eventId.startsWith('parlay_')) {
-                // Parlay bets have composite event IDs - extract and verify each leg
-                const parts = eventId.split('_');
+                const legEventIds = this.extractParlayLegIds(eventId);
                 let allLegsValid = true;
-                for (let i = 2; i < parts.length; i++) {
-                  const legId = parts[i];
-                  // Check if leg ID contains sport prefix (e.g., basketball_489697)
-                  const nextPart = parts[i + 1];
-                  let fullLegId = legId;
-                  if (nextPart && !isNaN(Number(nextPart))) {
-                    fullLegId = `${legId}_${nextPart}`;
-                    i++; // Skip the number part
-                  }
+                for (const fullLegId of legEventIds) {
                   const legCheck = apiSportsService.lookupEventSync(fullLegId);
                   const freeLegCheck = freeSportsService.lookupEvent(fullLegId);
                   if (!legCheck.found && !freeLegCheck.found) {
-                    // Also try just the numeric part (football bets use numeric IDs)
-                    const numericCheck = apiSportsService.lookupEventSync(legId);
-                    if (!numericCheck.found) {
+                    const numericOnly = fullLegId.replace(/^[a-z-]+_/, '');
+                    if (numericOnly !== fullLegId) {
+                      const numericCheck = apiSportsService.lookupEventSync(numericOnly);
+                      if (!numericCheck.found) {
+                        allLegsValid = false;
+                      }
+                    } else {
                       allLegsValid = false;
                     }
                   }
