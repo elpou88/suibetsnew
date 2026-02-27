@@ -1789,6 +1789,43 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
 
+  app.get("/api/events/check/:eventId", async (req: Request, res: Response) => {
+    try {
+      const eventId = req.params.eventId;
+      const lookup = apiSportsService.lookupEventSync(eventId);
+      if (lookup.found) {
+        const isAvailable = lookup.source === 'upcoming' || (lookup.isLive && lookup.minute !== undefined && lookup.minute < 45);
+        return res.json({
+          available: isAvailable,
+          isLive: lookup.isLive,
+          source: lookup.source,
+          homeTeam: lookup.homeTeam,
+          awayTeam: lookup.awayTeam,
+          startTime: lookup.startTime,
+          shouldBeLive: lookup.shouldBeLive,
+        });
+      }
+      const freeLookup = freeSportsService.lookupEvent(eventId);
+      if (freeLookup.found && freeLookup.event) {
+        const now = new Date();
+        const eventStart = freeLookup.event.startTime ? new Date(freeLookup.event.startTime) : null;
+        const hasStarted = eventStart ? eventStart <= now : false;
+        return res.json({
+          available: !hasStarted,
+          isLive: false,
+          source: 'free',
+          homeTeam: freeLookup.event.homeTeam,
+          awayTeam: freeLookup.event.awayTeam,
+          startTime: freeLookup.event.startTime,
+          shouldBeLive: hasStarted,
+        });
+      }
+      return res.json({ available: false });
+    } catch (error) {
+      return res.json({ available: false });
+    }
+  });
+
   // Events route with multi-source fallback logic
   app.get("/api/events", async (req: Request, res: Response) => {
     try {

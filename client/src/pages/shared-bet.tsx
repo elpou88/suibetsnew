@@ -15,6 +15,7 @@ import {
   ExternalLink,
   Share2,
   RefreshCw,
+  AlertTriangle,
   X
 } from 'lucide-react';
 import CleanHome from '@/pages/clean-home';
@@ -23,6 +24,7 @@ interface SharedBetData {
   id: string | number;
   numericId?: number;
   eventId: string;
+  externalEventId?: string;
   eventName: string;
   selection?: string;
   prediction?: string;
@@ -54,6 +56,7 @@ export default function SharedBetPage() {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
   const [betAdded, setBetAdded] = useState(false);
+  const [copyLoading, setCopyLoading] = useState(false);
   const [showModal, setShowModal] = useState(true);
 
   const { data: bet, isLoading, error } = useQuery<SharedBetData>({
@@ -95,16 +98,55 @@ export default function SharedBetPage() {
     return { isParlay: false, legs: [] };
   };
 
-  const handleCopyBet = () => {
+  const handleCopyBet = async () => {
     if (!bet) return;
+    setCopyLoading(true);
 
+    const isSettled = ['won', 'paid_out', 'lost', 'void'].includes(bet.status);
     const { isParlay, legs: parlayLegs } = tryParseLegs(bet);
 
+    const resolveEventId = (rawId: string | undefined): string => {
+      if (!rawId) return '';
+      if (rawId.startsWith('parlay_')) return '';
+      if (rawId.startsWith('sync_')) {
+        const parts = rawId.split('_');
+        return parts.length >= 3 ? parts[parts.length - 1] : rawId;
+      }
+      return rawId;
+    };
+
+    const checkEventAvailable = async (eventId: string): Promise<boolean> => {
+      if (!eventId) return false;
+      try {
+        const resp = await fetch(`/api/events/check/${encodeURIComponent(eventId)}`);
+        if (!resp.ok) return false;
+        const data = await resp.json();
+        return data.available === true;
+      } catch {
+        return false;
+      }
+    };
+
+    const primaryEventId = resolveEventId(bet.externalEventId || bet.eventId);
+
     if (isParlay) {
-      parlayLegs.forEach((leg: any, idx: number) => {
+      let addedCount = 0;
+      let unavailableCount = 0;
+      for (let idx = 0; idx < parlayLegs.length; idx++) {
+        const leg = parlayLegs[idx];
+        const legEventId = resolveEventId(leg.eventId);
+        if (!legEventId) {
+          unavailableCount++;
+          continue;
+        }
+        const available = await checkEventAvailable(legEventId);
+        if (!available) {
+          unavailableCount++;
+          continue;
+        }
         addBet({
-          id: `copy-${bet.id}-${idx}`,
-          eventId: leg.eventId || bet.eventId || `copy-${bet.id}-${idx}`,
+          id: `copy-${bet.id}-${idx}-${Date.now()}`,
+          eventId: legEventId,
           eventName: leg.eventName || 'Copied Bet',
           selectionName: leg.selection || leg.prediction || 'Pick',
           odds: leg.odds || 1,
@@ -114,15 +156,55 @@ export default function SharedBetPage() {
           homeTeam: leg.homeTeam,
           awayTeam: leg.awayTeam,
         });
-      });
-      toast({
-        title: 'Parlay Copied!',
-        description: `${parlayLegs.length} selections added to your bet slip. Set your stake and place the bet!`,
-      });
+        addedCount++;
+      }
+      if (addedCount === 0) {
+        toast({
+          title: 'Events No Longer Available',
+          description: isSettled
+            ? 'This bet has already settled. The events are no longer open for betting.'
+            : 'None of the events in this parlay are available for betting right now.',
+          variant: 'destructive',
+        });
+        setCopyLoading(false);
+        return;
+      }
+      if (unavailableCount > 0) {
+        toast({
+          title: `${addedCount} of ${parlayLegs.length} Legs Copied`,
+          description: `${unavailableCount} leg(s) skipped because those events have ended or are unavailable.`,
+        });
+      } else {
+        toast({
+          title: 'Parlay Copied!',
+          description: `${addedCount} selections added to your bet slip. Set your stake and place the bet!`,
+        });
+      }
     } else {
+      if (!primaryEventId) {
+        toast({
+          title: 'Cannot Copy This Bet',
+          description: 'The event information is missing or invalid.',
+          variant: 'destructive',
+        });
+        setCopyLoading(false);
+        return;
+      }
+      const available = await checkEventAvailable(primaryEventId);
+      if (!available) {
+        toast({
+          title: 'Event No Longer Available',
+          description: isSettled
+            ? 'This bet has already settled. The event is no longer open for betting.'
+            : 'This event has ended or is no longer available for betting.',
+          variant: 'destructive',
+        });
+        setCopyLoading(false);
+        return;
+      }
       addBet({
-        id: `copy-${bet.id}`,
-        eventId: bet.eventId || `copy-${bet.id}`,
+        id: `copy-${bet.id}-${Date.now()}`,
+        eventId: primaryEventId,
         eventName: bet.eventName || 'Copied Bet',
         selectionName: getSelection(bet) || 'Pick',
         odds: bet.odds || 1,
@@ -138,6 +220,7 @@ export default function SharedBetPage() {
       });
     }
     setBetAdded(true);
+    setCopyLoading(false);
   };
 
   const handleShareLink = async () => {
@@ -362,10 +445,12 @@ export default function SharedBetPage() {
                   <div className="space-y-3">
                     <button
                       onClick={handleCopyBet}
-                      disabled={betAdded}
+                      disabled={betAdded || copyLoading}
                       className={`w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-colors ${
                         betAdded
                           ? 'bg-green-500/20 text-green-400 border border-green-500/30 cursor-default'
+                          : copyLoading
+                          ? 'bg-cyan-500/50 text-black/50 cursor-wait'
                           : 'bg-cyan-500 hover:bg-cyan-600 text-black'
                       }`}
                       data-testid="button-copy-bet"
@@ -374,6 +459,11 @@ export default function SharedBetPage() {
                         <>
                           <Check className="h-5 w-5" />
                           Added to Bet Slip
+                        </>
+                      ) : copyLoading ? (
+                        <>
+                          <RefreshCw className="h-5 w-5 animate-spin" />
+                          Checking Availability...
                         </>
                       ) : (
                         <>

@@ -54,6 +54,8 @@ export interface TransactionPayload {
   typeArguments?: string[];
 }
 
+const rejectedOnChainBets = new Set<string>();
+
 export class BlockchainBetService {
   private client: SuiClient;
   private network: 'mainnet' | 'testnet' | 'devnet';
@@ -1353,6 +1355,10 @@ export class BlockchainBetService {
         try {
           const parsed = event.parsedJson as any;
           const betObjectId = parsed.bet_id;
+
+          if (rejectedOnChainBets.has(betObjectId)) {
+            continue;
+          }
           const bettor = parsed.bettor;
           const stake = parseInt(parsed.stake) / 1e9;
           const odds = parseInt(parsed.odds) / 100;
@@ -1407,15 +1413,15 @@ export class BlockchainBetService {
           const BLOCKED_WALLETS = new Set<string>([
           ]);
           if (BLOCKED_WALLETS.has(bettor?.toLowerCase())) {
+            rejectedOnChainBets.add(betObjectId);
             console.warn(`🚫 EXPLOIT BLOCKED: Rejecting bet ${betObjectId.slice(0, 12)}... from blocked wallet ${bettor.slice(0, 12)}...`);
             continue;
           }
 
-          // ANTI-EXPLOIT: Block bets on "Unknown Event" - these are likely fake/exploitative bets
-          // Users betting directly on the contract with invalid event IDs will be rejected
           if (eventName === "Unknown Event" || homeTeam === "Unknown" || awayTeam === "Unknown") {
+            rejectedOnChainBets.add(betObjectId);
             console.warn(`🚫 EXPLOIT BLOCKED: Rejecting bet ${betObjectId.slice(0, 12)}... - Unknown Event (likely fake/exploitative bet)`);
-            continue; // Don't sync bets we can't verify
+            continue;
           }
           
           // ANTI-EXPLOIT: Validate event ID is a real event in our system
@@ -1461,15 +1467,18 @@ export class BlockchainBetService {
                   }
                 }
                 if (!allLegsValid) {
+                  rejectedOnChainBets.add(betObjectId);
                   console.warn(`🚫 EXPLOIT BLOCKED: Rejecting bet ${betObjectId.slice(0, 12)}... - Event ${eventId} not found in our system`);
                   continue;
                 }
               } else {
+                rejectedOnChainBets.add(betObjectId);
                 console.warn(`🚫 EXPLOIT BLOCKED: Rejecting bet ${betObjectId.slice(0, 12)}... - Event ${eventId} not found in our system`);
                 continue;
               }
             }
           } catch (eventCheckError) {
+            rejectedOnChainBets.add(betObjectId);
             console.warn(`🚫 EXPLOIT BLOCKED: Rejecting bet ${betObjectId.slice(0, 12)}... - Could not verify event ${eventId}`);
             continue; // Don't sync bets for unverifiable events
           }
