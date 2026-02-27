@@ -1563,7 +1563,9 @@ export default function AdminPanel() {
                                     <th className="p-2">Amount</th>
                                     <th className="p-2">Rewards</th>
                                     <th className="p-2">Status</th>
-                                    <th className="p-2">Staked Days</th>
+                                    <th className="p-2">Staked Date</th>
+                                    <th className="p-2">Days Staked</th>
+                                    <th className="p-2">Lock Expires</th>
                                     <th className="p-2">Actions</th>
                                   </tr>
                                 </thead>
@@ -1582,7 +1584,12 @@ export default function AdminPanel() {
                                             {isActive ? 'Active' : 'Inactive'}
                                           </Badge>
                                         </td>
-                                        <td className="p-2">{stakedDays}d</td>
+                                        <td className="p-2 whitespace-nowrap">{stake.stakingDate ? new Date(stake.stakingDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</td>
+                                        <td className="p-2">
+                                          <span className={stakedDays >= 90 ? 'text-green-400' : 'text-yellow-400'}>{stakedDays}d</span>
+                                          <span className="text-gray-600"> / 90d</span>
+                                        </td>
+                                        <td className="p-2 whitespace-nowrap">{stake.lockedUntil ? new Date(stake.lockedUntil).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</td>
                                         <td className="p-2">
                                           {isActive && (
                                             <Button
