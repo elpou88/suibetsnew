@@ -6,6 +6,12 @@ import { X, Trash2, ChevronUp, ChevronDown, CheckCircle2, Copy, ExternalLink, Gi
 import { useToast } from '@/hooks/use-toast';
 import { useQuery } from '@tanstack/react-query';
 
+interface ParlayLeg {
+  eventName: string;
+  prediction: string;
+  odds: number;
+}
+
 interface BetConfirmation {
   betId: string;
   eventName: string;
@@ -17,6 +23,8 @@ interface BetConfirmation {
   txHash: string | null;
   status: string;
   placedAt: string;
+  isParlay?: boolean;
+  legs?: ParlayLeg[];
 }
 
 export function BetSlip() {
@@ -308,12 +316,31 @@ export function BetSlip() {
         
         {/* Bet Details */}
         <div className="px-4 py-4 space-y-3">
-          <div className="text-white text-sm font-medium">{confirmedBet.eventName}</div>
-          
-          <div className="flex justify-between items-center">
-            <span className="text-gray-400 text-sm">Selection:</span>
-            <span className="text-cyan-400 font-medium">{confirmedBet.prediction} @{confirmedBet.odds.toFixed(2)}</span>
-          </div>
+          {confirmedBet.isParlay && confirmedBet.legs ? (
+            <>
+              <div className="text-white text-sm font-medium">Parlay ({confirmedBet.legs.length} legs)</div>
+              <div className="space-y-2 border-l-2 border-cyan-500/30 pl-3">
+                {confirmedBet.legs.map((leg, idx) => (
+                  <div key={idx} className="text-sm">
+                    <div className="text-gray-400 text-xs">{leg.eventName}</div>
+                    <div className="text-cyan-400 font-medium">{leg.prediction} @{leg.odds.toFixed(2)}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-between items-center pt-1">
+                <span className="text-gray-400 text-sm">Combined Odds:</span>
+                <span className="text-cyan-400 font-bold">@{confirmedBet.odds.toFixed(2)}</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-white text-sm font-medium">{confirmedBet.eventName}</div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400 text-sm">Selection:</span>
+                <span className="text-cyan-400 font-medium">{confirmedBet.prediction} @{confirmedBet.odds.toFixed(2)}</span>
+              </div>
+            </>
+          )}
           
           <div className="flex justify-between items-center">
             <span className="text-gray-400 text-sm">Stake:</span>

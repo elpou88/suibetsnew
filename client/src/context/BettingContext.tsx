@@ -569,34 +569,54 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
               })),
             });
 
+            const parlayConfirmation = {
+              betId: onChainResult.betObjectId || `parlay_${onChainResult.txDigest?.slice(0, 10)}`,
+              eventName: `Parlay (${selectedBets.length} legs)`,
+              prediction: selectedBets.map(b => b.selectionName).join(' | '),
+              odds: parlayOdds,
+              stake: betAmount,
+              currency: betOptions.currency,
+              potentialWin: potentialPayout,
+              txHash: onChainResult.txDigest,
+              status: 'confirmed',
+              placedAt: new Date().toISOString(),
+              isParlay: true,
+              legs: selectedBets.map(b => ({
+                eventName: b.eventName,
+                prediction: b.selectionName,
+                odds: b.odds,
+              })),
+            };
+
             if (response.ok) {
+              const betData = await response.json();
+              parlayConfirmation.betId = betData.bet?.id || betData.id || parlayConfirmation.betId;
+
+              window.dispatchEvent(new CustomEvent('suibets:bet-confirmed', { detail: parlayConfirmation }));
+
               const txLink = `https://suiscan.xyz/mainnet/tx/${onChainResult.txDigest}`;
               toast({
                 title: "Parlay Placed On-Chain!",
                 description: (
-                  <div className="flex flex-col gap-1">
-                    <span>{selectedBets.length} legs @ {parlayOdds.toFixed(2)}x</span>
-                    <a href={txLink} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline">
-                      View TX: {onChainResult.txDigest?.slice(0, 12)}...
-                    </a>
-                  </div>
+                  <a href={txLink} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline">
+                    View TX: {onChainResult.txDigest?.slice(0, 12)}...
+                  </a>
                 ),
               });
               clearBets();
               return true;
             } else {
-              // On-chain succeeded but DB failed - still success for user
               console.error('[BettingContext] DB record failed for on-chain parlay:', onChainResult.txDigest);
+
+              window.dispatchEvent(new CustomEvent('suibets:bet-confirmed', { detail: parlayConfirmation }));
+
               const txLink = `https://suiscan.xyz/mainnet/tx/${onChainResult.txDigest}`;
               toast({
                 title: "Parlay On-Chain!",
                 description: (
-                  <div className="flex flex-col gap-1">
-                    <span>Transaction confirmed but DB sync pending. Your bet is safe.</span>
-                    <a href={txLink} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline">
-                      View TX: {onChainResult.txDigest?.slice(0, 12)}...
-                    </a>
-                  </div>
+                  <a href={txLink} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline">
+                    View TX: {onChainResult.txDigest?.slice(0, 12)}...
+                  </a>
                 ),
               });
               clearBets();
