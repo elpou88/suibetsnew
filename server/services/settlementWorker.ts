@@ -978,7 +978,18 @@ class SettlementWorkerService {
 
             if (!isFinished) continue;
 
-            const eventId = `${sportSlug}_${game.id}`;
+            let effectiveSlug = sportSlug;
+            if (sportSlug === 'mma') {
+              const slug = (game.slug || '').toLowerCase();
+              const MMA_ORGS = ['ufc', 'bellator', 'one championship', 'one fc', 'pfl', 'cage warriors', 'ksw', 'rizin', 'invicta', 'lfa', 'bkfc', 'eagle fc', 'ares', 'oktagon'];
+              const isMmaOrg = MMA_ORGS.some(org => slug.includes(org));
+              const isBoxing = slug.includes('boxing') || slug.includes('pbc') || slug.includes('showtime') || slug.includes('top rank') || slug.includes('golden boy') || slug.includes('matchroom');
+              if (isBoxing || (!isMmaOrg && (game.category || '').toLowerCase().includes('boxing'))) {
+                effectiveSlug = 'boxing';
+              }
+            }
+
+            const eventId = `${effectiveSlug}_${game.id}`;
             if (seenIds.has(eventId)) continue;
             seenIds.add(eventId);
 
@@ -988,7 +999,7 @@ class SettlementWorkerService {
             let awayScore = 0;
             let winner: 'home' | 'away' | 'draw' = 'draw';
 
-            if (sportSlug === 'mma' || sportSlug === 'boxing') {
+            if (effectiveSlug === 'mma' || effectiveSlug === 'boxing') {
               homeTeam = game.fighters?.home?.name || game.fighters?.first?.name || game.home?.name || 'Fighter 1';
               awayTeam = game.fighters?.away?.name || game.fighters?.second?.name || game.away?.name || 'Fighter 2';
               const winnerName = game.winner?.name || '';

@@ -173,6 +173,33 @@ const FREE_SPORTS_CONFIG: Record<string, {
   },
 };
 
+const MMA_ORGANIZATIONS = new Set([
+  'ufc', 'bellator', 'one championship', 'one fc', 'pfl', 'cage warriors',
+  'ksw', 'rizin', 'invicta', 'lfa', 'bkfc', 'eagle fc', 'ares', 'oktagon'
+]);
+
+function isBoxingFight(game: any): boolean {
+  const slug = (game.slug || '').toLowerCase();
+  const category = (game.category || '').toLowerCase();
+  
+  if (slug.includes('boxing') || slug.includes('pbc') || slug.includes('showtime') ||
+      slug.includes('dazn boxing') || slug.includes('top rank') || slug.includes('golden boy') ||
+      slug.includes('matchroom') || slug.includes('wbc') || slug.includes('wba') ||
+      slug.includes('ibf') || slug.includes('wbo') || slug.includes('ring magazine')) {
+    return true;
+  }
+  
+  for (const org of MMA_ORGANIZATIONS) {
+    if (slug.includes(org)) return false;
+  }
+  
+  if (category.includes('boxing') || category.includes('heavyweight') && !slug.includes('ufc') && !slug.includes('mma')) {
+    return true;
+  }
+  
+  return false;
+}
+
 // API key
 const API_KEY = process.env.API_SPORTS_KEY || '';
 
@@ -306,8 +333,18 @@ export class FreeSportsService {
           return true;
         });
         
+        if (sportSlug === 'mma') {
+          const mmaCount = sportEvents.filter(e => e.sportId === 7).length;
+          const boxingCount = sportEvents.filter(e => e.sportId === 17).length;
+          if (boxingCount > 0) {
+            console.log(`[FreeSports] MMA: ${mmaCount} fights, Boxing: ${boxingCount} fights (${daysToFetch} days)`);
+          } else {
+            console.log(`[FreeSports] ${config.name}: ${sportEvents.length} upcoming matches (${daysToFetch} days)`);
+          }
+        } else {
+          console.log(`[FreeSports] ${config.name}: ${sportEvents.length} upcoming matches (${daysToFetch} days)`);
+        }
         allEvents.push(...sportEvents);
-        console.log(`[FreeSports] ${config.name}: ${sportEvents.length} upcoming matches (${daysToFetch} days)`);
         
         await new Promise(resolve => setTimeout(resolve, 500));
       } catch (error: any) {
@@ -420,15 +457,23 @@ export class FreeSportsService {
         }
       ];
 
+      let finalSportId = config.sportId;
+      let finalSlug = sportSlug;
+      
+      if (sportSlug === 'mma' && isBoxingFight(game)) {
+        finalSportId = 17;
+        finalSlug = 'boxing';
+      }
+
       return {
-        id: `${sportSlug}_${gameId}`,
-        sportId: config.sportId,
+        id: `${finalSlug}_${gameId}`,
+        sportId: finalSportId,
         leagueName: league,
         homeTeam,
         awayTeam,
         startTime,
         status: 'scheduled',
-        isLive: false, // Never live for free sports
+        isLive: false,
         markets,
         homeOdds: parseFloat(homeOdds.toFixed(2)),
         awayOdds: parseFloat(awayOdds.toFixed(2)),
@@ -557,7 +602,9 @@ export class FreeSportsService {
    * Get all supported free sports
    */
   getSupportedSports(): string[] {
-    return Object.keys(FREE_SPORTS_CONFIG);
+    const sports = Object.keys(FREE_SPORTS_CONFIG);
+    if (!sports.includes('boxing')) sports.push('boxing');
+    return sports;
   }
 
   /**
@@ -567,7 +614,8 @@ export class FreeSportsService {
     return sportSlug in FREE_SPORTS_CONFIG || 
            sportSlug === 'hockey' || 
            sportSlug === 'nfl' || 
-           sportSlug === 'mlb';
+           sportSlug === 'mlb' ||
+           sportSlug === 'boxing';
   }
 
   /**
