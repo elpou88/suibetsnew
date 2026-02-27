@@ -347,15 +347,46 @@ export function BetHistory() {
                               {getParlayTeamNames(bet)}
                             </CardDescription>
                             <div className="mt-2 space-y-1">
-                              {getParlaySelections(bet).map((leg, idx) => (
-                                <div key={idx} className="text-xs text-gray-400 flex items-center gap-2">
-                                  <span className="w-4 h-4 bg-cyan-500/20 rounded-full flex items-center justify-center text-cyan-400">
+                              {getParlaySelections(bet).map((leg, idx) => {
+                                const isSettled = bet.status === 'won' || bet.status === 'lost' || bet.status === 'paid_out';
+                                let legColor = 'text-gray-400';
+                                let bgColor = 'bg-cyan-500/20';
+                                let numColor = 'text-cyan-400';
+                                let legWonResult: boolean | undefined;
+                                
+                                if (isSettled) {
+                                  if (bet.status === 'won' || bet.status === 'paid_out') {
+                                    legColor = 'text-green-400';
+                                    bgColor = 'bg-green-500/20';
+                                    numColor = 'text-green-400';
+                                    legWonResult = true;
+                                  } else if (bet.result) {
+                                    try {
+                                      const parsed = JSON.parse(bet.result);
+                                      if (Array.isArray(parsed) && parsed[idx]) {
+                                        legWonResult = parsed[idx].won;
+                                        legColor = legWonResult ? 'text-green-400' : 'text-red-400';
+                                        bgColor = legWonResult ? 'bg-green-500/20' : 'bg-red-500/20';
+                                        numColor = legWonResult ? 'text-green-400' : 'text-red-400';
+                                      }
+                                    } catch {}
+                                  } else {
+                                    legColor = 'text-red-400';
+                                    bgColor = 'bg-red-500/20';
+                                    numColor = 'text-red-400';
+                                  }
+                                }
+                                
+                                return (
+                                <div key={idx} className={`text-xs ${legColor} flex items-center gap-2`}>
+                                  <span className={`w-4 h-4 ${bgColor} rounded-full flex items-center justify-center ${numColor}`}>
                                     {idx + 1}
                                   </span>
                                   <span className="truncate">{leg.eventName || 'Match'}</span>
-                                  <span className="text-cyan-400 ml-auto">{leg.selection} @ {leg.odds?.toFixed(2)}</span>
+                                  <span className={`${legColor} ml-auto`}>{leg.selection} @ {leg.odds?.toFixed(2)}</span>
                                 </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </>
                         ) : (

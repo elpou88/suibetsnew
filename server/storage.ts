@@ -33,6 +33,7 @@ export interface IStorage {
   getUserBets(userId: string): Promise<any[]>;
   getAllBets(status?: string): Promise<any[]>;
   updateBetStatus(betId: string, status: string, payout?: number, settlementTxHash?: string): Promise<boolean>;
+  updateBetResult(betId: string, result: string): Promise<void>;
   markBetWinningsWithdrawn(betId: number, txHash: string): Promise<void>;
   cashOutSingleBet(betId: number): Promise<void>;
   
@@ -453,7 +454,8 @@ export class DatabaseStorage implements IStorage {
         settledAt: bet.settledAt?.toISOString(),
         txHash: bet.txHash,
         currency: bet.feeCurrency || 'SUI',
-        betType: bet.betType
+        betType: bet.betType,
+        result: bet.result
       }));
     } catch (error) {
       console.error('Error getting user bets:', error);
@@ -610,6 +612,21 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Error updating bet status in database:', error);
       return false;
+    }
+  }
+
+  async updateBetResult(betId: string, result: string): Promise<void> {
+    try {
+      const isNumericId = /^\d+$/.test(betId);
+      await db.execute(sql`
+        UPDATE bets 
+        SET result = ${result}
+        WHERE wurlus_bet_id = ${betId}
+          OR (${isNumericId ? sql`id = ${parseInt(betId, 10)}` : sql`FALSE`})
+          OR bet_object_id = ${betId}
+      `);
+    } catch (error) {
+      console.error('Error updating bet result:', error);
     }
   }
 

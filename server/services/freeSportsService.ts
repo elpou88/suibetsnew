@@ -81,98 +81,95 @@ const FREE_SPORTS_CONFIG: Record<string, {
   sportId: number;
   name: string;
   hasDraws: boolean;
+  daysAhead: number;
 }> = {
   basketball: {
     endpoint: 'https://v1.basketball.api-sports.io/games',
     apiHost: 'v1.basketball.api-sports.io',
     sportId: 2,
     name: 'Basketball',
-    hasDraws: false
+    hasDraws: false,
+    daysAhead: 2
   },
   baseball: {
     endpoint: 'https://v1.baseball.api-sports.io/games',
     apiHost: 'v1.baseball.api-sports.io',
     sportId: 5,
     name: 'Baseball',
-    hasDraws: false
+    hasDraws: false,
+    daysAhead: 2
   },
   'ice-hockey': {
     endpoint: 'https://v1.hockey.api-sports.io/games',
     apiHost: 'v1.hockey.api-sports.io',
     sportId: 6,
     name: 'Ice Hockey',
-    hasDraws: false
+    hasDraws: false,
+    daysAhead: 2
   },
   mma: {
     endpoint: 'https://v1.mma.api-sports.io/fights',
     apiHost: 'v1.mma.api-sports.io',
     sportId: 7,
     name: 'MMA',
-    hasDraws: false
+    hasDraws: false,
+    daysAhead: 2
   },
   'american-football': {
     endpoint: 'https://v1.american-football.api-sports.io/games',
     apiHost: 'v1.american-football.api-sports.io',
     sportId: 4,
     name: 'American Football',
-    hasDraws: false
+    hasDraws: false,
+    daysAhead: 2
   },
-  // NEW SPORTS FROM API-SPORTS DASHBOARD
   afl: {
     endpoint: 'https://v1.afl.api-sports.io/games',
     apiHost: 'v1.afl.api-sports.io',
     sportId: 10,
     name: 'AFL',
-    hasDraws: true
+    hasDraws: true,
+    daysAhead: 2
   },
   'formula-1': {
     endpoint: 'https://v1.formula-1.api-sports.io/races',
     apiHost: 'v1.formula-1.api-sports.io',
     sportId: 11,
     name: 'Formula 1',
-    hasDraws: false
+    hasDraws: false,
+    daysAhead: 2
   },
   handball: {
     endpoint: 'https://v1.handball.api-sports.io/games',
     apiHost: 'v1.handball.api-sports.io',
     sportId: 12,
     name: 'Handball',
-    hasDraws: true
+    hasDraws: true,
+    daysAhead: 2
   },
   nfl: {
     endpoint: 'https://v1.nfl.api-sports.io/games',
     apiHost: 'v1.nfl.api-sports.io',
     sportId: 14,
     name: 'NFL',
-    hasDraws: false
+    hasDraws: false,
+    daysAhead: 2
   },
   rugby: {
     endpoint: 'https://v1.rugby.api-sports.io/games',
     apiHost: 'v1.rugby.api-sports.io',
     sportId: 15,
     name: 'Rugby',
-    hasDraws: true
+    hasDraws: true,
+    daysAhead: 2
   },
   volleyball: {
     endpoint: 'https://v1.volleyball.api-sports.io/games',
     apiHost: 'v1.volleyball.api-sports.io',
     sportId: 16,
     name: 'Volleyball',
-    hasDraws: false
-  },
-  tennis: {
-    endpoint: 'https://v1.tennis.api-sports.io/games',
-    apiHost: 'v1.tennis.api-sports.io',
-    sportId: 3,
-    name: 'Tennis',
-    hasDraws: false
-  },
-  boxing: {
-    endpoint: 'https://v1.boxing.api-sports.io/fights',
-    apiHost: 'v1.boxing.api-sports.io',
-    sportId: 17,
-    name: 'Boxing',
-    hasDraws: false
+    hasDraws: false,
+    daysAhead: 2
   },
 };
 
@@ -269,11 +266,9 @@ export class FreeSportsService {
     console.log('[FreeSports] 📅 Fetching upcoming matches for all free sports...');
     
     const allEvents: SportEvent[] = [];
-    const DAYS_TO_FETCH = 2; // Only today + tomorrow (day+2 blocked on free plans)
     let rateLimitHit = false;
 
     for (const [sportSlug, config] of Object.entries(FREE_SPORTS_CONFIG)) {
-      // If rate limited, skip remaining sports entirely
       if (rateLimitHit) {
         console.log(`[FreeSports] ${config.name}: Skipped (API rate limited)`);
         continue;
@@ -281,8 +276,9 @@ export class FreeSportsService {
       
       try {
         let sportEvents: SportEvent[] = [];
+        const daysToFetch = config.daysAhead || 2;
         
-        for (let dayOffset = 0; dayOffset < DAYS_TO_FETCH; dayOffset++) {
+        for (let dayOffset = 0; dayOffset < daysToFetch; dayOffset++) {
           if (rateLimitHit) break;
           
           const fetchDate = new Date();
@@ -311,7 +307,7 @@ export class FreeSportsService {
         });
         
         allEvents.push(...sportEvents);
-        console.log(`[FreeSports] ${config.name}: ${sportEvents.length} upcoming matches (${DAYS_TO_FETCH} days)`);
+        console.log(`[FreeSports] ${config.name}: ${sportEvents.length} upcoming matches (${daysToFetch} days)`);
         
         await new Promise(resolve => setTimeout(resolve, 500));
       } catch (error: any) {

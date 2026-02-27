@@ -119,20 +119,6 @@ const FREE_SPORTS_SETTLEMENT_CONFIG: Record<string, {
     sportId: 16,
     name: 'Volleyball',
     hasDraws: false
-  },
-  tennis: {
-    endpoint: 'https://v1.tennis.api-sports.io/games',
-    apiHost: 'v1.tennis.api-sports.io',
-    sportId: 3,
-    name: 'Tennis',
-    hasDraws: false
-  },
-  boxing: {
-    endpoint: 'https://v1.boxing.api-sports.io/fights',
-    apiHost: 'v1.boxing.api-sports.io',
-    sportId: 17,
-    name: 'Boxing',
-    hasDraws: false
   }
 };
 
@@ -660,25 +646,31 @@ class SettlementWorkerService {
         const parlayWon = !anyLegLost;
         console.log(`🎰 PARLAY SETTLED: ${bet.id.slice(0, 10)}... ${parlayWon ? 'WON' : 'LOST'} (${legResults.filter(l => l.won).length}/${legs.length} legs won)`);
         
+        // Store per-leg results in the bet's result field as JSON
+        const legResultsJson = JSON.stringify(legResults.map(lr => ({
+          eventId: lr.eventId,
+          prediction: lr.prediction,
+          won: lr.won,
+          score: lr.match ? `${lr.match.homeScore}-${lr.match.awayScore}` : undefined,
+          teams: lr.match ? `${lr.match.homeTeam} vs ${lr.match.awayTeam}` : undefined
+        })));
+        try {
+          await storage.updateBetResult(bet.id, legResultsJson);
+        } catch (e) {
+          console.warn(`[Settlement] Could not store leg results for ${bet.id}:`, e);
+        }
+        
         // Use the first leg's match for settlement (for event tracking)
         const firstMatch = legResults[0]?.match;
         if (firstMatch) {
-          // Create a modified bet with pre-computed parlay outcome
-          // We set status to 'won' if parlay won, so settleBetsForMatch will process it correctly
           const modifiedBet: UnsettledBet = {
             ...bet,
-            // Override prediction to match result for proper settlement flow
-            // If parlay won, we force the determineBetOutcome to return true
             status: parlayWon ? 'won' : 'pending'
           };
           
-          // Call the standard settlement flow with the parlay bet
-          // If parlayWon is true, status='won' causes settlement to skip determineBetOutcome and payout
-          // If parlayWon is false, we need to force a loss
           if (parlayWon) {
             await this.settleBetsForMatch(firstMatch, [modifiedBet]);
           } else {
-            // For lost parlays, we need to mark as lost directly
             await this.settleParlaySingleBet(bet, firstMatch, false);
           }
         }

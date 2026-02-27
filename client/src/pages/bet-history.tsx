@@ -33,6 +33,7 @@ interface Bet {
   settledAt?: string;
   txHash?: string;
   currency?: 'SUI' | 'SBETS';
+  result?: string;
 }
 
 export default function BetHistoryPage() {
@@ -134,6 +135,36 @@ export default function BetHistoryPage() {
       return [];
     }
     return [];
+  };
+
+  const getParlayLegResults = (bet: Bet): Map<number, boolean> => {
+    const results = new Map<number, boolean>();
+    if (!bet.result) return results;
+    try {
+      const parsed = JSON.parse(bet.result);
+      if (Array.isArray(parsed)) {
+        parsed.forEach((lr: { won: boolean }, idx: number) => {
+          results.set(idx, lr.won);
+        });
+      }
+    } catch {}
+    return results;
+  };
+
+  const getLegResultColor = (bet: Bet, legIndex: number): string => {
+    const isSettled = bet.status === 'won' || bet.status === 'lost' || bet.status === 'paid_out';
+    if (!isSettled) return 'text-gray-400';
+    
+    if (bet.status === 'won' || bet.status === 'paid_out') return 'text-green-400';
+    
+    const legResults = getParlayLegResults(bet);
+    if (legResults.size > 0) {
+      const won = legResults.get(legIndex);
+      if (won === true) return 'text-green-400';
+      if (won === false) return 'text-red-400';
+    }
+    
+    return 'text-red-400';
   };
 
   // Get display name for bet
@@ -298,13 +329,36 @@ export default function BetHistoryPage() {
                       <p className="text-cyan-400 text-sm">{getSelectionDisplay(bet)}</p>
                       {isParlay(bet) && (
                         <div className="mt-1 space-y-0.5">
-                          {getParlaySelections(bet).slice(0, 3).map((leg, idx) => (
-                            <p key={idx} className="text-gray-400 text-xs truncate">
-                              {leg.eventName}: {leg.selection || (leg as any).prediction || 'Pick'} @ {leg.odds?.toFixed(2)}
-                            </p>
-                          ))}
-                          {getParlaySelections(bet).length > 3 && (
-                            <p className="text-gray-500 text-xs">+{getParlaySelections(bet).length - 3} more...</p>
+                          {getParlaySelections(bet).slice(0, 5).map((leg, idx) => {
+                            const colorClass = getLegResultColor(bet, idx);
+                            const isSettled = bet.status === 'won' || bet.status === 'lost' || bet.status === 'paid_out';
+                            const legResults = getParlayLegResults(bet);
+                            const legWon = legResults.get(idx);
+                            return (
+                              <div key={idx} className={`flex items-center gap-1.5 text-xs truncate ${colorClass}`}>
+                                {isSettled && legResults.size > 0 && (
+                                  legWon ? (
+                                    <CheckCircle className="w-3 h-3 text-green-400 flex-shrink-0" />
+                                  ) : (
+                                    <XCircle className="w-3 h-3 text-red-400 flex-shrink-0" />
+                                  )
+                                )}
+                                {isSettled && legResults.size === 0 && (
+                                  (bet.status === 'won' || bet.status === 'paid_out') ? (
+                                    <CheckCircle className="w-3 h-3 text-green-400 flex-shrink-0" />
+                                  ) : (
+                                    <XCircle className="w-3 h-3 text-red-400 flex-shrink-0" />
+                                  )
+                                )}
+                                {!isSettled && (
+                                  <Clock className="w-3 h-3 text-yellow-400 flex-shrink-0" />
+                                )}
+                                <span className="truncate">{leg.eventName}: {leg.selection || (leg as any).prediction || 'Pick'} @ {leg.odds?.toFixed(2)}</span>
+                              </div>
+                            );
+                          })}
+                          {getParlaySelections(bet).length > 5 && (
+                            <p className="text-gray-500 text-xs">+{getParlaySelections(bet).length - 5} more...</p>
                           )}
                         </div>
                       )}

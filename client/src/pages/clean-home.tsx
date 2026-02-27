@@ -544,7 +544,14 @@ export default function CleanHome() {
             <div className="text-center py-12 bg-[#111111] rounded-xl border border-cyan-900/30">
               <p className="text-gray-400 mb-2">No {activeTab} events available</p>
               <p className="text-gray-500 text-sm">
-                {showFavoritesOnly ? "Star some teams to see them here!" : "Check back later for more events"}
+                {showFavoritesOnly ? "Star some teams to see them here!" : 
+                  [4, 14].includes(selectedSport) ? "NFL/American Football is in the off-season. Check back in September!" :
+                  selectedSport === 11 ? "Formula 1 season starts in March. Check back soon!" :
+                  selectedSport === 10 ? "AFL season starts in March. Check back soon!" :
+                  selectedSport === 9 ? "Esports events coming soon!" :
+                  selectedSport === 3 ? "Tennis events coming soon!" :
+                  selectedSport === 17 ? "Boxing events appear closer to fight nights!" :
+                  "Check back later for more events"}
               </p>
             </div>
           ) : (

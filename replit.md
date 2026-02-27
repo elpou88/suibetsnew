@@ -71,20 +71,22 @@ Preferred communication style: Simple, everyday language.
 - **Free Sports Settlement**: Settlement worker actively fetches results for free sports every 30 minutes (only for sports with pending bets). Results cached to file for restart persistence. Also receives nightly batch at 11 PM UTC via freeSportsService as fallback.
 - **Sports Coverage**:
   - **Football (sportId 1)**: Live betting (first 45 min only) + Upcoming matches, paid API
-  - **Basketball (sportId 2)**: Upcoming only, free API, 7-day lookahead
+  - **Basketball (sportId 2)**: Upcoming only, free API, 2-day lookahead
   - **Baseball (sportId 5)**: Upcoming only, free API
   - **Ice Hockey (sportId 6)**: Upcoming only, free API
-  - **MMA (sportId 7)**: Upcoming only, free API, 7-day lookahead (events on fight nights)
-  - **American Football (sportId 4)**: Upcoming only, free API (seasonal)
+  - **MMA (sportId 7)**: Upcoming only, free API (events on fight nights)
+  - **American Football (sportId 4)**: Upcoming only, free API (seasonal, NFL off-season Feb-Sep)
   - **AFL (sportId 10)**: Upcoming only, free API (seasonal, starts March)
   - **Formula 1 (sportId 11)**: Upcoming only, free API (seasonal, starts March)
   - **Handball (sportId 12)**: Upcoming only, free API
-  - **NFL (sportId 14)**: Upcoming only, free API (seasonal)
+  - **NFL (sportId 14)**: Upcoming only, free API (seasonal, off-season Feb-Sep)
   - **Rugby (sportId 15)**: Upcoming only, free API
   - **Volleyball (sportId 16)**: Upcoming only, free API
-  - **Tennis (sportId 3)**: Upcoming only, free API
-  - **Boxing (sportId 17)**: Upcoming only, free API (events on fight nights)
+  - **Tennis (sportId 3)**: Frontend sport button exists, API not available on current subscription
+  - **Boxing (sportId 17)**: Frontend sport button exists, API not available on current subscription
   - **Esports (sportId 9)**: Placeholder (no API-Sports endpoint available)
+- **Free API Date Restriction**: Free plans only allow ±1 day from today; all free sports use 2-day lookahead.
+- **Parlay Leg Results**: Settlement stores per-leg won/lost results as JSON in bet's `result` field; frontend shows green/red coloring per leg on settled parlays.
 - **Pre-game Cutoff**: Server-side enforcement prevents betting on free sports events that have already started (no live betting for free sports).
 - **Odds Cache**: Football odds cache TTL extended to 4 hours with 30-minute prefetch interval for consistent coverage.
 - **Live Fallback Odds**: Probability-based model accounting for score difference AND match time elapsed. A team leading 3-1 at minute 43 gets ~1.15 odds (not 3.0). Odds capped at 51.00 max. Uses 5% bookmaker margin.
