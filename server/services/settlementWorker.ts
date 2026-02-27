@@ -119,6 +119,20 @@ const FREE_SPORTS_SETTLEMENT_CONFIG: Record<string, {
     sportId: 16,
     name: 'Volleyball',
     hasDraws: false
+  },
+  tennis: {
+    endpoint: 'https://v1.tennis.api-sports.io/games',
+    apiHost: 'v1.tennis.api-sports.io',
+    sportId: 3,
+    name: 'Tennis',
+    hasDraws: false
+  },
+  boxing: {
+    endpoint: 'https://v1.boxing.api-sports.io/fights',
+    apiHost: 'v1.boxing.api-sports.io',
+    sportId: 17,
+    name: 'Boxing',
+    hasDraws: false
   }
 };
 
@@ -926,8 +940,13 @@ class SettlementWorkerService {
 
           for (const game of games) {
             const status = game.status?.long || game.status?.short || '';
-            const isFinished = status.toLowerCase().includes('finished') ||
-                              status.toLowerCase().includes('final') ||
+            const statusLower = status.toLowerCase();
+            const isFinished = statusLower.includes('finished') ||
+                              statusLower.includes('final') ||
+                              statusLower.includes('ended') ||
+                              statusLower.includes('retired') ||
+                              statusLower.includes('walkover') ||
+                              statusLower.includes('no contest') ||
                               status === 'FT' || status === 'AET' || status === 'PEN';
 
             if (!isFinished) continue;
@@ -942,16 +961,39 @@ class SettlementWorkerService {
             let awayScore = 0;
             let winner: 'home' | 'away' | 'draw' = 'draw';
 
-            if (sportSlug === 'mma') {
-              homeTeam = game.fighters?.home?.name || game.home?.name || 'Fighter 1';
-              awayTeam = game.fighters?.away?.name || game.away?.name || 'Fighter 2';
+            if (sportSlug === 'mma' || sportSlug === 'boxing') {
+              homeTeam = game.fighters?.home?.name || game.fighters?.first?.name || game.home?.name || 'Fighter 1';
+              awayTeam = game.fighters?.away?.name || game.fighters?.second?.name || game.away?.name || 'Fighter 2';
               const winnerName = game.winner?.name || '';
-              if (winnerName && homeTeam && winnerName.toLowerCase().includes(homeTeam.toLowerCase())) {
+              const isNoContest = statusLower.includes('no contest') || winnerName.toLowerCase() === 'no contest';
+              const isDraw = statusLower.includes('draw') || winnerName.toLowerCase() === 'draw';
+              if (isNoContest || isDraw) {
+                homeScore = 0; awayScore = 0; winner = 'draw';
+              } else if (winnerName && homeTeam && winnerName.toLowerCase().includes(homeTeam.toLowerCase())) {
                 homeScore = 1; awayScore = 0; winner = 'home';
               } else if (winnerName && awayTeam && winnerName.toLowerCase().includes(awayTeam.toLowerCase())) {
                 homeScore = 0; awayScore = 1; winner = 'away';
               } else {
                 homeScore = 1; awayScore = 1; winner = 'draw';
+              }
+            } else if (sportSlug === 'tennis') {
+              homeTeam = game.players?.home?.name || game.teams?.home?.name || game.home?.name || 'Player 1';
+              awayTeam = game.players?.away?.name || game.teams?.away?.name || game.away?.name || 'Player 2';
+              if (statusLower.includes('walkover') || statusLower.includes('retired')) {
+                const winnerName = game.winner?.name || game.players?.winner?.name || '';
+                if (winnerName && homeTeam && winnerName.toLowerCase().includes(homeTeam.toLowerCase())) {
+                  homeScore = 1; awayScore = 0; winner = 'home';
+                } else if (winnerName && awayTeam && winnerName.toLowerCase().includes(awayTeam.toLowerCase())) {
+                  homeScore = 0; awayScore = 1; winner = 'away';
+                } else {
+                  homeScore = 0; awayScore = 0; winner = 'draw';
+                }
+              } else {
+                const rawHome = game.scores?.home?.total ?? game.scores?.home ?? game.sets?.home ?? 0;
+                const rawAway = game.scores?.away?.total ?? game.scores?.away ?? game.sets?.away ?? 0;
+                homeScore = typeof rawHome === 'number' ? rawHome : parseInt(rawHome) || 0;
+                awayScore = typeof rawAway === 'number' ? rawAway : parseInt(rawAway) || 0;
+                winner = homeScore > awayScore ? 'home' : awayScore > homeScore ? 'away' : 'draw';
               }
             } else if (sportSlug === 'formula-1') {
               homeTeam = game.driver?.name || game.team?.name || game.winner?.name || 'Winner';

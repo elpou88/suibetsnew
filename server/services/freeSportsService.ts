@@ -159,7 +159,21 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 16,
     name: 'Volleyball',
     hasDraws: false
-  }
+  },
+  tennis: {
+    endpoint: 'https://v1.tennis.api-sports.io/games',
+    apiHost: 'v1.tennis.api-sports.io',
+    sportId: 3,
+    name: 'Tennis',
+    hasDraws: false
+  },
+  boxing: {
+    endpoint: 'https://v1.boxing.api-sports.io/fights',
+    apiHost: 'v1.boxing.api-sports.io',
+    sportId: 17,
+    name: 'Boxing',
+    hasDraws: false
+  },
 };
 
 // API key
@@ -375,12 +389,16 @@ export class FreeSportsService {
       let homeTeam: string;
       let awayTeam: string;
       
-      if (sportSlug === 'mma') {
-        // MMA API structure: fighters.first and fighters.second (or fighters.home/away)
+      if (sportSlug === 'mma' || sportSlug === 'boxing') {
         homeTeam = game.fighters?.first?.name || game.fighters?.home?.name || game.home?.name || 'Fighter 1';
         awayTeam = game.fighters?.second?.name || game.fighters?.away?.name || game.away?.name || 'Fighter 2';
+      } else if (sportSlug === 'tennis') {
+        homeTeam = game.players?.home?.name || game.teams?.home?.name || game.home?.name || 'Player 1';
+        awayTeam = game.players?.away?.name || game.teams?.away?.name || game.away?.name || 'Player 2';
+      } else if (sportSlug === 'formula-1') {
+        homeTeam = game.competition?.name || game.circuit?.name || game.name || 'Grand Prix';
+        awayTeam = game.circuit?.name || game.type || 'Race';
       } else {
-        // Standard team sports (basketball, baseball, hockey, american-football)
         homeTeam = game.teams?.home?.name || game.home?.name || 'Home Team';
         awayTeam = game.teams?.away?.name || game.away?.name || 'Away Team';
       }
@@ -464,12 +482,13 @@ export class FreeSportsService {
             let homeTeam = '';
             let awayTeam = '';
             
-            if (sportSlug === 'mma') {
-              // MMA has fighters instead of teams
-              homeTeam = game.fighters?.home?.name || game.home?.name || 'Fighter 1';
-              awayTeam = game.fighters?.away?.name || game.away?.name || 'Fighter 2';
+            if (sportSlug === 'mma' || sportSlug === 'boxing') {
+              homeTeam = game.fighters?.home?.name || game.fighters?.first?.name || game.home?.name || 'Fighter 1';
+              awayTeam = game.fighters?.away?.name || game.fighters?.second?.name || game.away?.name || 'Fighter 2';
+            } else if (sportSlug === 'tennis') {
+              homeTeam = game.players?.home?.name || game.teams?.home?.name || game.home?.name || 'Player 1';
+              awayTeam = game.players?.away?.name || game.teams?.away?.name || game.away?.name || 'Player 2';
             } else {
-              // Standard team sports
               homeTeam = game.teams?.home?.name || game.home?.name || 'Home';
               awayTeam = game.teams?.away?.name || game.away?.name || 'Away';
             }

@@ -67,7 +67,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Sports Data Providers
 - **API-Sports**: Primary data source for Football (paid tier with live betting).
-- **Free Sports API**: Basketball, Baseball, Ice Hockey, MMA, American Football, AFL, Formula 1, Handball, NBA, NFL, Rugby, Volleyball (upcoming at 6 AM UTC, 7-day lookahead, no live betting).
+- **Free Sports API**: Basketball, Baseball, Ice Hockey, MMA, American Football, AFL, Formula 1, Handball, NBA, NFL, Rugby, Volleyball, Tennis, Boxing (upcoming at 6 AM UTC, 7-day lookahead, no live betting).
 - **Free Sports Settlement**: Settlement worker actively fetches results for free sports every 30 minutes (only for sports with pending bets). Results cached to file for restart persistence. Also receives nightly batch at 11 PM UTC via freeSportsService as fallback.
 - **Sports Coverage**:
   - **Football (sportId 1)**: Live betting (first 45 min only) + Upcoming matches, paid API
@@ -82,7 +82,9 @@ Preferred communication style: Simple, everyday language.
   - **NFL (sportId 14)**: Upcoming only, free API (seasonal)
   - **Rugby (sportId 15)**: Upcoming only, free API
   - **Volleyball (sportId 16)**: Upcoming only, free API
-  - **Tennis, Esports, Boxing**: Placeholder (no API-Sports endpoint available)
+  - **Tennis (sportId 3)**: Upcoming only, free API
+  - **Boxing (sportId 17)**: Upcoming only, free API (events on fight nights)
+  - **Esports (sportId 9)**: Placeholder (no API-Sports endpoint available)
 - **Pre-game Cutoff**: Server-side enforcement prevents betting on free sports events that have already started (no live betting for free sports).
 - **Odds Cache**: Football odds cache TTL extended to 4 hours with 30-minute prefetch interval for consistent coverage.
 - **Live Fallback Odds**: Probability-based model accounting for score difference AND match time elapsed. A team leading 3-1 at minute 43 gets ~1.15 odds (not 3.0). Odds capped at 51.00 max. Uses 5% bookmaker margin.
