@@ -58,6 +58,8 @@ interface PlatformInfo {
   totalVolumeSbets: number;
   totalPotentialLiabilitySui: number;
   totalPotentialLiabilitySbets: number;
+  realLiabilitySui: number;
+  realLiabilitySbets: number;
   accruedFeesSui: number;
   accruedFeesSbets: number;
   platformFeeBps: number;
@@ -137,6 +139,19 @@ export default function AdminPanel() {
         options: { showContent: true }
       });
 
+      let realLiabilitySui = -1;
+      let realLiabilitySbets = -1;
+      try {
+        const treasuryRes = await fetch('/api/treasury/status');
+        if (treasuryRes.ok) {
+          const treasuryData = await treasuryRes.json();
+          realLiabilitySui = treasuryData.sui?.liability ?? -1;
+          realLiabilitySbets = treasuryData.sbets?.liability ?? -1;
+        }
+      } catch (e) {
+        console.warn('Failed to fetch real liability from API');
+      }
+
       if (platformObject.data?.content && 'fields' in platformObject.data.content) {
         const fields = platformObject.data.content.fields as Record<string, unknown>;
         setPlatformInfo({
@@ -146,6 +161,8 @@ export default function AdminPanel() {
           totalVolumeSbets: Number(fields.total_volume_sbets || 0) / 1_000_000_000,
           totalPotentialLiabilitySui: Number(fields.total_potential_liability_sui || 0) / 1_000_000_000,
           totalPotentialLiabilitySbets: Number(fields.total_potential_liability_sbets || 0) / 1_000_000_000,
+          realLiabilitySui,
+          realLiabilitySbets,
           accruedFeesSui: Number(fields.accrued_fees_sui || 0) / 1_000_000_000,
           accruedFeesSbets: Number(fields.accrued_fees_sbets || 0) / 1_000_000_000,
           platformFeeBps: Number(fields.platform_fee_bps || 0),
@@ -921,12 +938,30 @@ export default function AdminPanel() {
                     <p className="text-2xl font-bold text-cyan-400" data-testid="treasury-sui">
                       {platformInfo.treasurySui.toFixed(4)} SUI
                     </p>
-                    <p className="text-xs text-orange-400 mt-1">
-                      Liability: {platformInfo.totalPotentialLiabilitySui.toFixed(4)} SUI
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Available: {(platformInfo.treasurySui - platformInfo.totalPotentialLiabilitySui).toFixed(4)} SUI
-                    </p>
+                    {platformInfo.realLiabilitySui >= 0 ? (
+                      <>
+                        <p className="text-xs text-green-400 mt-1">
+                          Active Liability: {platformInfo.realLiabilitySui.toFixed(4)} SUI
+                        </p>
+                        <p className="text-xs text-cyan-300">
+                          Available: {(platformInfo.treasurySui - platformInfo.realLiabilitySui).toFixed(4)} SUI
+                        </p>
+                        {platformInfo.totalPotentialLiabilitySui > platformInfo.realLiabilitySui + 0.01 && (
+                          <p className="text-xs text-orange-400/60 mt-1">
+                            Phantom On-Chain: {platformInfo.totalPotentialLiabilitySui.toFixed(4)} SUI
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xs text-orange-400 mt-1">
+                          On-Chain Liability: {platformInfo.totalPotentialLiabilitySui.toFixed(4)} SUI
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Available: {(platformInfo.treasurySui - platformInfo.totalPotentialLiabilitySui).toFixed(4)} SUI
+                        </p>
+                      </>
+                    )}
                   </div>
                   <div className="bg-black/40 rounded-lg p-4">
                     <div className="flex items-center gap-2 text-gray-400 text-sm mb-1">
@@ -935,12 +970,30 @@ export default function AdminPanel() {
                     <p className="text-2xl font-bold text-purple-400" data-testid="treasury-sbets">
                       {platformInfo.treasurySbets.toFixed(4)} SBETS
                     </p>
-                    <p className="text-xs text-orange-400 mt-1">
-                      Liability: {platformInfo.totalPotentialLiabilitySbets.toFixed(4)} SBETS
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Available: {(platformInfo.treasurySbets - platformInfo.totalPotentialLiabilitySbets).toFixed(4)} SBETS
-                    </p>
+                    {platformInfo.realLiabilitySbets >= 0 ? (
+                      <>
+                        <p className="text-xs text-green-400 mt-1">
+                          Active Liability: {platformInfo.realLiabilitySbets.toFixed(4)} SBETS
+                        </p>
+                        <p className="text-xs text-purple-300">
+                          Available: {(platformInfo.treasurySbets - platformInfo.realLiabilitySbets).toFixed(4)} SBETS
+                        </p>
+                        {platformInfo.totalPotentialLiabilitySbets > platformInfo.realLiabilitySbets + 0.01 && (
+                          <p className="text-xs text-orange-400/60 mt-1">
+                            Phantom On-Chain: {platformInfo.totalPotentialLiabilitySbets.toFixed(4)} SBETS
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xs text-orange-400 mt-1">
+                          On-Chain Liability: {platformInfo.totalPotentialLiabilitySbets.toFixed(4)} SBETS
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Available: {(platformInfo.treasurySbets - platformInfo.totalPotentialLiabilitySbets).toFixed(4)} SBETS
+                        </p>
+                      </>
+                    )}
                   </div>
                   <div className="bg-black/40 rounded-lg p-4">
                     <div className="flex items-center gap-2 text-gray-400 text-sm mb-1">

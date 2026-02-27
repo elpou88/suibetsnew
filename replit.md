@@ -35,7 +35,7 @@ Preferred communication style: Simple, everyday language.
 - **User Management**: Wallet-based authentication, user profiles, SUI and SBETS token balance management.
 - **On-Chain Fund Flow**: Full on-chain dual-token system for bets and settlements via smart contracts, with transparent treasury management and fee accrual.
 - **Revenue Sharing**: SBETS token holders can claim 30% of weekly platform revenue proportionally. Revenue is split 30% to holders, 40% to treasury buffer, 30% for liquidity/buybacks.
-- **Liability Tracking**: Explicit `currency` column for bets, reconciliation endpoint, maximum stake limits (100 SUI / 10,000 SBETS), treasury pre-checks before settlement.
+- **Liability Tracking**: Explicit `currency` column for bets, reconciliation endpoint, maximum stake limits (100 SUI / 10,000 SBETS), treasury pre-checks before settlement. Real liability calculated from active DB bets (pending/confirmed/in_play/open) instead of phantom on-chain counter. On-chain liability shown separately as "Phantom On-Chain" for reference only.
 - **On-Chain Bet Synchronization**: Automatic and manual sync of on-chain bets, with detailed status tracking and prediction extraction.
 - **Treasury Auto-Withdraw System**: MANUAL ONLY (disabled auto-run). Trigger via /api/admin/treasury/withdraw endpoint. Zero-amount guards prevent empty transactions.
 - **Automatic On-Chain Payouts**: Direct token transfers to user wallets for winners from DB-only settlements, funded from the admin wallet.

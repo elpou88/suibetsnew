@@ -1738,25 +1738,40 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         });
       }
       
-      // Calculate available capacity for each currency
-      const suiAvailable = platformInfo.treasuryBalanceSui - platformInfo.totalLiabilitySui;
-      const sbetsAvailable = platformInfo.treasuryBalanceSbets - platformInfo.totalLiabilitySbets;
+      const allBets = await storage.getAllBets();
+      const activeBets = allBets.filter((b: any) => 
+        b.status === 'pending' || b.status === 'confirmed' || b.status === 'in_play' || b.status === 'open'
+      );
+      const realLiabilitySui = activeBets
+        .filter((b: any) => b.currency === 'SUI')
+        .reduce((sum: number, b: any) => sum + (b.potentialPayout || b.potentialWin || 0), 0);
+      const realLiabilitySbets = activeBets
+        .filter((b: any) => b.currency === 'SBETS')
+        .reduce((sum: number, b: any) => sum + (b.potentialPayout || b.potentialWin || 0), 0);
+      
+      const suiAvailable = platformInfo.treasuryBalanceSui - realLiabilitySui;
+      const sbetsAvailable = platformInfo.treasuryBalanceSbets - realLiabilitySbets;
       
       res.json({
         success: true,
         sui: {
           treasury: platformInfo.treasuryBalanceSui,
-          liability: platformInfo.totalLiabilitySui,
+          liability: realLiabilitySui,
           available: suiAvailable,
-          acceptingBets: true // Always accept - liability check disabled per user request
+          acceptingBets: true
         },
         sbets: {
           treasury: platformInfo.treasuryBalanceSbets,
-          liability: platformInfo.totalLiabilitySbets,
+          liability: realLiabilitySbets,
           available: sbetsAvailable,
-          acceptingBets: true // Always accept - liability check disabled per user request
+          acceptingBets: true
         },
-        paused: platformInfo.paused
+        paused: platformInfo.paused,
+        onChainLiability: {
+          sui: platformInfo.totalLiabilitySui,
+          sbets: platformInfo.totalLiabilitySbets,
+          note: "On-chain liability may be higher due to phantom/legacy bets. Real liability is calculated from active database bets only."
+        }
       });
     } catch (error) {
       console.error('Treasury status error:', error);
