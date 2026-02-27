@@ -135,69 +135,111 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
     return <Clock className="w-3.5 h-3.5 text-yellow-400/60 flex-shrink-0" />;
   };
 
-  const handleDownload = async () => {
-    if (!cardRef.current) return;
-    
+  const generateCanvas = async (): Promise<HTMLCanvasElement | null> => {
+    if (!cardRef.current) return null;
     try {
-      const canvas = await html2canvas(cardRef.current, {
+      const el = cardRef.current;
+      const canvas = await html2canvas(el, {
         backgroundColor: '#0a1214',
         scale: 2,
         logging: false,
         useCORS: true,
+        allowTaint: true,
+        width: el.scrollWidth,
+        height: el.scrollHeight,
+        windowWidth: el.scrollWidth,
+        windowHeight: el.scrollHeight,
+        x: 0,
+        y: 0,
+        scrollX: 0,
+        scrollY: 0,
+        foreignObjectRendering: false,
+        removeContainer: true,
       });
-      
+      return canvas;
+    } catch (err) {
+      console.error('[ShareableBetCard] html2canvas error:', err);
+      return null;
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!cardRef.current) return;
+    
+    try {
+      const canvas = await generateCanvas();
+      if (!canvas) {
+        toast({ title: 'Download failed', description: 'Could not generate image', variant: 'destructive' });
+        return;
+      }
+
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || 
                        ('ontouchstart' in window);
       
       if (isMobile) {
-        canvas.toBlob(async (blob) => {
-          if (!blob) {
-            toast({
-              title: 'Download failed',
-              description: 'Could not generate image',
-              variant: 'destructive',
-            });
+        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+        if (!blob) {
+          toast({ title: 'Download failed', description: 'Could not generate image', variant: 'destructive' });
+          return;
+        }
+
+        const file = new File([blob], `suibets-bet-${bet.id}.png`, { type: 'image/png' });
+
+        if (navigator.share && navigator.canShare?.({ files: [file] })) {
+          try {
+            await navigator.share({ files: [file], title: 'SuiBets Bet Slip' });
+            toast({ title: 'Shared!', description: 'Tap "Save Image" to download' });
             return;
-          }
-          
-          const file = new File([blob], `suibets-bet-${bet.id}.png`, { type: 'image/png' });
-          
-          if (navigator.share && navigator.canShare({ files: [file] })) {
-            try {
-              await navigator.share({
-                files: [file],
-                title: 'SuiBets Bet Slip',
-              });
-              toast({
-                title: 'Shared!',
-                description: 'Save from share menu to download',
-              });
+          } catch (shareErr: any) {
+            if (shareErr?.name === 'AbortError') {
+              toast({ title: 'Cancelled', description: 'Tap Download again to save the image' });
               return;
-            } catch (shareError) {
             }
           }
-          
-          const dataUrl = canvas.toDataURL('image/png');
-          const newWindow = window.open();
-          if (newWindow) {
-            newWindow.document.write(`
+        }
+
+        const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const dataUrl = canvas.toDataURL('image/png');
+
+        if (isIOS) {
+          const imgWindow = window.open('');
+          if (imgWindow) {
+            imgWindow.document.write(`
               <html>
-                <head><title>SuiBets Bet Slip</title></head>
+                <head><title>SuiBets Bet Slip</title><meta name="viewport" content="width=device-width,initial-scale=1"></head>
                 <body style="margin:0;background:#0a1214;display:flex;justify-content:center;align-items:center;min-height:100vh;">
                   <div style="text-align:center;padding:20px;">
-                    <p style="color:white;font-family:sans-serif;margin-bottom:15px;">Long press image to save</p>
+                    <p style="color:white;font-family:sans-serif;margin-bottom:15px;font-size:16px;">Long press the image and tap "Save to Photos"</p>
                     <img src="${dataUrl}" style="max-width:100%;border-radius:12px;" />
                   </div>
                 </body>
               </html>
             `);
-            newWindow.document.close();
-            toast({
-              title: 'Image opened!',
-              description: 'Long press the image to save',
-            });
+            imgWindow.document.close();
+            toast({ title: 'Image opened!', description: 'Long press the image to save' });
+          } else {
+            const link = document.createElement('a');
+            link.href = dataUrl;
+            link.download = `suibets-bet-${bet.id}.png`;
+            link.target = '_blank';
+            link.rel = 'noopener';
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            setTimeout(() => document.body.removeChild(link), 200);
+            toast({ title: 'Downloading...', description: 'Check your downloads folder' });
           }
-        }, 'image/png');
+        } else {
+          const blobUrl = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = `suibets-bet-${bet.id}.png`;
+          link.style.display = 'none';
+          document.body.appendChild(link);
+          link.click();
+          setTimeout(() => { document.body.removeChild(link); URL.revokeObjectURL(blobUrl); }, 200);
+          toast({ title: 'Downloading...', description: 'Check your downloads folder' });
+        }
       } else {
         const link = document.createElement('a');
         link.download = `suibets-bet-${bet.id}.png`;
@@ -205,19 +247,11 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        
-        toast({
-          title: 'Downloaded!',
-          description: 'Bet slip saved to your device',
-        });
+        toast({ title: 'Downloaded!', description: 'Bet slip saved to your device' });
       }
     } catch (error) {
       console.error('Download error:', error);
-      toast({
-        title: 'Download failed',
-        description: 'Could not generate image',
-        variant: 'destructive',
-      });
+      toast({ title: 'Download failed', description: 'Could not generate image. Try using Share instead.', variant: 'destructive' });
     }
   };
 
@@ -226,24 +260,22 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
     const shareUrl = `https://suibets.com/bet/${shareId}`;
 
     try {
-      if (cardRef.current) {
-        const canvas = await html2canvas(cardRef.current, {
-          backgroundColor: '#0a1214',
-          scale: 2,
-          logging: false,
-          useCORS: true,
-        });
-
+      const canvas = await generateCanvas();
+      if (canvas) {
         const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
         if (blob) {
           const file = new File([blob], `suibets-bet-${shareId}.png`, { type: 'image/png' });
           if (navigator.share && navigator.canShare?.({ files: [file] })) {
-            await navigator.share({
-              title: 'My SuiBets Bet',
-              text: `Check out my bet on SuiBets! ${isParlay ? 'Parlay' : 'Single'} @ ${bet.odds.toFixed(2)} odds\n${shareUrl}`,
-              files: [file],
-            });
-            return;
+            try {
+              await navigator.share({
+                title: 'My SuiBets Bet',
+                text: `Check out my bet on SuiBets! ${isParlay ? 'Parlay' : 'Single'} @ ${bet.odds.toFixed(2)} odds\n${shareUrl}`,
+                files: [file],
+              });
+              return;
+            } catch (shareErr: any) {
+              if (shareErr?.name === 'AbortError') return;
+            }
           }
           try {
             await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
