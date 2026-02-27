@@ -11,9 +11,11 @@ export function useSuiNSName(address: string | undefined | null) {
       return data.name || null;
     },
     enabled: !!address && address.startsWith('0x'),
-    staleTime: 30 * 60 * 1000,
-    gcTime: 60 * 60 * 1000,
-    retry: false,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: 2,
+    retryDelay: 3000,
+    refetchOnWindowFocus: false,
   });
 
   return name || null;
@@ -36,9 +38,11 @@ export function useSuiNSNames(addresses: string[]) {
       return data.names || {};
     },
     enabled: filtered.length > 0,
-    staleTime: 30 * 60 * 1000,
-    gcTime: 60 * 60 * 1000,
-    retry: false,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: 2,
+    retryDelay: 3000,
+    refetchOnWindowFocus: false,
   });
 
   return names || {};
