@@ -151,6 +151,19 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
   freeSportsService.startSchedulers();
   console.log('🆓 Free sports scheduler started - daily updates for basketball, baseball, hockey, MMA, NFL');
 
+  setTimeout(async () => {
+    try {
+      console.log('🔧 AUTO-VOID: Starting phantom SBETS liability cleanup...');
+      const result = await blockchainBetService.voidPhantomSbetsBets();
+      console.log(`🔧 AUTO-VOID COMPLETE: ${result.voided} voided, ${result.skipped} skipped, ${result.liabilityFreed.toFixed(2)} SBETS freed`);
+      if (result.errors.length > 0) {
+        console.warn(`🔧 AUTO-VOID ERRORS: ${result.errors.slice(0, 5).join('; ')}`);
+      }
+    } catch (err: any) {
+      console.error('🔧 AUTO-VOID FAILED:', err.message);
+    }
+  }, 15000);
+
   // Shared guard: prevents both auto-resolve worker and manual endpoint from resolving the same prediction simultaneously
   const resolvingPredictions = new Set<number>();
   // Shared guard: prevents both auto-settle worker and manual endpoint from settling the same challenge simultaneously
@@ -2825,6 +2838,8 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       // SERVER-SIDE VALIDATION: Unified event registry lookup
       // CRITICAL: Server is authoritative about event status - never trust client isLive/matchMinute
       // Security: FAIL-CLOSED - Event must exist in server cache (live or upcoming) to accept bet
+      // EXCEPTION: On-chain confirmed bets (with txHash) bypass cache validation since they already exist on blockchain
+      const isOnChainConfirmed = !!(txHash && onChainBetId);
       const MAX_LIVE_CACHE_AGE_MS = 90 * 1000; // Reject stale cache (>90 seconds) for live events - increased from 60s to reduce false rejections
       const MAX_UPCOMING_CACHE_AGE_MS = 15 * 60 * 1000; // 15 minutes for upcoming (pre-match) events - match hasn't started, status is stable
       
@@ -2833,14 +2848,18 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         const eventLookup = apiSportsService.lookupEventSync(eventId);
         
         if (!eventLookup.found) {
-          // FAIL-CLOSED: Event not found in ANY cache - reject bet
-          console.log(`❌ Bet rejected (unknown event): Event ${eventId} not in live or upcoming cache, client isLive: ${isLive}`);
-          return res.status(400).json({ 
-            message: "Event not found - please refresh and try again",
-            code: "EVENT_NOT_FOUND"
-          });
+          if (isOnChainConfirmed) {
+            console.log(`⚠️ On-chain bet ${onChainBetId?.slice(0, 12)}... event ${eventId} not in cache but TX confirmed - recording anyway`);
+          } else {
+            console.log(`❌ Bet rejected (unknown event): Event ${eventId} not in live or upcoming cache, client isLive: ${isLive}`);
+            return res.status(400).json({ 
+              message: "Event not found - please refresh and try again",
+              code: "EVENT_NOT_FOUND"
+            });
+          }
         }
         
+        if (eventLookup.found && !isOnChainConfirmed) {
         // DYNAMIC CACHE AGE CHECK: Different thresholds for live vs upcoming events
         // Live events need strict freshness (60s) because match state changes rapidly
         // Upcoming events can have relaxed threshold (15min) because match hasn't started
@@ -2976,13 +2995,17 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           // Event truly upcoming (start time in future) - allow bet
           console.log(`✅ Upcoming bet allowed: eventId ${eventId}, startTime: ${eventLookup.startTime}, cache age: ${Math.round(eventLookup.cacheAgeMs/1000)}s`);
         }
+        }
       } catch (lookupError) {
-        // Cache access failed - FAIL-CLOSED: Reject ALL bets
-        console.log(`❌ Bet rejected (cache error): Cannot verify event, eventId: ${eventId}, error: ${lookupError}`);
-        return res.status(400).json({ 
-          message: "Cannot verify event status - please try again",
-          code: "EVENT_VERIFICATION_ERROR"
-        });
+        if (isOnChainConfirmed) {
+          console.log(`⚠️ On-chain bet ${onChainBetId?.slice(0, 12)}... cache error but TX confirmed - recording anyway`);
+        } else {
+          console.log(`❌ Bet rejected (cache error): Cannot verify event, eventId: ${eventId}, error: ${lookupError}`);
+          return res.status(400).json({ 
+            message: "Cannot verify event status - please try again",
+            code: "EVENT_VERIFICATION_ERROR"
+          });
+        }
       }
       
       // Currency already extracted from validation (defaults to SUI)
@@ -3056,12 +3079,9 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
             const { bets: betsTable } = await import('@shared/schema');
             const { db: walrusDb } = await import('./db');
             const { eq: walrusEq } = await import('drizzle-orm');
-            const wurlusId = storedBet?.wurlusBetId || storedBet?.id || betId;
-            if (wurlusId) {
-              await walrusDb.update(betsTable)
-                .set({ walrusBlobId: walrusResult.blobId })
-                .where(walrusEq(betsTable.wurlusBetId, String(wurlusId)));
-            }
+            await walrusDb.update(betsTable)
+              .set({ walrusBlobId: walrusResult.blobId })
+              .where(walrusEq(betsTable.wurlusBetId, betId));
             console.log(`🐋 Walrus receipt saved for bet ${betId}: ${walrusResult.blobId}`);
           }
         } catch (walrusErr: any) {
