@@ -211,9 +211,11 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           
           let successCount = 0;
           let failCount = 0;
-          for (const winner of winners) {
+          for (let i = 0; i < winners.length; i++) {
+            const winner = winners[i];
             const payout = ((winner.amount || 0) / winnersTotal) * totalPool;
             if (payout <= 0) continue;
+            if (i > 0) await new Promise(r => setTimeout(r, 3000));
             try {
               const result = await blockchainBetService.sendSbetsToUser(winner.wallet, payout);
               if (result.success) {
@@ -221,9 +223,11 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
                 console.log(`[AutoResolve] Payout: ${payout.toFixed(0)} SBETS → ${winner.wallet.slice(0,10)}...`);
               } else {
                 failCount++;
+                console.error(`[AutoResolve] Payout failed: ${winner.wallet.slice(0,10)}... | ${result.error}`);
               }
-            } catch {
+            } catch (err: any) {
               failCount++;
+              console.error(`[AutoResolve] Payout error: ${winner.wallet.slice(0,10)}... | ${err.message}`);
             }
           }
           
@@ -6733,12 +6737,14 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         }));
         console.log(`[Social] Prediction #${predictionId} resolving by majority: YES=${yesTotal} vs NO=${noTotal} → ${resolution.toUpperCase()} wins | Pool: ${totalPool} SBETS | Winners: ${winners.length}`);
         const payoutResults: { wallet: string; amount: number; txHash?: string; error?: string }[] = [];
-        for (const payout of payouts) {
+        for (let i = 0; i < payouts.length; i++) {
+          const payout = payouts[i];
           if (payout.payout <= 0) continue;
+          if (i > 0) await new Promise(r => setTimeout(r, 3000));
           try {
             const result = await blockchainBetService.sendSbetsToUser(payout.wallet, payout.payout);
             if (result.success) {
-              console.log(`[Social] Payout sent: ${payout.payout} SBETS -> ${payout.wallet.slice(0,10)}... | TX: ${result.txHash}`);
+              console.log(`[Social] Payout sent: ${payout.payout.toFixed(0)} SBETS -> ${payout.wallet.slice(0,10)}... | TX: ${result.txHash}`);
               payoutResults.push({ wallet: payout.wallet, amount: payout.payout, txHash: result.txHash });
             } else {
               console.error(`[Social] Payout failed for ${payout.wallet.slice(0,10)}...: ${result.error}`);
