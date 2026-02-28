@@ -39,6 +39,8 @@ export function BetSlip() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [confirmedBet, setConfirmedBet] = useState<BetConfirmation | null>(null);
   const [useBonus, setUseBonus] = useState(false);
+  const [isGiftBet, setIsGiftBet] = useState(false);
+  const [giftWallet, setGiftWallet] = useState('');
   
   // Fetch promotion bonus balance
   const { data: promotionData } = useQuery<{
@@ -266,6 +268,25 @@ export function BetSlip() {
       }
     }
     
+    if (isGiftBet) {
+      if (!giftWallet || !/^0x[0-9a-fA-F]{64}$/.test(giftWallet)) {
+        toast({
+          title: "Invalid recipient wallet",
+          description: "Please enter a valid Sui wallet address (starts with 0x)",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (giftWallet.toLowerCase() === currentAccount?.address?.toLowerCase()) {
+        toast({
+          title: "Cannot gift to yourself",
+          description: "Enter a different wallet address to send this gift bet",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     setIsLoading(true);
     try {
       const currentTotal = selectedBets.reduce((sum, bet) => sum + (Number.isFinite(bet.stake) ? bet.stake : 0), 0);
@@ -274,7 +295,8 @@ export function BetSlip() {
         currency: betCurrency,
         acceptOddsChange: true,
         useBonus: useBonus && bonusBalance > 0,
-        useFreeBet: useFreeBet && freeBetBalance > 0 && betCurrency === 'SBETS'
+        useFreeBet: useFreeBet && freeBetBalance > 0 && betCurrency === 'SBETS',
+        giftRecipientWallet: isGiftBet && giftWallet ? giftWallet : undefined,
       });
       
       if (success) {
@@ -283,6 +305,8 @@ export function BetSlip() {
         // Reset bonus toggles after successful bet
         setUseBonus(false);
         setUseFreeBet(false);
+        setIsGiftBet(false);
+        setGiftWallet('');
         refetchFreeBet();
       } else {
         toast({
@@ -710,6 +734,43 @@ export function BetSlip() {
               </div>
             )}
             
+            {betType === 'single' && (
+              <div className="mt-3">
+                <div className="flex items-center justify-between bg-pink-500/10 border border-pink-500/30 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <Gift className="w-4 h-4 text-pink-400" />
+                    <span className="text-pink-400 font-bold text-sm">Gift This Bet</span>
+                  </div>
+                  <button
+                    onClick={() => setIsGiftBet(!isGiftBet)}
+                    className={`w-12 h-6 rounded-full transition-colors ${
+                      isGiftBet ? 'bg-pink-500' : 'bg-gray-600'
+                    } relative`}
+                    data-testid="toggle-gift-bet"
+                  >
+                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                      isGiftBet ? 'right-1' : 'left-1'
+                    }`} />
+                  </button>
+                </div>
+                {isGiftBet && (
+                  <div className="mt-2 space-y-2">
+                    <input
+                      type="text"
+                      placeholder="Recipient wallet address (0x...)"
+                      value={giftWallet}
+                      onChange={(e) => setGiftWallet(e.target.value.trim())}
+                      className="w-full bg-[#1a1a1a] border border-pink-500/30 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-pink-400"
+                      data-testid="input-gift-wallet"
+                    />
+                    <p className="text-pink-400/70 text-xs">
+                      Winnings will be sent to this wallet if the bet wins
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex items-center justify-between mt-2">
               <span className="text-gray-400 text-sm">Potential Win:</span>
               <span className="text-cyan-400 font-bold text-lg">{potentialWinnings.toFixed(2)} {betCurrency}</span>
@@ -730,7 +791,7 @@ export function BetSlip() {
                   Processing...
                 </>
               ) : (
-                `Place ${betType === 'parlay' ? 'Parlay' : 'Bet'} - ${totalStake.toFixed(2)} ${betCurrency}`
+                `${isGiftBet ? 'Gift' : 'Place'} ${betType === 'parlay' ? 'Parlay' : 'Bet'} - ${totalStake.toFixed(2)} ${betCurrency}`
               )}
             </button>
           </div>

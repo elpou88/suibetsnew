@@ -214,7 +214,8 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
               isLive: bet.isLive,
               matchMinute: bet.matchMinute,
               homeTeam: bet.homeTeam,
-              awayTeam: bet.awayTeam
+              awayTeam: bet.awayTeam,
+              giftRecipientWallet: betOptions.giftRecipientWallet || undefined,
             });
 
             if (response.ok) {
@@ -300,6 +301,7 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
               matchMinute: selectedBets[0].matchMinute,
               homeTeam: selectedBets[0].homeTeam,
               awayTeam: selectedBets[0].awayTeam,
+              giftRecipientWallet: betOptions.giftRecipientWallet || undefined,
             });
 
             if (response.ok) {
@@ -417,6 +419,7 @@ export const BettingProvider: React.FC<{children: ReactNode}> = ({ children }) =
               paymentMethod: 'wallet',
               status: 'confirmed',
               useBonus: betOptions.useBonus || false,
+              giftRecipientWallet: betOptions.giftRecipientWallet || undefined,
             });
 
             if (response.ok) {

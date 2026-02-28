@@ -41,9 +41,10 @@ export interface PlaceBetOptions {
   betType?: 'single' | 'parlay';
   currency?: 'SUI' | 'SBETS';
   acceptOddsChange?: boolean;
-  paymentMethod?: 'platform' | 'wallet'; // 'platform' = use deposited balance, 'wallet' = on-chain transaction
-  useBonus?: boolean; // Use promo bonus balance
-  useFreeBet?: boolean; // Use welcome/referral SBETS bonus
+  paymentMethod?: 'platform' | 'wallet';
+  useBonus?: boolean;
+  useFreeBet?: boolean;
+  giftRecipientWallet?: string;
 }
 
 export interface BettingContextType {

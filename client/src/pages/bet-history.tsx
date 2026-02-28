@@ -17,7 +17,8 @@ import {
   ExternalLink,
   Filter,
   ArrowLeft,
-  Share2
+  Share2,
+  Gift
 } from 'lucide-react';
 import { ShareableBetCard } from '@/components/betting/ShareableBetCard';
 
@@ -35,6 +36,8 @@ interface Bet {
   currency?: 'SUI' | 'SBETS';
   result?: string;
   walrusBlobId?: string;
+  giftedTo?: string | null;
+  giftedFrom?: string | null;
 }
 
 export default function BetHistoryPage() {
@@ -327,6 +330,16 @@ export default function BetHistoryPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-white font-medium">{getBetDisplayName(bet)}</p>
+                      {bet.giftedTo && (
+                        <span className="inline-flex items-center gap-1 bg-pink-500/20 text-pink-400 text-xs px-2 py-0.5 rounded-full mt-0.5" data-testid={`gift-badge-sent-${bet.id}`}>
+                          <Gift className="w-3 h-3" /> Gifted to {bet.giftedTo.slice(0, 6)}...{bet.giftedTo.slice(-4)}
+                        </span>
+                      )}
+                      {bet.giftedFrom && !bet.giftedTo && (
+                        <span className="inline-flex items-center gap-1 bg-pink-500/20 text-pink-400 text-xs px-2 py-0.5 rounded-full mt-0.5" data-testid={`gift-badge-received-${bet.id}`}>
+                          <Gift className="w-3 h-3" /> Gift from {bet.giftedFrom.slice(0, 6)}...{bet.giftedFrom.slice(-4)}
+                        </span>
+                      )}
                       <p className="text-cyan-400 text-sm">{getSelectionDisplay(bet)}</p>
                       {isParlay(bet) && (
                         <div className="mt-1 space-y-0.5">
