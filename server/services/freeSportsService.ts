@@ -113,7 +113,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 7,
     name: 'MMA',
     hasDraws: false,
-    daysAhead: 2
+    daysAhead: 14
   },
   'american-football': {
     endpoint: 'https://v1.american-football.api-sports.io/games',
@@ -121,7 +121,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 4,
     name: 'American Football',
     hasDraws: false,
-    daysAhead: 2
+    daysAhead: 7
   },
   afl: {
     endpoint: 'https://v1.afl.api-sports.io/games',
@@ -129,7 +129,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 10,
     name: 'AFL',
     hasDraws: true,
-    daysAhead: 2
+    daysAhead: 7
   },
   'formula-1': {
     endpoint: 'https://v1.formula-1.api-sports.io/races',
@@ -137,7 +137,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 11,
     name: 'Formula 1',
     hasDraws: false,
-    daysAhead: 2
+    daysAhead: 14
   },
   handball: {
     endpoint: 'https://v1.handball.api-sports.io/games',
@@ -145,7 +145,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 12,
     name: 'Handball',
     hasDraws: true,
-    daysAhead: 2
+    daysAhead: 3
   },
   nfl: {
     endpoint: 'https://v1.nfl.api-sports.io/games',
@@ -153,7 +153,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 14,
     name: 'NFL',
     hasDraws: false,
-    daysAhead: 2
+    daysAhead: 7
   },
   rugby: {
     endpoint: 'https://v1.rugby.api-sports.io/games',
@@ -161,7 +161,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 15,
     name: 'Rugby',
     hasDraws: true,
-    daysAhead: 2
+    daysAhead: 7
   },
   volleyball: {
     endpoint: 'https://v1.volleyball.api-sports.io/games',
@@ -169,7 +169,15 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 16,
     name: 'Volleyball',
     hasDraws: false,
-    daysAhead: 2
+    daysAhead: 3
+  },
+  tennis: {
+    endpoint: 'https://v1.tennis.api-sports.io/games',
+    apiHost: 'v1.tennis.api-sports.io',
+    sportId: 3,
+    name: 'Tennis',
+    hasDraws: false,
+    daysAhead: 3
   },
 };
 
@@ -221,7 +229,7 @@ export class FreeSportsService {
 
     this.isRunning = true;
     console.log('[FreeSports] Starting daily schedulers for free sports');
-    console.log('[FreeSports] Sports: basketball, baseball, ice-hockey, mma, american-football');
+    console.log('[FreeSports] Sports: basketball, baseball, ice-hockey, mma, american-football, afl, tennis, rugby, volleyball, handball');
     console.log('[FreeSports] Schedule: Upcoming 6AM UTC, Results 11PM UTC');
 
     // STRICT DAILY SCHEDULE: Only fetch if not already done today
@@ -615,7 +623,8 @@ export class FreeSportsService {
            sportSlug === 'hockey' || 
            sportSlug === 'nfl' || 
            sportSlug === 'mlb' ||
-           sportSlug === 'boxing';
+           sportSlug === 'boxing' ||
+           sportSlug === 'tennis';
   }
 
   /**

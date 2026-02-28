@@ -341,11 +341,11 @@ function MatchCard({ match, isLive, matchTime, onWatch }: {
 
         <div className="flex items-center justify-between gap-2">
           <div className="flex-1 text-right">
-            <p className="text-sm font-medium text-white truncate">{match.teams.home.name}</p>
+            <p className="text-sm font-medium text-white truncate">{match.teams?.home?.name || match.title?.split(' vs ')?.[0] || 'TBD'}</p>
           </div>
           <span className="text-xs text-gray-500 px-2 font-bold">VS</span>
           <div className="flex-1 text-left">
-            <p className="text-sm font-medium text-white truncate">{match.teams.away.name}</p>
+            <p className="text-sm font-medium text-white truncate">{match.teams?.away?.name || match.title?.split(' vs ')?.[1] || 'TBD'}</p>
           </div>
         </div>
 

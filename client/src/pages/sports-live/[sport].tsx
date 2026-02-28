@@ -14,46 +14,48 @@ import { AuthenticEventsDisplay } from '@/components/AuthenticEventsDisplay';
 
 const SPORTS_MAPPING: Record<string, number> = {
   'football': 1,
+  'soccer': 1,
   'basketball': 2,
+  'nba': 2,
   'tennis': 3,
-  'baseball': 4,
-  'hockey': 5,
-  'handball': 6,
-  'volleyball': 7,
-  'rugby': 8,
+  'american-football': 4,
+  'baseball': 5,
+  'mlb': 5,
+  'hockey': 6,
+  'ice-hockey': 6,
+  'nhl': 6,
+  'mma': 7,
+  'mma-ufc': 7,
+  'ufc': 7,
+  'afl': 10,
+  'formula-1': 11,
+  'handball': 12,
+  'nfl': 14,
+  'rugby': 15,
+  'volleyball': 16,
+  'boxing': 17,
+  'esports': 24,
   'cricket': 9,
   'golf': 10,
-  'boxing': 11,
-  'mma': 12,
-  'mma-ufc': 12,
-  'formula-1': 13,
-  'cycling': 14,
-  'american-football': 15,
-  'afl': 16,
-  'snooker': 17,
-  'darts': 18,
-  'table-tennis': 19,
-  'badminton': 20,
-  'beach-volleyball': 21,
-  'winter-sports': 22,
+  'cycling': 23,
   'motorsport': 23,
-  'racing': 23, // Racing maps to Motorsport
-  'motogp': 23, // MotoGP also maps to Motorsport
-  'horse-racing': 23, // Horse racing maps to Motorsport
-  'esports': 24,
+  'racing': 23,
+  'motogp': 23,
+  'horse-racing': 23,
   'netball': 25,
-  'soccer': 1,
-  'nba': 27,
-  'nhl': 28,
-  'nfl': 29,
-  'mlb': 30,
+  'snooker': 26,
+  'darts': 27,
+  'table-tennis': 28,
+  'badminton': 29,
+  'beach-volleyball': 30,
+  'winter-sports': 31,
 };
 
 export default function SportPage() {
   const [match, params] = useRoute<{ sport: string }>('/sports-live/:sport');
   const { toast } = useToast();
   const sportSlugLower = match ? params.sport.toLowerCase() : '';
-  const noLiveSports = ['esports', 'afl', 'formula-1', 'handball', 'rugby', 'volleyball', 'boxing', 'netball'];
+  const noLiveSports = ['esports', 'afl', 'formula-1', 'handball', 'rugby', 'volleyball', 'boxing', 'netball', 'mma', 'mma-ufc', 'ufc', 'tennis', 'american-football', 'nfl', 'cricket'];
   const defaultTab = noLiveSports.includes(sportSlugLower) ? 'upcoming' : 'live';
   const [selectedTab, setSelectedTab] = useState<'live' | 'upcoming'>(defaultTab);
   
