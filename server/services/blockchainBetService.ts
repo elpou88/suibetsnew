@@ -1583,6 +1583,117 @@ export class BlockchainBetService {
       return { synced, errors };
     }
   }
+
+  async voidPhantomSbetsBets(): Promise<{ voided: number; errors: string[]; skipped: number; liabilityFreed: number }> {
+    const errors: string[] = [];
+    let voided = 0;
+    let skipped = 0;
+    let liabilityFreed = 0;
+
+    const keypair = this.getAdminKeypair();
+    if (!keypair) {
+      return { voided: 0, errors: ['Admin private key not configured'], skipped: 0, liabilityFreed: 0 };
+    }
+
+    try {
+      console.log('🔍 Scanning for phantom SBETS bets to void...');
+
+      const sbetsBetObjects: { id: string; stake: number; potentialPayout: number; coinType: string }[] = [];
+      const seenIds = new Set<string>();
+      let cursor: any = null;
+      let hasMore = true;
+      let totalEvents = 0;
+
+      while (hasMore) {
+        const queryParams: any = {
+          query: { MoveEventType: `${BETTING_PACKAGE_ID}::betting::BetPlaced` },
+          limit: 50,
+          order: 'descending' as const
+        };
+        if (cursor) queryParams.cursor = cursor;
+
+        const eventsResponse = await this.client.queryEvents(queryParams);
+        totalEvents += eventsResponse.data.length;
+
+        for (const event of eventsResponse.data) {
+          const parsed = event.parsedJson as any;
+          const betObjectId = parsed.bet_id;
+          const coinType = parsed.coin_type === 0 ? 'SUI' : 'SBETS';
+
+          if (coinType !== 'SBETS') continue;
+          if (seenIds.has(betObjectId)) continue;
+          seenIds.add(betObjectId);
+
+          sbetsBetObjects.push({
+            id: betObjectId,
+            stake: parseInt(parsed.stake) / 1e9,
+            potentialPayout: parseInt(parsed.potential_payout) / 1e9,
+            coinType,
+          });
+        }
+
+        hasMore = eventsResponse.hasNextPage && eventsResponse.data.length > 0;
+        cursor = eventsResponse.nextCursor;
+      }
+
+      console.log(`📊 Scanned ${totalEvents} BetPlaced events total`);
+      console.log(`🎯 Found ${sbetsBetObjects.length} unique SBETS bet objects to check`);
+
+      for (const betObj of sbetsBetObjects) {
+        try {
+          const obj = await this.client.getObject({
+            id: betObj.id,
+            options: { showContent: true },
+          });
+
+          if (!obj.data?.content || obj.data.content.dataType !== 'moveObject') {
+            skipped++;
+            continue;
+          }
+
+          const fields = (obj.data.content as any).fields;
+          const status = parseInt(fields.status || '0');
+
+          if (status !== 0) {
+            skipped++;
+            continue;
+          }
+
+          const ownerInfo = obj.data.owner;
+          const isShared = typeof ownerInfo === 'object' && ownerInfo !== null && 'Shared' in ownerInfo;
+          const isObjectOwned = typeof ownerInfo === 'object' && ownerInfo !== null && 'AddressOwner' in ownerInfo;
+          
+          if (isObjectOwned) {
+            skipped++;
+            continue;
+          }
+
+          console.log(`🗑️ Voiding phantom SBETS bet ${betObj.id.slice(0, 12)}... (liability: ${betObj.potentialPayout.toFixed(2)} SBETS)`);
+
+          const result = await this.executeVoidBetSbetsOnChain(betObj.id);
+          if (result.success) {
+            voided++;
+            liabilityFreed += betObj.potentialPayout;
+            console.log(`✅ Voided: ${betObj.id.slice(0, 12)}... freed ${betObj.potentialPayout.toFixed(2)} SBETS liability | TX: ${result.txHash}`);
+          } else {
+            errors.push(`Failed to void ${betObj.id.slice(0, 12)}...: ${result.error}`);
+            console.warn(`❌ Failed to void ${betObj.id.slice(0, 12)}...: ${result.error}`);
+          }
+
+          await new Promise(r => setTimeout(r, 3000));
+        } catch (err: any) {
+          errors.push(`Error processing ${betObj.id.slice(0, 12)}...: ${err.message}`);
+        }
+      }
+
+      console.log(`🏁 Phantom void complete: ${voided} voided, ${skipped} skipped, ${errors.length} errors, ${liabilityFreed.toFixed(2)} SBETS freed`);
+      return { voided, errors, skipped, liabilityFreed };
+    } catch (error: any) {
+      console.error('❌ Phantom void scan failed:', error);
+      errors.push(`Scan failed: ${error.message}`);
+      return { voided, errors, skipped, liabilityFreed };
+    }
+  }
 }
 
 export const blockchainBetService = new BlockchainBetService();

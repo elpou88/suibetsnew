@@ -1392,6 +1392,35 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
 
+  app.post("/api/admin/void-phantom-sbets", async (req: Request, res: Response) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace('Bearer ', '');
+      const adminPassword = req.headers['x-admin-password'] as string || req.body?.adminPassword;
+      
+      const hasValidToken = token && isValidAdminSession(token);
+      const actualPassword = process.env.ADMIN_PASSWORD || 'change-me-in-production';
+      const hasValidPassword = adminPassword === actualPassword;
+      
+      if (!hasValidToken && !hasValidPassword) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+      
+      console.log('🗑️ Admin triggered phantom SBETS bet void...');
+      const result = await blockchainBetService.voidPhantomSbetsBets();
+      
+      res.json({ 
+        success: true, 
+        message: `Voided ${result.voided} phantom SBETS bets, freed ${result.liabilityFreed.toFixed(2)} SBETS liability`,
+        ...result,
+        timestamp: Date.now()
+      });
+    } catch (error: any) {
+      console.error('Phantom SBETS void failed:', error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
   // Get on-chain bet details including prediction (admin only)
   app.get("/api/admin/onchain-bet/:betObjectId", async (req: Request, res: Response) => {
     try {

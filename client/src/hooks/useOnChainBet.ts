@@ -85,19 +85,6 @@ export function useOnChainBet() {
         };
       }
       
-      const onChainLiability = data.onChainLiability;
-      if (onChainLiability) {
-        const onChainLiabilityValue = coinType === 'SBETS' ? onChainLiability.sbets : onChainLiability.sui;
-        const onChainAvailable = treasury.treasury - onChainLiabilityValue;
-        if (potentialPayout > onChainAvailable) {
-          return {
-            canBet: false,
-            available: Math.max(0, onChainAvailable),
-            message: `${coinType} treasury is fully committed to pending bets. Try a smaller bet or use ${coinType === 'SBETS' ? 'SUI' : 'SBETS'} instead.`
-          };
-        }
-      }
-      
       if (potentialPayout > treasury.available) {
         return {
           canBet: false,
