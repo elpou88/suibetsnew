@@ -29,7 +29,7 @@ Preferred communication style: Simple, everyday language.
 ### Key Features
 - **Sports Data Integration**: Aggregates real-time scores and odds from multiple providers.
 - **Blockchain Integration**: Sui blockchain for secure transactions, SBETS token support, and Move smart contracts for betting and automated payouts.
-- **Betting System**: Real-time odds, multiple market types, live betting via WebSockets, betting slip management, automated on-chain payouts, multi-leg parlay betting, gift bets (send bet winnings to another wallet).
+- **Betting System**: Real-time odds, multiple market types, live betting via WebSockets, betting slip management, automated on-chain payouts, multi-leg parlay betting, gift bets (send bet winnings to another wallet). Esports betting (LoL + Dota 2, sportId 24).
 - **User Management**: Wallet-based authentication, user profiles, SUI and SBETS token balance management, user betting limits, referral system.
 - **On-Chain Fund Flow**: Full on-chain dual-token system for bets and settlements via smart contracts, transparent treasury management, and fee accrual.
 - **Liability Tracking**: Explicit currency tracking, maximum stake limits, treasury pre-checks, on-chain bet synchronization.
