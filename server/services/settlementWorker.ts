@@ -1657,7 +1657,11 @@ class SettlementWorkerService {
               console.log(`💰 WINNER (DB): ${bet.userId} won ${netPayout} ${bet.currency} (fee: ${platformFee} ${bet.currency} -> revenue)`);
               
               // AUTOMATIC ON-CHAIN PAYOUT: Send winnings directly to user's wallet from treasury funds
-              const userWallet = bet.userId;
+              // Gift bets: route payout to recipient wallet instead of sender
+              const userWallet = bet.giftedTo || bet.userId;
+              if (bet.giftedTo) {
+                console.log(`🎁 GIFT PAYOUT: Routing ${netPayout} ${bet.currency} to gift recipient ${bet.giftedTo.slice(0,10)}... (from ${bet.userId?.slice(0,10)}...)`);
+              }
               let payoutSuccess = false;
               let payoutTxHash: string | undefined;
               

@@ -305,7 +305,9 @@ export class DatabaseStorage implements IStorage {
         externalEventId: String(bet.eventId || ''), // Store external API event ID for settlement
         homeTeam: bet.homeTeam || '', // Store home team for settlement matching
         awayTeam: bet.awayTeam || '', // Store away team for settlement matching
-        betObjectId: bet.onChainBetId || null // Store on-chain bet object ID for settlement
+        betObjectId: bet.onChainBetId || null, // Store on-chain bet object ID for settlement
+        giftedTo: bet.giftedTo || null,
+        giftedFrom: bet.giftedFrom || null
       }).returning();
       
       console.log(`✅ BET STORED IN DB: ${bet.id} (db id: ${inserted.id}) tx: ${inserted.txHash}`);
@@ -391,6 +393,12 @@ export class DatabaseStorage implements IStorage {
         .orderBy(desc(bets.createdAt));
       addBets(walletBets);
       
+      // STRATEGY 1b: Include bets gifted TO this wallet
+      const giftedBets = await db.select().from(bets)
+        .where(sql`LOWER(${bets.giftedTo}) = ${normalizedAddress}`)
+        .orderBy(desc(bets.createdAt));
+      addBets(giftedBets);
+      
       // STRATEGY 2: Match by numeric userId (legacy support)
       // IMPORTANT: Only run for purely numeric IDs to avoid cross-user leakage
       if (/^\d+$/.test(userId)) {
@@ -456,7 +464,9 @@ export class DatabaseStorage implements IStorage {
         currency: bet.feeCurrency || 'SUI',
         betType: bet.betType,
         result: bet.result,
-        walrusBlobId: bet.walrusBlobId
+        walrusBlobId: bet.walrusBlobId,
+        giftedTo: bet.giftedTo || null,
+        giftedFrom: bet.giftedFrom || null
       }));
     } catch (error) {
       console.error('Error getting user bets:', error);
@@ -514,7 +524,9 @@ export class DatabaseStorage implements IStorage {
         betType: bet.betType,
         platformFee: bet.platformFee,
         networkFee: bet.networkFee,
-        walrusBlobId: bet.walrusBlobId
+        walrusBlobId: bet.walrusBlobId,
+        giftedTo: bet.giftedTo || null,
+        giftedFrom: bet.giftedFrom || null
       }));
     } catch (error) {
       console.error('Error getting all bets:', error);

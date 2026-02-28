@@ -161,6 +161,8 @@ export const bets = pgTable("bets", {
   winningsWithdrawn: boolean("winnings_withdrawn").default(false), // Track if winnings have been withdrawn
   walrusBlobId: text("walrus_blob_id"),
   walrusReceiptData: text("walrus_receipt_data"),
+  giftedTo: text("gifted_to"),
+  giftedFrom: text("gifted_from"),
 });
 
 // Parlay bets (combines multiple bets into one wager)

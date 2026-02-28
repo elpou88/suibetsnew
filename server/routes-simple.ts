@@ -2538,6 +2538,18 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const eventId = String(data.eventId);
       const { eventName, homeTeam, awayTeam, marketId, outcomeId, odds, betAmount, currency, prediction, feeCurrency, paymentMethod, txHash, onChainBetId, status, isLive, matchMinute, walletAddress, useBonus, useFreeBet } = data;
       
+      // Gift bet: optional recipient wallet (extracted separately to avoid touching validation schema)
+      const giftRecipientWallet = typeof req.body.giftRecipientWallet === 'string' && req.body.giftRecipientWallet.startsWith('0x') && req.body.giftRecipientWallet.length >= 64
+        ? req.body.giftRecipientWallet.trim()
+        : null;
+      if (giftRecipientWallet) {
+        const senderWallet = walletAddress || userId;
+        if (giftRecipientWallet.toLowerCase() === senderWallet.toLowerCase()) {
+          return res.status(400).json({ message: "Cannot gift a bet to yourself", code: "GIFT_SELF" });
+        }
+        console.log(`🎁 GIFT BET: ${senderWallet.slice(0,10)}... → ${giftRecipientWallet.slice(0,10)}...`);
+      }
+      
       // ANTI-EXPLOIT: Wallet blocklist check
       if (walletAddress && isWalletBlocked(walletAddress)) {
         console.log(`🚫 BLOCKED WALLET: Bet rejected from ${walletAddress.slice(0, 12)}...`);
@@ -3133,7 +3145,9 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         totalDebit: paymentMethod === 'wallet' ? betAmount : totalDebit,
         txHash: txHash || undefined,
         onChainBetId: onChainBetId || undefined,
-        paymentMethod
+        paymentMethod,
+        giftedTo: giftRecipientWallet || undefined,
+        giftedFrom: giftRecipientWallet ? (walletAddress || userId) : undefined
       };
 
       // Store bet in storage
