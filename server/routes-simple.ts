@@ -22,6 +22,7 @@ import blockchainBetService from "./services/blockchainBetService";
 import { promotionService } from "./services/promotionService";
 import { treasuryAutoWithdrawService } from "./services/treasuryAutoWithdrawService";
 import { freeSportsService } from "./services/freeSportsService";
+import { esportsService } from "./services/esportsService";
 
 // SUI BETTING PAUSE - Set to true to pause SUI betting until treasury is funded
 // Users can still bet with SBETS
@@ -150,6 +151,9 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
   // These use free API tier: fetch once/day morning + results once/day night
   freeSportsService.startSchedulers();
   console.log('🆓 Free sports scheduler started - daily updates for basketball, baseball, hockey, MMA, NFL');
+
+  esportsService.start();
+  console.log('🎮 Esports service started - LoL Esports + Dota 2 pro matches (free APIs)');
 
   // AUTO-VOID disabled: phantom SBETS cleanup already completed (0 voided on last runs)
   // Can still be triggered manually via POST /api/admin/void-phantom-sbets if needed
@@ -1856,6 +1860,21 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           shouldBeLive: hasStarted,
         });
       }
+      const esportsLookup = esportsService.lookupEvent(eventId);
+      if (esportsLookup.found && esportsLookup.event) {
+        const now = new Date();
+        const eventStart = esportsLookup.event.startTime ? new Date(esportsLookup.event.startTime) : null;
+        const hasStarted = eventStart ? eventStart <= now : false;
+        return res.json({
+          available: !hasStarted,
+          isLive: false,
+          source: 'esports',
+          homeTeam: esportsLookup.event.homeTeam,
+          awayTeam: esportsLookup.event.awayTeam,
+          startTime: esportsLookup.event.startTime,
+          shouldBeLive: hasStarted,
+        });
+      }
       return res.json({ available: false });
     } catch (error) {
       return res.json({ available: false });
@@ -1966,7 +1985,6 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           try {
             const freeSportsEvents = freeSportsService.getUpcomingEvents();
             if (freeSportsEvents.length > 0) {
-              // Deduplicate by ID
               const existingIds = new Set(allUpcomingEvents.map(e => String(e.id)));
               const newFreeSportsEvents = freeSportsEvents.filter(e => !existingIds.has(String(e.id)));
               allUpcomingEvents.push(...newFreeSportsEvents);
@@ -1974,6 +1992,18 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
             }
           } catch (e) {
             console.log(`📦 Free sports cache empty`);
+          }
+          
+          try {
+            const esportsEvents = esportsService.getUpcomingEvents();
+            if (esportsEvents.length > 0) {
+              const existingIds = new Set(allUpcomingEvents.map(e => String(e.id)));
+              const newEsportsEvents = esportsEvents.filter(e => !existingIds.has(String(e.id)));
+              allUpcomingEvents.push(...newEsportsEvents);
+              console.log(`📦 Added ${newEsportsEvents.length} esports events (LoL + Dota 2)`);
+            }
+          } catch (e) {
+            console.log(`📦 Esports cache empty`);
           }
           
           // CRITICAL: Apply cached odds from prefetcher to snapshot events
@@ -2023,8 +2053,6 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           console.log(`❌ Football failed: ${e.message}`);
         }
         
-        // Add FREE SPORTS events from daily cache (basketball, baseball, hockey, MMA, NFL)
-        // These don't consume API quota - they're fetched once per day
         try {
           const freeSportsEvents = freeSportsService.getUpcomingEvents();
           if (freeSportsEvents.length > 0) {
@@ -2033,6 +2061,16 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           }
         } catch (e: any) {
           console.log(`⚠️ Free Sports cache empty or error: ${e.message}`);
+        }
+        
+        try {
+          const esportsEvents = esportsService.getUpcomingEvents();
+          if (esportsEvents.length > 0) {
+            allUpcomingEventsRaw.push(...esportsEvents);
+            console.log(`✅ Esports: ${esportsEvents.length} events (LoL + Dota 2)`);
+          }
+        } catch (e: any) {
+          console.log(`⚠️ Esports cache empty or error: ${e.message}`);
         }
         
         // Deduplicate events by ID to prevent repeated matches
@@ -2366,7 +2404,6 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       // Check free sports events first (basketball_, mma_, baseball_, etc.)
       const freeSportsLookup = freeSportsService.lookupEvent(eventIdStr);
       if (freeSportsLookup.found) {
-        // Free sports: NO live betting allowed - only pre-game betting
         if (freeSportsLookup.shouldBeLive) {
           console.log(`[validate] Free sport event ${eventIdStr} rejected: game has already started (startTime: ${freeSportsLookup.event?.startTime})`);
           return res.status(400).json({
@@ -2374,12 +2411,26 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
             code: "MATCH_STARTED"
           });
         }
-        
-        // Free sport event is valid for pre-game betting
         return res.json({
           valid: true,
           eventId: eventIdStr,
           source: 'free_sports'
+        });
+      }
+      
+      const esportsValidation = esportsService.lookupEvent(eventIdStr);
+      if (esportsValidation.found) {
+        const evtStart = esportsValidation.event?.startTime ? new Date(esportsValidation.event.startTime) : null;
+        if (evtStart && evtStart <= new Date()) {
+          return res.status(400).json({
+            message: "This match has already started. Betting is only available before the game begins.",
+            code: "MATCH_STARTED"
+          });
+        }
+        return res.json({
+          valid: true,
+          eventId: eventIdStr,
+          source: 'esports'
         });
       }
       
@@ -2534,6 +2585,13 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
               resolvedHomeTeam = freeLookup2.event.homeTeam || resolvedHomeTeam;
               resolvedAwayTeam = freeLookup2.event.awayTeam || resolvedAwayTeam;
               console.log(`✅ Enriched missing team data from free sports: ${resolvedHomeTeam} vs ${resolvedAwayTeam}`);
+            } else {
+              const esportsLookup2 = esportsService.lookupEvent(eventId);
+              if (esportsLookup2.found && esportsLookup2.event) {
+                resolvedHomeTeam = esportsLookup2.event.homeTeam || resolvedHomeTeam;
+                resolvedAwayTeam = esportsLookup2.event.awayTeam || resolvedAwayTeam;
+                console.log(`✅ Enriched missing team data from esports: ${resolvedHomeTeam} vs ${resolvedAwayTeam}`);
+              }
             }
           }
         } catch (enrichError) {
@@ -2558,7 +2616,6 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         }
       }
       
-      // SERVER-SIDE: Block betting on free sports events that have already started
       const freeLookup = freeSportsService.lookupEvent(eventId);
       if (freeLookup.found && freeLookup.shouldBeLive) {
         console.log(`❌ Blocked bet on started free sport event ${eventId} from ${(walletAddress || userId).slice(0, 12)}...`);
@@ -2566,6 +2623,16 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           message: "This match has already started. Betting is only available before the game begins.",
           code: "MATCH_STARTED"
         });
+      }
+      const esportsLookupBet = esportsService.lookupEvent(eventId);
+      if (esportsLookupBet.found && esportsLookupBet.event?.startTime) {
+        if (new Date(esportsLookupBet.event.startTime) <= new Date()) {
+          console.log(`❌ Blocked bet on started esports event ${eventId}`);
+          return res.status(400).json({
+            message: "This match has already started. Betting is only available before the game begins.",
+            code: "MATCH_STARTED"
+          });
+        }
       }
       
       // ANTI-EXPLOIT: Validate event exists in our system (for non-live bets)
@@ -3373,13 +3440,21 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           const { freeSportsService } = await import('./services/freeSportsService');
           const freeLookup = freeSportsService.lookupEvent(selEventId);
           if (!freeLookup.found) {
-            console.log(`🚫 EXPLOIT BLOCKED: Parlay selection references unknown event ${selEventId} from ${userIdStr.slice(0, 12)}...`);
-            return res.status(400).json({
-              message: "One or more selections reference invalid events. Please refresh and try again.",
-              code: "INVALID_PARLAY_EVENT"
-            });
-          }
-          if (freeLookup.shouldBeLive) {
+            const esLookup = esportsService.lookupEvent(selEventId);
+            if (!esLookup.found) {
+              console.log(`🚫 EXPLOIT BLOCKED: Parlay selection references unknown event ${selEventId} from ${userIdStr.slice(0, 12)}...`);
+              return res.status(400).json({
+                message: "One or more selections reference invalid events. Please refresh and try again.",
+                code: "INVALID_PARLAY_EVENT"
+              });
+            }
+            if (esLookup.event?.startTime && new Date(esLookup.event.startTime) <= new Date()) {
+              return res.status(400).json({
+                message: "One or more selections have already started. Betting is only available before the game begins.",
+                code: "MATCH_STARTED"
+              });
+            }
+          } else if (freeLookup.shouldBeLive) {
             console.log(`🚫 EXPLOIT BLOCKED: Parlay includes started free sport event ${selEventId} from ${userIdStr.slice(0, 12)}...`);
             return res.status(400).json({
               message: "One or more selections have already started. Betting is only available before the game begins.",
@@ -3592,13 +3667,21 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
             const { freeSportsService } = await import('./services/freeSportsService');
             const freeLookup = freeSportsService.lookupEvent(legEventId);
             if (!freeLookup.found) {
-              console.log(`🚫 EXPLOIT BLOCKED: On-chain parlay leg references unknown event ${legEventId} from ${walletAddress}`);
-              return res.status(400).json({
-                message: "One or more selections reference invalid events.",
-                code: "INVALID_PARLAY_EVENT"
-              });
-            }
-            if (freeLookup.shouldBeLive) {
+              const esLookup2 = esportsService.lookupEvent(legEventId);
+              if (!esLookup2.found) {
+                console.log(`🚫 EXPLOIT BLOCKED: On-chain parlay leg references unknown event ${legEventId} from ${walletAddress}`);
+                return res.status(400).json({
+                  message: "One or more selections reference invalid events.",
+                  code: "INVALID_PARLAY_EVENT"
+                });
+              }
+              if (esLookup2.event?.startTime && new Date(esLookup2.event.startTime) <= new Date()) {
+                return res.status(400).json({
+                  message: "One or more selections have already started. Betting is only available before the game begins.",
+                  code: "MATCH_STARTED"
+                });
+              }
+            } else if (freeLookup.shouldBeLive) {
               console.log(`🚫 EXPLOIT BLOCKED: On-chain parlay includes started free sport event ${legEventId} from ${walletAddress}`);
               return res.status(400).json({
                 message: "One or more selections have already started. Betting is only available before the game begins.",

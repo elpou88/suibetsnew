@@ -130,7 +130,7 @@ export function AuthenticEventsDisplay({ sportId, sportName, selectedTab }: Auth
       <div className="space-y-4">
         <div className="flex items-center space-x-2">
           <div className="w-4 h-4 bg-cyan-400 rounded animate-pulse"></div>
-          <span className="text-cyan-400">Loading authentic {sportName} events from ESPN...</span>
+          <span className="text-cyan-400">Loading {sportName} events...</span>
         </div>
         {[1, 2, 3].map((i) => (
           <Card key={i} className="animate-pulse border-[#1e3a3f] bg-[#112225]">
@@ -179,7 +179,7 @@ export function AuthenticEventsDisplay({ sportId, sportName, selectedTab }: Auth
         </CardHeader>
         <CardContent className="pt-6">
           <p className="text-cyan-100">
-            No {selectedTab} {sportName.toLowerCase()} matches currently available from ESPN.
+            No {selectedTab} {sportName.toLowerCase()} matches currently available.
             {selectedTab === 'live' ? ' Check upcoming events or try another sport.' : ' Events will appear closer to match times.'}
           </p>
         </CardContent>
@@ -263,52 +263,52 @@ export function AuthenticEventsDisplay({ sportId, sportName, selectedTab }: Auth
               </div>
               
               {/* Betting Odds */}
-              {event.odds && (event.odds.homeWin || event.odds.awayWin) && (
-                <div className="grid grid-cols-3 gap-4">
-                  {/* Home Team */}
-                  <div className="text-center">
-                    <div className="mb-3 bg-[#0b1618] p-3 rounded-lg border border-[#1e3a3f]">
-                      <div className="font-bold text-cyan-300">{event.homeTeam}</div>
-                      <div className="text-sm text-muted-foreground">Home</div>
+              {(() => {
+                const homeOdds = (event as any).homeOdds || event.odds?.homeWin || event.odds?.home;
+                const awayOdds = (event as any).awayOdds || event.odds?.awayWin || event.odds?.away;
+                const drawOdds = (event as any).drawOdds || event.odds?.draw;
+                if (!homeOdds && !awayOdds) return null;
+                const hasDraws = !!drawOdds;
+                return (
+                  <div className={`grid ${hasDraws ? 'grid-cols-3' : 'grid-cols-2'} gap-4`}>
+                    <div className="text-center">
+                      <div className="mb-3 bg-[#0b1618] p-3 rounded-lg border border-[#1e3a3f]">
+                        <div className="font-bold text-cyan-300">{event.homeTeam}</div>
+                      </div>
+                      <Button 
+                        variant="outline"
+                        className="w-full border-[#1e3a3f] bg-[#14292e] hover:bg-cyan-400/20 hover:border-cyan-400 hover:text-cyan-400 transition-all duration-200 text-lg font-bold"
+                      >
+                        {formatDecimalOdds(homeOdds)}
+                      </Button>
                     </div>
-                    <Button 
-                      variant="outline"
-                      className="w-full border-[#1e3a3f] bg-[#14292e] hover:bg-cyan-400/20 hover:border-cyan-400 hover:text-cyan-400 transition-all duration-200 text-lg font-bold"
-                    >
-                      {formatDecimalOdds(event.odds.home || event.odds.homeWin || 150)}
-                    </Button>
-                  </div>
-                  
-                  {/* Draw */}
-                  <div className="text-center">
-                    <div className="mb-3 bg-[#0b1618] p-3 rounded-lg border border-[#1e3a3f]">
-                      <div className="font-bold text-gray-300">Draw</div>
-                      <div className="text-sm text-muted-foreground">Tie</div>
+                    {hasDraws && (
+                      <div className="text-center">
+                        <div className="mb-3 bg-[#0b1618] p-3 rounded-lg border border-[#1e3a3f]">
+                          <div className="font-bold text-gray-300">Draw</div>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          className="w-full border-[#1e3a3f] bg-[#14292e] hover:bg-cyan-400/20 hover:border-cyan-400 hover:text-cyan-400 transition-all duration-200 text-lg font-bold"
+                        >
+                          {formatDecimalOdds(drawOdds)}
+                        </Button>
+                      </div>
+                    )}
+                    <div className="text-center">
+                      <div className="mb-3 bg-[#0b1618] p-3 rounded-lg border border-[#1e3a3f]">
+                        <div className="font-bold text-cyan-300">{event.awayTeam}</div>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        className="w-full border-[#1e3a3f] bg-[#14292e] hover:bg-cyan-400/20 hover:border-cyan-400 hover:text-cyan-400 transition-all duration-200 text-lg font-bold"
+                      >
+                        {formatDecimalOdds(awayOdds)}
+                      </Button>
                     </div>
-                    <Button 
-                      variant="outline" 
-                      className="w-full border-[#1e3a3f] bg-[#14292e] hover:bg-cyan-400/20 hover:border-cyan-400 hover:text-cyan-400 transition-all duration-200 text-lg font-bold"
-                      disabled={!event.odds.draw}
-                    >
-                      {event.odds.draw ? formatDecimalOdds(event.odds.draw) : 'N/A'}
-                    </Button>
                   </div>
-                  
-                  {/* Away Team */}
-                  <div className="text-center">
-                    <div className="mb-3 bg-[#0b1618] p-3 rounded-lg border border-[#1e3a3f]">
-                      <div className="font-bold text-cyan-300">{event.awayTeam}</div>
-                      <div className="text-sm text-muted-foreground">Away</div>
-                    </div>
-                    <Button 
-                      variant="outline" 
-                      className="w-full border-[#1e3a3f] bg-[#14292e] hover:bg-cyan-400/20 hover:border-cyan-400 hover:text-cyan-400 transition-all duration-200 text-lg font-bold"
-                    >
-                      {formatDecimalOdds(event.odds.away || event.odds.awayWin || -150)}
-                    </Button>
-                  </div>
-                </div>
-              )}
+                );
+              })()}
               
               {/* Authentic Event Footer */}
               <div className="mt-6 pt-4 border-t border-[#1e3a3f] text-center">

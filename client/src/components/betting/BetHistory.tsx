@@ -459,6 +459,24 @@ export function BetHistory() {
                           </div>
                         </>
                       )}
+                      {bet.walrusBlobId && (
+                        <>
+                          <div className="text-gray-400">Receipt:</div>
+                          <div className="text-right">
+                            <a
+                              href={bet.walrusBlobId.startsWith('local_')
+                                ? `/api/walrus/receipt/${bet.walrusBlobId}`
+                                : `https://aggregator.walrus-mainnet.walrus.space/v1/blobs/${bet.walrusBlobId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-purple-400 hover:underline inline-flex items-center gap-1"
+                              data-testid={`link-walrus-${bet.id}`}
+                            >
+                              Verify on Walrus <ExternalLink className="w-3 h-3" />
+                            </a>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </CardContent>
                   <CardFooter className="pt-0">

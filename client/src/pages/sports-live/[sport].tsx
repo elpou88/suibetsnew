@@ -52,9 +52,12 @@ const SPORTS_MAPPING: Record<string, number> = {
 export default function SportPage() {
   const [match, params] = useRoute<{ sport: string }>('/sports-live/:sport');
   const { toast } = useToast();
-  const [selectedTab, setSelectedTab] = useState<'live' | 'upcoming'>('live');
+  const sportSlugLower = match ? params.sport.toLowerCase() : '';
+  const noLiveSports = ['esports', 'afl', 'formula-1', 'handball', 'rugby', 'volleyball', 'boxing', 'netball'];
+  const defaultTab = noLiveSports.includes(sportSlugLower) ? 'upcoming' : 'live';
+  const [selectedTab, setSelectedTab] = useState<'live' | 'upcoming'>(defaultTab);
   
-  const sportId = match ? SPORTS_MAPPING[params.sport.toLowerCase()] : undefined;
+  const sportId = match ? SPORTS_MAPPING[sportSlugLower] : undefined;
   const sportName = match ? params.sport.charAt(0).toUpperCase() + params.sport.slice(1) : '';
   
   // Fetch events for the selected sport
