@@ -151,18 +151,8 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
   freeSportsService.startSchedulers();
   console.log('🆓 Free sports scheduler started - daily updates for basketball, baseball, hockey, MMA, NFL');
 
-  setTimeout(async () => {
-    try {
-      console.log('🔧 AUTO-VOID: Starting phantom SBETS liability cleanup...');
-      const result = await blockchainBetService.voidPhantomSbetsBets();
-      console.log(`🔧 AUTO-VOID COMPLETE: ${result.voided} voided, ${result.skipped} skipped, ${result.liabilityFreed.toFixed(2)} SBETS freed`);
-      if (result.errors.length > 0) {
-        console.warn(`🔧 AUTO-VOID ERRORS: ${result.errors.slice(0, 5).join('; ')}`);
-      }
-    } catch (err: any) {
-      console.error('🔧 AUTO-VOID FAILED:', err.message);
-    }
-  }, 15000);
+  // AUTO-VOID disabled: phantom SBETS cleanup already completed (0 voided on last runs)
+  // Can still be triggered manually via POST /api/admin/void-phantom-sbets if needed
 
   // Shared guard: prevents both auto-resolve worker and manual endpoint from resolving the same prediction simultaneously
   const resolvingPredictions = new Set<number>();
