@@ -573,11 +573,11 @@ export default function SportPage() {
       }
     };
 
-    // Always force fetch for soccer, or when main events are empty
-    if (sportId === 1 || (sportId && (!events || events.length === 0))) {
+    // Only force fetch for soccer/football - other sports use fast path API directly
+    if (sportId === 1) {
       forceAllEvents();
     }
-  }, [sportId, events]);
+  }, [sportId]);
 
   // Use forced authentic data first, then fallback events, then main events
   const displayEvents = forceAuthenticData.length > 0 ? forceAuthenticData : 

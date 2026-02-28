@@ -1891,6 +1891,33 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       
       console.log(`Fetching events for sportId: ${reqSportId}, isLive: ${isLive}`);
       
+      // FAST PATH: Esports events (sportId=24) - return directly from cache, no football enrichment needed
+      if (reqSportId === 24) {
+        const esportsEvents = esportsService.getUpcomingEvents();
+        const now = Date.now();
+        const filtered = esportsEvents.filter(e => {
+          if (!e.startTime) return true;
+          return new Date(e.startTime).getTime() > now;
+        });
+        console.log(`⚡ FAST PATH: Returning ${filtered.length} esports events directly from cache`);
+        return res.json(filtered);
+      }
+      
+      // FAST PATH: Free sports (non-football, non-esports) - return from daily cache
+      const FREE_SPORT_IDS = [2, 3, 4, 5, 6, 7, 10, 11, 12, 14, 15, 16, 17];
+      if (reqSportId && FREE_SPORT_IDS.includes(reqSportId)) {
+        const freeSportsEvents = freeSportsService.getUpcomingEvents();
+        const now = Date.now();
+        const filtered = freeSportsEvents
+          .filter(e => e.sportId === reqSportId)
+          .filter(e => {
+            if (!e.startTime) return true;
+            return new Date(e.startTime).getTime() > now;
+          });
+        console.log(`⚡ FAST PATH: Returning ${filtered.length} free sport events (sportId=${reqSportId}) from daily cache`);
+        return res.json(filtered);
+      }
+      
       // Get data from API for any sport if it's live - PAID API ONLY, NO FALLBACKS
       if (isLive === true) {
         console.log(`🔴 LIVE EVENTS MODE - Paid API-Sports ONLY (NO fallbacks, NO free alternatives)`);
