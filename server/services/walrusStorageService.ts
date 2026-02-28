@@ -1,10 +1,12 @@
 import { createHash } from 'crypto';
+import { execFile } from 'child_process';
+import { writeFile, unlink } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
 
-const WALRUS_PUBLISHERS = [
-  'https://publisher.walrus-mainnet.walrus.space/v1/blobs',
-  'https://wal-publisher-mainnet.staketab.org/v1/blobs',
-];
+const WALRUS_CLI = '/tmp/walrus';
 const WALRUS_AGGREGATOR = 'https://aggregator.walrus-mainnet.walrus.space/v1/blobs';
+const STORE_EPOCHS = 5;
 
 interface BetReceiptData {
   betId: string;
@@ -39,6 +41,7 @@ function generateReceiptJson(data: BetReceiptData): string {
     ...data,
     storedAt: Date.now(),
     chain: 'sui:mainnet',
+    walrusNetwork: 'mainnet',
   };
   return JSON.stringify(receipt);
 }
@@ -47,58 +50,67 @@ function hashReceipt(json: string): string {
   return createHash('sha256').update(json).digest('hex').slice(0, 32);
 }
 
-async function tryPublisher(url: string, body: string): Promise<{ blobId: string; publisher: string } | null> {
-  try {
-    const response = await fetch(url, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/octet-stream' },
-      body,
-      signal: AbortSignal.timeout(15000),
+function walrusStoreCli(filePath: string): Promise<{ blobId: string } | null> {
+  return new Promise((resolve) => {
+    execFile(WALRUS_CLI, ['store', '--epochs', String(STORE_EPOCHS), filePath, '--json'], {
+      timeout: 120000,
+    }, (error, stdout, stderr) => {
+      if (error) {
+        console.warn(`[Walrus CLI] store error: ${error.message}`);
+        resolve(null);
+        return;
+      }
+
+      try {
+        const jsonStart = stdout.indexOf('[');
+        const jsonStr = jsonStart >= 0 ? stdout.slice(jsonStart) : stdout;
+        const results = JSON.parse(jsonStr);
+        const result = results[0]?.blobStoreResult;
+
+        let blobId: string | null = null;
+        if (result?.newlyCreated?.blobObject?.blobId) {
+          blobId = result.newlyCreated.blobObject.blobId;
+        } else if (result?.alreadyCertified?.blobId) {
+          blobId = result.alreadyCertified.blobId;
+        }
+
+        if (blobId) {
+          resolve({ blobId });
+          return;
+        }
+
+        console.warn(`[Walrus CLI] No blobId in output:`, stdout.slice(0, 300));
+        resolve(null);
+      } catch (parseErr: any) {
+        console.warn(`[Walrus CLI] Parse error: ${parseErr.message}, stdout: ${stdout.slice(0, 200)}`);
+        resolve(null);
+      }
     });
-
-    if (!response.ok) {
-      const text = await response.text().catch(() => '');
-      console.warn(`[Walrus] ${url} failed (${response.status}): ${text.slice(0, 100)}`);
-      return null;
-    }
-
-    const result = await response.json();
-
-    let blobId: string | null = null;
-    if (result.newlyCreated?.blobObject?.blobId) {
-      blobId = result.newlyCreated.blobObject.blobId;
-    } else if (result.alreadyCertified?.blobId) {
-      blobId = result.alreadyCertified.blobId;
-    } else if (result.blobId) {
-      blobId = result.blobId;
-    }
-
-    if (blobId) {
-      return { blobId, publisher: url };
-    }
-
-    console.warn(`[Walrus] No blobId from ${url}:`, JSON.stringify(result).slice(0, 200));
-    return null;
-  } catch (err: any) {
-    console.warn(`[Walrus] ${url} error: ${err.message}`);
-    return null;
-  }
+  });
 }
 
 export async function storeBetReceipt(data: BetReceiptData): Promise<WalrusStoreResponse> {
   const receiptJson = generateReceiptJson(data);
   const receiptHash = hashReceipt(receiptJson);
 
-  for (const publisher of WALRUS_PUBLISHERS) {
-    const result = await tryPublisher(publisher, receiptJson);
+  const tmpFile = join(tmpdir(), `walrus_receipt_${data.betId.slice(0, 16)}_${Date.now()}.json`);
+
+  try {
+    await writeFile(tmpFile, receiptJson);
+    const result = await walrusStoreCli(tmpFile);
+
     if (result) {
-      console.log(`🐋 Walrus receipt stored via ${result.publisher}: ${result.blobId}`);
-      return { blobId: result.blobId, receiptJson, receiptHash, publisherUsed: result.publisher };
+      console.log(`🐋 Walrus MAINNET receipt stored: ${result.blobId}`);
+      return { blobId: result.blobId, receiptJson, receiptHash, publisherUsed: 'walrus-cli-mainnet' };
     }
+  } catch (err: any) {
+    console.warn(`[Walrus] CLI store failed: ${err.message}`);
+  } finally {
+    unlink(tmpFile).catch(() => {});
   }
 
-  console.warn(`[Walrus] All publishers unreachable — receipt stored locally (hash: ${receiptHash})`);
-  return { blobId: null, receiptJson, receiptHash, error: 'All Walrus mainnet publishers unreachable' };
+  console.warn(`[Walrus] CLI store failed — receipt stored locally (hash: ${receiptHash})`);
+  return { blobId: null, receiptJson, receiptHash, error: 'Walrus CLI store failed' };
 }
 
 export async function getBetReceipt(blobId: string): Promise<any | null> {

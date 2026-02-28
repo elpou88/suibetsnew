@@ -36,7 +36,7 @@ Preferred communication style: Simple, everyday language.
 - **Social Network Effect Engine ("Predict Anything")**: Standalone /network page with custom prediction markets, viral challenges, public profiles, live chat, follow system, and leaderboard integration. Features on-chain prediction bets and challenge stakes, atomic pool updates, and automated resolution/settlement with anti-exploit security.
 - **Live Streaming Section**: Proxies `streamed.pk` API for live and upcoming football matches with embedded playback.
 - **zkLogin (Google OAuth)**: Full Sui zkLogin implementation for seedless wallet login via Google, integrated with on-chain betting.
-- **Walrus Decentralized Storage**: Stores bet receipts on Walrus Protocol.
+- **Walrus Decentralized Storage**: Stores bet receipts on Walrus Protocol (mainnet). Service: `server/services/walrusStorageService.ts`. Uses Walrus CLI (`/tmp/walrus` mainnet v1.42.1) to store blobs directly on-chain. Aggregator: `aggregator.walrus-mainnet.walrus.space`. Each bet receipt gets a real Walrus blob ID stored in `bets.walrus_blob_id`. Receipt JSON also cached in `bets.walrus_receipt_data`. Frontend shows "Verify on Walrus" link in bet history. Sui CLI at `/tmp/sui` configured for mainnet with admin wallet. Walrus mainnet config at `~/.config/walrus/client_config.yaml`.
 - **SuiNS Integration**: Resolves wallet addresses to `.sui` domain names for enhanced UI.
 
 ### Architecture Model
