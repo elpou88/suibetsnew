@@ -6843,19 +6843,21 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         }
         console.log(`[Social] Challenge #${challengeId} settling: ${winner} wins | Pool: ${totalPool} SBETS | Payouts: ${payouts.length}`);
         const payoutResults: { wallet: string; amount: number; txHash?: string; error?: string }[] = [];
-        for (const payout of payouts) {
+        for (let i = 0; i < payouts.length; i++) {
+          const payout = payouts[i];
           if (payout.payout <= 0) continue;
+          if (i > 0) await new Promise(r => setTimeout(r, 3000));
           try {
             const result = await blockchainBetService.sendSbetsToUser(payout.wallet, payout.payout);
             if (result.success) {
-              console.log(`[Social] Challenge payout: ${payout.payout} SBETS -> ${payout.wallet.slice(0,10)}... | TX: ${result.txHash}`);
+              console.log(`[Social] Challenge payout: ${payout.payout.toFixed(0)} SBETS -> ${payout.wallet.slice(0,10)}... | TX: ${result.txHash}`);
               payoutResults.push({ wallet: payout.wallet, amount: payout.payout, txHash: result.txHash });
             } else {
               console.error(`[Social] Challenge payout failed: ${payout.wallet.slice(0,10)}... | ${result.error}`);
               payoutResults.push({ wallet: payout.wallet, amount: payout.payout, error: result.error });
             }
           } catch (payoutError: any) {
-            console.error(`[Social] Challenge payout error:`, payoutError.message);
+            console.error(`[Social] Challenge payout error: ${payout.wallet.slice(0,10)}... | ${payoutError.message}`);
             payoutResults.push({ wallet: payout.wallet, amount: payout.payout, error: payoutError.message });
           }
         }
