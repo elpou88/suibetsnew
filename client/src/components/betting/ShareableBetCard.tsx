@@ -135,13 +135,17 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
     return <Clock className="w-3.5 h-3.5 text-yellow-400/60 flex-shrink-0" />;
   };
 
+  const [saving, setSaving] = useState(false);
+  const [inlineImageUrl, setInlineImageUrl] = useState<string | null>(null);
+
   const generateCanvas = async (): Promise<HTMLCanvasElement | null> => {
     if (!cardRef.current) return null;
     try {
       const el = cardRef.current;
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || ('ontouchstart' in window);
       const canvas = await html2canvas(el, {
         backgroundColor: '#0a1214',
-        scale: 2,
+        scale: isMobile ? 1.5 : 2,
         logging: false,
         useCORS: true,
         allowTaint: true,
@@ -155,6 +159,13 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
         scrollY: 0,
         foreignObjectRendering: false,
         removeContainer: true,
+        onclone: (clonedDoc: Document) => {
+          const clonedEl = clonedDoc.querySelector('[data-card-capture]');
+          if (clonedEl instanceof HTMLElement) {
+            clonedEl.style.transform = 'none';
+            clonedEl.style.position = 'relative';
+          }
+        },
       });
       return canvas;
     } catch (err) {
@@ -165,21 +176,26 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
 
   const handleDownload = async () => {
     if (!cardRef.current) return;
+    setSaving(true);
+    setInlineImageUrl(null);
     
     try {
+      await new Promise(r => setTimeout(r, 100));
+
       const canvas = await generateCanvas();
       if (!canvas) {
-        toast({ title: 'Download failed', description: 'Could not generate image', variant: 'destructive' });
+        toast({ title: 'Save failed', description: 'Could not generate image', variant: 'destructive' });
+        setSaving(false);
         return;
       }
 
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || 
-                       ('ontouchstart' in window);
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || ('ontouchstart' in window);
       
       if (isMobile) {
-        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png', 0.95));
         if (!blob) {
-          toast({ title: 'Download failed', description: 'Could not generate image', variant: 'destructive' });
+          toast({ title: 'Save failed', description: 'Could not generate image', variant: 'destructive' });
+          setSaving(false);
           return;
         }
 
@@ -188,58 +204,20 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
         if (navigator.share && navigator.canShare?.({ files: [file] })) {
           try {
             await navigator.share({ files: [file], title: 'SuiBets Bet Slip' });
-            toast({ title: 'Shared!', description: 'Tap "Save Image" to download' });
+            toast({ title: 'Shared!', description: 'Image shared successfully' });
+            setSaving(false);
             return;
           } catch (shareErr: any) {
             if (shareErr?.name === 'AbortError') {
-              toast({ title: 'Cancelled', description: 'Tap Download again to save the image' });
+              setSaving(false);
               return;
             }
           }
         }
 
-        const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
         const dataUrl = canvas.toDataURL('image/png');
-
-        if (isIOS) {
-          const imgWindow = window.open('');
-          if (imgWindow) {
-            imgWindow.document.write(`
-              <html>
-                <head><title>SuiBets Bet Slip</title><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-                <body style="margin:0;background:#0a1214;display:flex;justify-content:center;align-items:center;min-height:100vh;">
-                  <div style="text-align:center;padding:20px;">
-                    <p style="color:white;font-family:sans-serif;margin-bottom:15px;font-size:16px;">Long press the image and tap "Save to Photos"</p>
-                    <img src="${dataUrl}" style="max-width:100%;border-radius:12px;" />
-                  </div>
-                </body>
-              </html>
-            `);
-            imgWindow.document.close();
-            toast({ title: 'Image opened!', description: 'Long press the image to save' });
-          } else {
-            const link = document.createElement('a');
-            link.href = dataUrl;
-            link.download = `suibets-bet-${bet.id}.png`;
-            link.target = '_blank';
-            link.rel = 'noopener';
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            link.click();
-            setTimeout(() => document.body.removeChild(link), 200);
-            toast({ title: 'Downloading...', description: 'Check your downloads folder' });
-          }
-        } else {
-          const blobUrl = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = blobUrl;
-          link.download = `suibets-bet-${bet.id}.png`;
-          link.style.display = 'none';
-          document.body.appendChild(link);
-          link.click();
-          setTimeout(() => { document.body.removeChild(link); URL.revokeObjectURL(blobUrl); }, 200);
-          toast({ title: 'Downloading...', description: 'Check your downloads folder' });
-        }
+        setInlineImageUrl(dataUrl);
+        toast({ title: 'Image ready!', description: 'Long press the image below to save it' });
       } else {
         const link = document.createElement('a');
         link.download = `suibets-bet-${bet.id}.png`;
@@ -251,8 +229,9 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
       }
     } catch (error) {
       console.error('Download error:', error);
-      toast({ title: 'Download failed', description: 'Could not generate image. Try using Share instead.', variant: 'destructive' });
+      toast({ title: 'Save failed', description: 'Could not generate image. Try using Share instead.', variant: 'destructive' });
     }
+    setSaving(false);
   };
 
   const handleShare = async () => {
