@@ -55,7 +55,7 @@ const SPORTS_LIST = [
   { id: 16, name: "Volleyball", icon: "🏐" },
   { id: 11, name: "Formula 1", icon: "🏎️" },
   { id: 3, name: "Tennis", icon: "🎾" },
-  { id: 9, name: "Esports", icon: "🎮" },
+  { id: 24, name: "Esports", icon: "🎮" },
 ];
 
 interface Outcome {
@@ -548,7 +548,7 @@ export default function CleanHome() {
                   [4, 14].includes(selectedSport) ? "NFL/American Football is in the off-season. Check back in September!" :
                   selectedSport === 11 ? "Formula 1 season starts in March. Check back soon!" :
                   selectedSport === 10 ? "AFL season starts in March. Check back soon!" :
-                  selectedSport === 9 ? "Esports events coming soon!" :
+                  selectedSport === 24 ? "No esports matches scheduled right now. Check back soon!" :
                   selectedSport === 3 ? "Tennis events coming soon!" :
                   selectedSport === 17 ? "Boxing events appear closer to fight nights!" :
                   "Check back later for more events"}
