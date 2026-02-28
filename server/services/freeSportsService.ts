@@ -113,7 +113,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 7,
     name: 'MMA',
     hasDraws: false,
-    daysAhead: 14
+    daysAhead: 2
   },
   'american-football': {
     endpoint: 'https://v1.american-football.api-sports.io/games',
@@ -121,7 +121,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 4,
     name: 'American Football',
     hasDraws: false,
-    daysAhead: 7
+    daysAhead: 2
   },
   afl: {
     endpoint: 'https://v1.afl.api-sports.io/games',
@@ -129,7 +129,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 10,
     name: 'AFL',
     hasDraws: true,
-    daysAhead: 7
+    daysAhead: 2
   },
   'formula-1': {
     endpoint: 'https://v1.formula-1.api-sports.io/races',
@@ -137,7 +137,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 11,
     name: 'Formula 1',
     hasDraws: false,
-    daysAhead: 14
+    daysAhead: 2
   },
   handball: {
     endpoint: 'https://v1.handball.api-sports.io/games',
@@ -145,15 +145,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 12,
     name: 'Handball',
     hasDraws: true,
-    daysAhead: 3
-  },
-  nfl: {
-    endpoint: 'https://v1.nfl.api-sports.io/games',
-    apiHost: 'v1.nfl.api-sports.io',
-    sportId: 14,
-    name: 'NFL',
-    hasDraws: false,
-    daysAhead: 7
+    daysAhead: 2
   },
   rugby: {
     endpoint: 'https://v1.rugby.api-sports.io/games',
@@ -161,7 +153,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 15,
     name: 'Rugby',
     hasDraws: true,
-    daysAhead: 7
+    daysAhead: 2
   },
   volleyball: {
     endpoint: 'https://v1.volleyball.api-sports.io/games',
@@ -169,15 +161,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 16,
     name: 'Volleyball',
     hasDraws: false,
-    daysAhead: 3
-  },
-  tennis: {
-    endpoint: 'https://v1.tennis.api-sports.io/games',
-    apiHost: 'v1.tennis.api-sports.io',
-    sportId: 3,
-    name: 'Tennis',
-    hasDraws: false,
-    daysAhead: 3
+    daysAhead: 2
   },
 };
 
@@ -229,7 +213,7 @@ export class FreeSportsService {
 
     this.isRunning = true;
     console.log('[FreeSports] Starting daily schedulers for free sports');
-    console.log('[FreeSports] Sports: basketball, baseball, ice-hockey, mma, american-football, afl, tennis, rugby, volleyball, handball');
+    console.log('[FreeSports] Sports: basketball, baseball, ice-hockey, mma, american-football, afl, formula-1, handball, rugby, volleyball');
     console.log('[FreeSports] Schedule: Upcoming 6AM UTC, Results 11PM UTC');
 
     // STRICT DAILY SCHEDULE: Only fetch if not already done today
@@ -301,20 +285,15 @@ export class FreeSportsService {
     console.log('[FreeSports] 📅 Fetching upcoming matches for all free sports...');
     
     const allEvents: SportEvent[] = [];
-    let rateLimitHit = false;
 
     for (const [sportSlug, config] of Object.entries(FREE_SPORTS_CONFIG)) {
-      if (rateLimitHit) {
-        console.log(`[FreeSports] ${config.name}: Skipped (API rate limited)`);
-        continue;
-      }
-      
       try {
         let sportEvents: SportEvent[] = [];
         const daysToFetch = config.daysAhead || 2;
+        let sportRateLimited = false;
         
         for (let dayOffset = 0; dayOffset < daysToFetch; dayOffset++) {
-          if (rateLimitHit) break;
+          if (sportRateLimited) break;
           
           const fetchDate = new Date();
           fetchDate.setUTCDate(fetchDate.getUTCDate() + dayOffset);
@@ -324,8 +303,8 @@ export class FreeSportsService {
             sportEvents.push(...dayEvents);
           } catch (dayErr: any) {
             if (dayErr.response?.status === 429) {
-              console.warn(`[FreeSports] Rate limited for ${config.name} day+${dayOffset}, stopping all sports`);
-              rateLimitHit = true;
+              console.warn(`[FreeSports] Rate limited for ${config.name} day+${dayOffset}, skipping remaining days for this sport`);
+              sportRateLimited = true;
               break;
             }
           }
@@ -412,6 +391,9 @@ export class FreeSportsService {
     } catch (error: any) {
       if (error.response?.status === 429) {
         console.warn(`[FreeSports] Rate limited for ${config.name}, skipping`);
+      } else if (error.code === 'ENOTFOUND') {
+        console.warn(`[FreeSports] DNS error for ${config.name} (${config.endpoint}) - API host does not exist, skipping`);
+        return [];
       }
       throw error;
     }
@@ -663,7 +645,8 @@ export class FreeSportsService {
    * Force refresh (manual trigger)
    */
   async forceRefresh(): Promise<SportEvent[]> {
-    console.log('[FreeSports] Force refresh requested');
+    console.log('[FreeSports] Force refresh requested - resetting date lock');
+    lastUpcomingFetchDate = '';
     return this.fetchAllUpcomingMatches();
   }
 }

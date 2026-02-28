@@ -150,7 +150,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
   // Start FREE sports scheduler (basketball, baseball, hockey, MMA, american-football)
   // These use free API tier: fetch once/day morning + results once/day night
   freeSportsService.startSchedulers();
-  console.log('🆓 Free sports scheduler started - daily updates for basketball, baseball, hockey, MMA, NFL');
+  console.log('🆓 Free sports scheduler started - daily updates for basketball, baseball, hockey, MMA, american-football, AFL, F1, handball, rugby, volleyball');
 
   esportsService.start();
   console.log('🎮 Esports service started - LoL Esports + Dota 2 pro matches (free APIs)');
@@ -2259,6 +2259,26 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       });
     } catch (error) {
       res.status(500).json({ success: false, message: "Failed to get free sports status" });
+    }
+  });
+
+  app.post("/api/admin/free-sports/refresh", async (req: Request, res: Response) => {
+    try {
+      const { adminPassword } = req.body;
+      if (!process.env.ADMIN_PASSWORD || adminPassword !== process.env.ADMIN_PASSWORD) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      console.log('[Admin] Force refreshing free sports data...');
+      const events = await freeSportsService.forceRefresh();
+      const sportBreakdown: Record<string, number> = {};
+      for (const e of events) {
+        const prefix = String(e.id).split('_')[0] || 'unknown';
+        sportBreakdown[prefix] = (sportBreakdown[prefix] || 0) + 1;
+      }
+      res.json({ success: true, totalEvents: events.length, sportBreakdown });
+    } catch (error: any) {
+      console.error('[Admin] Free sports refresh error:', error.message);
+      res.status(500).json({ success: false, message: error.message });
     }
   });
 
