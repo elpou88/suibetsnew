@@ -159,7 +159,8 @@ export const bets = pgTable("bets", {
   awayTeam: text("away_team"), // Away team name for settlement
   // Withdrawal tracking
   winningsWithdrawn: boolean("winnings_withdrawn").default(false), // Track if winnings have been withdrawn
-  walrusBlobId: text("walrus_blob_id") // Walrus decentralized storage receipt blob ID
+  walrusBlobId: text("walrus_blob_id"),
+  walrusReceiptData: text("walrus_receipt_data"),
 });
 
 // Parlay bets (combines multiple bets into one wager)

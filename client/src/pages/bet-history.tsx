@@ -399,7 +399,9 @@ export default function BetHistoryPage() {
                     )}
                     {bet.walrusBlobId && (
                       <a
-                        href={`https://aggregator.walrus-mainnet.walrus.space/v1/blobs/${bet.walrusBlobId}`}
+                        href={bet.walrusBlobId.startsWith('local_')
+                          ? `/api/walrus/receipt/${bet.walrusBlobId}`
+                          : `https://aggregator.walrus-mainnet.walrus.space/v1/blobs/${bet.walrusBlobId}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-purple-400 hover:text-purple-300 text-xs flex items-center gap-1 justify-end mt-1"

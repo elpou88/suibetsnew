@@ -3075,15 +3075,19 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
             betObjectId: onChainBetId || undefined,
             placedAt: Date.now(),
           });
+          const { bets: betsTable } = await import('@shared/schema');
+          const { db: walrusDb } = await import('./db');
+          const { eq: walrusEq } = await import('drizzle-orm');
+          const updateFields: any = { walrusReceiptData: walrusResult.receiptJson };
           if (walrusResult.blobId) {
-            const { bets: betsTable } = await import('@shared/schema');
-            const { db: walrusDb } = await import('./db');
-            const { eq: walrusEq } = await import('drizzle-orm');
-            await walrusDb.update(betsTable)
-              .set({ walrusBlobId: walrusResult.blobId })
-              .where(walrusEq(betsTable.wurlusBetId, betId));
-            console.log(`🐋 Walrus receipt saved for bet ${betId}: ${walrusResult.blobId}`);
+            updateFields.walrusBlobId = walrusResult.blobId;
+          } else {
+            updateFields.walrusBlobId = `local_${walrusResult.receiptHash}`;
           }
+          await walrusDb.update(betsTable)
+            .set(updateFields)
+            .where(walrusEq(betsTable.wurlusBetId, betId));
+          console.log(`🐋 Receipt saved for bet ${betId}: ${updateFields.walrusBlobId}`);
         } catch (walrusErr: any) {
           console.warn(`[Walrus] Non-blocking store failed: ${walrusErr.message}`);
         }
@@ -7201,14 +7205,30 @@ setTimeout(function(){l.classList.add('h');},6000);
       if (!blobId) {
         return res.status(400).json({ message: "Missing blobId" });
       }
+
+      if (blobId.startsWith('local_')) {
+        const { bets: betsTable } = await import('@shared/schema');
+        const { db: receiptDb } = await import('./db');
+        const { eq: receiptEq } = await import('drizzle-orm');
+        const rows = await receiptDb.select({ walrusReceiptData: betsTable.walrusReceiptData })
+          .from(betsTable)
+          .where(receiptEq(betsTable.walrusBlobId, blobId))
+          .limit(1);
+        if (rows.length > 0 && rows[0].walrusReceiptData) {
+          const receipt = JSON.parse(rows[0].walrusReceiptData);
+          return res.json({ receipt, source: 'local', verified: true });
+        }
+        return res.status(404).json({ message: "Receipt not found" });
+      }
+
       const { getBetReceipt, getWalrusAggregatorUrl } = await import('./services/walrusStorageService');
       const receipt = await getBetReceipt(blobId);
       if (!receipt) {
         return res.status(404).json({ message: "Receipt not found on Walrus" });
       }
-      res.json({ receipt, aggregatorUrl: getWalrusAggregatorUrl(blobId) });
+      res.json({ receipt, aggregatorUrl: getWalrusAggregatorUrl(blobId), source: 'walrus', verified: true });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to fetch Walrus receipt" });
+      res.status(500).json({ message: error.message || "Failed to fetch receipt" });
     }
   });
 

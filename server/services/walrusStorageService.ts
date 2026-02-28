@@ -1,3 +1,5 @@
+import { createHash } from 'crypto';
+
 const WALRUS_PUBLISHERS = [
   'https://publisher.walrus-mainnet.walrus.space/v1/blobs',
   'https://wal-publisher-mainnet.staketab.org/v1/blobs',
@@ -23,8 +25,26 @@ interface BetReceiptData {
 
 interface WalrusStoreResponse {
   blobId: string | null;
-  error?: string;
+  receiptJson: string;
+  receiptHash: string;
   publisherUsed?: string;
+  error?: string;
+}
+
+function generateReceiptJson(data: BetReceiptData): string {
+  const receipt = {
+    platform: 'SuiBets',
+    version: '1.0',
+    type: 'bet_receipt',
+    ...data,
+    storedAt: Date.now(),
+    chain: 'sui:mainnet',
+  };
+  return JSON.stringify(receipt);
+}
+
+function hashReceipt(json: string): string {
+  return createHash('sha256').update(json).digest('hex').slice(0, 32);
 }
 
 async function tryPublisher(url: string, body: string): Promise<{ blobId: string; publisher: string } | null> {
@@ -66,31 +86,19 @@ async function tryPublisher(url: string, body: string): Promise<{ blobId: string
 }
 
 export async function storeBetReceipt(data: BetReceiptData): Promise<WalrusStoreResponse> {
-  try {
-    const receipt = {
-      platform: 'SuiBets',
-      version: '1.0',
-      type: 'bet_receipt',
-      ...data,
-      storedAt: Date.now(),
-      chain: 'sui:mainnet',
-    };
+  const receiptJson = generateReceiptJson(data);
+  const receiptHash = hashReceipt(receiptJson);
 
-    const body = JSON.stringify(receipt);
-
-    for (const publisher of WALRUS_PUBLISHERS) {
-      const result = await tryPublisher(publisher, body);
-      if (result) {
-        console.log(`🐋 Walrus receipt stored via ${result.publisher}: ${result.blobId}`);
-        return { blobId: result.blobId, publisherUsed: result.publisher };
-      }
+  for (const publisher of WALRUS_PUBLISHERS) {
+    const result = await tryPublisher(publisher, receiptJson);
+    if (result) {
+      console.log(`🐋 Walrus receipt stored via ${result.publisher}: ${result.blobId}`);
+      return { blobId: result.blobId, receiptJson, receiptHash, publisherUsed: result.publisher };
     }
-
-    return { blobId: null, error: 'All Walrus mainnet publishers unreachable' };
-  } catch (err: any) {
-    console.warn(`[Walrus] Store failed: ${err.message}`);
-    return { blobId: null, error: err.message };
   }
+
+  console.warn(`[Walrus] All publishers unreachable — receipt stored locally (hash: ${receiptHash})`);
+  return { blobId: null, receiptJson, receiptHash, error: 'All Walrus mainnet publishers unreachable' };
 }
 
 export async function getBetReceipt(blobId: string): Promise<any | null> {
@@ -99,15 +107,14 @@ export async function getBetReceipt(blobId: string): Promise<any | null> {
       signal: AbortSignal.timeout(10000),
     });
 
-    if (!response.ok) {
-      return null;
+    if (response.ok) {
+      return await response.json();
     }
-
-    return await response.json();
   } catch (err: any) {
     console.warn(`[Walrus] Fetch failed for ${blobId}: ${err.message}`);
-    return null;
   }
+
+  return null;
 }
 
 export function getWalrusAggregatorUrl(blobId: string): string {
