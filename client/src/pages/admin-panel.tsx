@@ -108,6 +108,8 @@ export default function AdminPanel() {
   const [suiBettingPaused, setSuiBettingPaused] = useState<boolean | null>(null);
   const [togglingSuiPause, setTogglingSuiPause] = useState(false);
   const [triggeringTreasuryWithdraw, setTriggeringTreasuryWithdraw] = useState(false);
+  const [voidingPhantom, setVoidingPhantom] = useState(false);
+  const [voidResult, setVoidResult] = useState<any>(null);
   const [payingUnpaidWinners, setPayingUnpaidWinners] = useState(false);
   const [allStakes, setAllStakes] = useState<any[]>([]);
   const [loadingStakes, setLoadingStakes] = useState(false);
@@ -708,6 +710,37 @@ export default function AdminPanel() {
     setLoadingLegacy(false);
   };
 
+  const voidPhantomSbets = async () => {
+    setVoidingPhantom(true);
+    setVoidResult(null);
+    try {
+      const response = await fetch('/api/admin/void-phantom-sbets', {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${getToken()}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await response.json();
+      setVoidResult(data);
+      toast({
+        title: data.success ? 'Phantom Void Complete' : 'Void Failed',
+        description: data.message || data.error,
+        variant: data.success ? 'default' : 'destructive',
+      });
+      if (data.success) {
+        fetchPlatformInfo();
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to void phantom bets',
+        variant: 'destructive',
+      });
+    }
+    setVoidingPhantom(false);
+  };
+
   const settleBet = async (betId: string, outcome: 'won' | 'lost' | 'void') => {
     setSettling(betId);
     try {
@@ -1116,6 +1149,65 @@ export default function AdminPanel() {
                     </p>
                   </div>
                 )}
+
+                {/* Phantom SBETS Void Section */}
+                <div className="border-t border-cyan-500/20 pt-6 mt-6" data-testid="section-phantom-void">
+                  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-orange-400" />
+                    Phantom SBETS Liability Cleanup
+                  </h3>
+                  <p className="text-gray-400 text-sm mb-4">
+                    Scans on-chain SBETS bet objects and voids any phantom bets that are stuck with status=0 (pending) 
+                    but not owned by any user. This frees up phantom liability from the treasury.
+                  </p>
+                  <Button
+                    onClick={voidPhantomSbets}
+                    disabled={voidingPhantom}
+                    className="bg-orange-600 hover:bg-orange-700 text-white"
+                    data-testid="button-void-phantom"
+                  >
+                    {voidingPhantom ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Scanning & Voiding...
+                      </>
+                    ) : (
+                      <>
+                        <Shield className="w-4 h-4 mr-2" />
+                        Void Phantom SBETS Bets
+                      </>
+                    )}
+                  </Button>
+                  {voidResult && (
+                    <div className={`mt-4 p-4 rounded-lg ${voidResult.success ? 'bg-green-500/10 border border-green-500/30' : 'bg-red-500/10 border border-red-500/30'}`}>
+                      <p className={`text-sm font-medium ${voidResult.success ? 'text-green-400' : 'text-red-400'}`}>
+                        {voidResult.message || voidResult.error}
+                      </p>
+                      {voidResult.success && (
+                        <div className="mt-2 grid grid-cols-3 gap-3">
+                          <div className="bg-black/40 rounded p-2">
+                            <p className="text-xs text-gray-500">Voided</p>
+                            <p className="text-lg font-bold text-green-400" data-testid="text-voided-count">{voidResult.voided}</p>
+                          </div>
+                          <div className="bg-black/40 rounded p-2">
+                            <p className="text-xs text-gray-500">Skipped</p>
+                            <p className="text-lg font-bold text-gray-400" data-testid="text-skipped-count">{voidResult.skipped}</p>
+                          </div>
+                          <div className="bg-black/40 rounded p-2">
+                            <p className="text-xs text-gray-500">SBETS Freed</p>
+                            <p className="text-lg font-bold text-cyan-400" data-testid="text-liability-freed">{voidResult.liabilityFreed?.toFixed(2) || '0'}</p>
+                          </div>
+                        </div>
+                      )}
+                      {voidResult.errors?.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-xs text-red-400">Errors ({voidResult.errors.length}):</p>
+                          <p className="text-xs text-gray-500 mt-1">{voidResult.errors.slice(0, 3).join('; ')}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
 
                 {/* Deposit Section - Only for Admin Wallet */}
                 {currentAccount?.address ? (
