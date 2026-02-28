@@ -6038,7 +6038,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         try {
           // First withdraw from treasury contract to admin wallet
           console.log(`[STAKING] Step 1: Withdrawing ${payoutAmount.toLocaleString()} SBETS from treasury to admin wallet...`);
-          const withdrawResult = await blockchainBetService.withdrawFeesSbetsOnChain(payoutAmount);
+          const withdrawResult = await blockchainBetService.withdrawTreasurySbetsOnChain(payoutAmount);
           if (!withdrawResult.success) {
             console.warn(`[STAKING] Treasury withdrawal failed: ${withdrawResult.error}`);
             throw new Error(`Treasury withdrawal failed: ${withdrawResult.error}`);
@@ -6164,9 +6164,8 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       
       if (claimAmount > 0 && blockchainBetService.isAdminKeyConfigured()) {
         try {
-          // Step 1: Withdraw from treasury contract to admin wallet
           console.log(`[STAKING] Claim Step 1: Withdrawing ${claimAmount.toLocaleString()} SBETS from treasury...`);
-          const withdrawResult = await blockchainBetService.withdrawFeesSbetsOnChain(claimAmount);
+          const withdrawResult = await blockchainBetService.withdrawTreasurySbetsOnChain(claimAmount);
           if (!withdrawResult.success) {
             throw new Error(`Treasury withdrawal failed: ${withdrawResult.error}`);
           }
@@ -6174,7 +6173,6 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           
           await new Promise(resolve => setTimeout(resolve, 2000));
           
-          // Step 2: Send from admin wallet to user (same as bet payouts)
           console.log(`[STAKING] Claim Step 2: Sending ${claimAmount.toLocaleString()} SBETS to user...`);
           const payoutResult = await blockchainBetService.sendSbetsToUser(walletAddress, claimAmount);
           if (payoutResult.success && payoutResult.txHash) {
