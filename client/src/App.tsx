@@ -2,8 +2,9 @@ import { Switch, Route } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { ConnectWalletModal } from "@/components/modals/ConnectWalletModal";
 
 // Main pages - unified SuiBets design
 import CleanHome from "@/pages/clean-home";
@@ -68,6 +69,27 @@ import IntegrityPage from "@/pages/integrity";
 import AffiliatePage from "@/pages/affiliate";
 import BlogPage from "@/pages/blog";
 import { SessionTimer } from "@/components/ResponsibleGaming";
+
+function GlobalWalletModal() {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  useEffect(() => {
+    const handler = () => {
+      setIsOpen(true);
+    };
+    window.addEventListener('suibets:connect-wallet-required', handler);
+    return () => window.removeEventListener('suibets:connect-wallet-required', handler);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = () => setIsOpen(false);
+    window.addEventListener('suibets:wallet-connected', handler);
+    return () => window.removeEventListener('suibets:wallet-connected', handler);
+  }, [isOpen]);
+  
+  return <ConnectWalletModal isOpen={isOpen} onClose={() => setIsOpen(false)} />;
+}
 
 function App() {
   console.log("Starting React application");
@@ -226,6 +248,7 @@ function App() {
                           <BetSlip />
                         </div>
                       </div>
+                      <GlobalWalletModal />
                       <SpecialLinks />
                       <SessionTimer />
                       <Toaster />
