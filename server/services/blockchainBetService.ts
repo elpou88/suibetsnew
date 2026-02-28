@@ -1455,9 +1455,52 @@ export class BlockchainBetService {
           }
 
           if (eventName === "Unknown Event" || homeTeam === "Unknown" || awayTeam === "Unknown") {
-            rejectedOnChainBets.add(betObjectId);
-            console.warn(`🚫 EXPLOIT BLOCKED: Rejecting bet ${betObjectId.slice(0, 12)}... - Unknown Event (likely fake/exploitative bet)`);
-            continue;
+            try {
+              const apiSvc = (await import('./apiSportsService')).default;
+              const { freeSportsService: fsSvc } = await import('./freeSportsService');
+              const lookup = apiSvc.lookupEventSync(eventId);
+              if (lookup.found && lookup.homeTeam && lookup.awayTeam) {
+                eventName = `${lookup.homeTeam} vs ${lookup.awayTeam}`;
+                homeTeam = lookup.homeTeam;
+                awayTeam = lookup.awayTeam;
+                console.log(`✅ On-chain sync: Recovered event data for ${betObjectId.slice(0, 12)}... via cache: ${eventName}`);
+              } else {
+                const fsLookup = fsSvc.lookupEvent(eventId);
+                if (fsLookup.found && fsLookup.event?.homeTeam && fsLookup.event?.awayTeam) {
+                  eventName = `${fsLookup.event.homeTeam} vs ${fsLookup.event.awayTeam}`;
+                  homeTeam = fsLookup.event.homeTeam;
+                  awayTeam = fsLookup.event.awayTeam;
+                  console.log(`✅ On-chain sync: Recovered event data for ${betObjectId.slice(0, 12)}... via free sports: ${eventName}`);
+                }
+              }
+            } catch (lookupErr) {}
+
+            if (eventName === "Unknown Event" || homeTeam === "Unknown" || awayTeam === "Unknown") {
+              try {
+                const { db: lookupDb } = await import('../db');
+                const { sql: lookupSql } = await import('drizzle-orm');
+                const { bets: betsLookup } = await import('@shared/schema');
+                const dbMatch = await lookupDb.select({
+                  eventName: betsLookup.eventName,
+                  homeTeam: betsLookup.homeTeam,
+                  awayTeam: betsLookup.awayTeam
+                }).from(betsLookup)
+                  .where(lookupSql`${betsLookup.externalEventId} = ${eventId}`)
+                  .limit(1);
+                if (dbMatch.length > 0 && dbMatch[0].eventName && dbMatch[0].homeTeam && dbMatch[0].awayTeam) {
+                  eventName = dbMatch[0].eventName;
+                  homeTeam = dbMatch[0].homeTeam;
+                  awayTeam = dbMatch[0].awayTeam;
+                  console.log(`✅ On-chain sync: Recovered event data for ${betObjectId.slice(0, 12)}... via DB: ${eventName}`);
+                }
+              } catch (dbLookupErr) {}
+            }
+
+            if (eventName === "Unknown Event" || homeTeam === "Unknown" || awayTeam === "Unknown") {
+              rejectedOnChainBets.add(betObjectId);
+              console.warn(`🚫 EXPLOIT BLOCKED: Rejecting bet ${betObjectId.slice(0, 12)}... - Unknown Event (likely fake/exploitative bet)`);
+              continue;
+            }
           }
           
           // ANTI-EXPLOIT: Validate event ID is a real event in our system
@@ -1503,9 +1546,25 @@ export class BlockchainBetService {
                   continue;
                 }
               } else {
-                rejectedOnChainBets.add(betObjectId);
-                console.warn(`🚫 EXPLOIT BLOCKED: Rejecting bet ${betObjectId.slice(0, 12)}... - Event ${eventId} not found in our system`);
-                continue;
+                let dbVerified = false;
+                try {
+                  const { db: verifyDb } = await import('../db');
+                  const { sql: verifySql } = await import('drizzle-orm');
+                  const { bets: betsVerify } = await import('@shared/schema');
+                  const dbCheck = await verifyDb.select({ id: betsVerify.id })
+                    .from(betsVerify)
+                    .where(verifySql`${betsVerify.externalEventId} = ${eventId}`)
+                    .limit(1);
+                  if (dbCheck.length > 0) {
+                    dbVerified = true;
+                    console.log(`✅ On-chain sync: Event ${eventId} verified via existing DB bets`);
+                  }
+                } catch (dbVerifyErr) {}
+                if (!dbVerified) {
+                  rejectedOnChainBets.add(betObjectId);
+                  console.warn(`🚫 EXPLOIT BLOCKED: Rejecting bet ${betObjectId.slice(0, 12)}... - Event ${eventId} not found in our system`);
+                  continue;
+                }
               }
             }
           } catch (eventCheckError) {
@@ -1549,8 +1608,9 @@ export class BlockchainBetService {
             oddsValue: odds,
             eventId: eventId,
             externalEventId: eventId,
-            homeTeam: 'Unknown',
-            awayTeam: 'Unknown',
+            homeTeam: homeTeam || 'Unknown',
+            awayTeam: awayTeam || 'Unknown',
+            eventName: eventName !== 'Unknown Event' ? eventName : undefined,
             marketId: marketId,
             outcomeId: finalPrediction.toLowerCase().replace(/\s+/g, '_'),
             odds: odds,

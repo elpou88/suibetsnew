@@ -1399,6 +1399,66 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
 
+  app.post("/api/admin/fix-synced-bets", async (req: Request, res: Response) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace('Bearer ', '');
+      const adminPassword = req.headers['x-admin-password'] as string || req.body?.adminPassword;
+      
+      const hasValidToken = token && isValidAdminSession(token);
+      const actualPassword = process.env.ADMIN_PASSWORD;
+      const hasValidPassword = actualPassword && adminPassword === actualPassword;
+      
+      if (!hasValidToken && !hasValidPassword) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      const { db: fixDb } = await import('./db');
+      const { sql: fixSql, eq: fixEq } = await import('drizzle-orm');
+      const { bets: fixBets } = await import('@shared/schema');
+
+      const unknownBets = await fixDb.select().from(fixBets)
+        .where(fixSql`(${fixBets.homeTeam} = 'Unknown' OR ${fixBets.awayTeam} = 'Unknown' OR ${fixBets.eventName} = 'Unknown Event') AND ${fixBets.externalEventId} IS NOT NULL`);
+
+      let fixed = 0;
+      for (const bet of unknownBets) {
+        const refBet = await fixDb.select({
+          eventName: fixBets.eventName,
+          homeTeam: fixBets.homeTeam,
+          awayTeam: fixBets.awayTeam
+        }).from(fixBets)
+          .where(fixSql`${fixBets.externalEventId} = ${bet.externalEventId} AND ${fixBets.homeTeam} != 'Unknown' AND ${fixBets.awayTeam} != 'Unknown'`)
+          .limit(1);
+
+        if (refBet.length > 0) {
+          await fixDb.update(fixBets)
+            .set({
+              eventName: refBet[0].eventName,
+              homeTeam: refBet[0].homeTeam,
+              awayTeam: refBet[0].awayTeam
+            })
+            .where(fixEq(fixBets.id, bet.id));
+          fixed++;
+          console.log(`🔧 Fixed bet ${bet.wurlusBetId || bet.id}: ${refBet[0].eventName}`);
+        }
+      }
+
+      if (req.body?.betId && req.body?.giftedTo) {
+        await fixDb.update(fixBets)
+          .set({
+            giftedTo: req.body.giftedTo,
+            giftedFrom: req.body.giftedFrom || null
+          })
+          .where(fixEq(fixBets.id, parseInt(req.body.betId)));
+        console.log(`🎁 Set gift recipient for bet ${req.body.betId}: ${req.body.giftedTo}`);
+      }
+
+      res.json({ success: true, fixed, total: unknownBets.length });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
   app.post("/api/admin/void-phantom-sbets", async (req: Request, res: Response) => {
     try {
       const authHeader = req.headers.authorization;
