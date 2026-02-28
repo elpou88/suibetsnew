@@ -85,13 +85,24 @@ export function useOnChainBet() {
         };
       }
       
-      // Block if potential payout exceeds on-chain available balance (treasury minus on-chain liability)
-      // Note: On-chain liability is tracked by the smart contract and can't be modified
+      const onChainLiability = data.onChainLiability;
+      if (onChainLiability) {
+        const onChainLiabilityValue = coinType === 'SBETS' ? onChainLiability.sbets : onChainLiability.sui;
+        const onChainAvailable = treasury.treasury - onChainLiabilityValue;
+        if (potentialPayout > onChainAvailable) {
+          return {
+            canBet: false,
+            available: Math.max(0, onChainAvailable),
+            message: `${coinType} treasury is fully committed to pending bets. Try a smaller bet or use ${coinType === 'SBETS' ? 'SUI' : 'SBETS'} instead.`
+          };
+        }
+      }
+      
       if (potentialPayout > treasury.available) {
         return {
           canBet: false,
           available: treasury.available,
-          message: `Bet too large - on-chain available is ${treasury.available.toFixed(4)} ${coinType}. The on-chain liability from pending bets limits available funds.`
+          message: `Bet too large - available ${coinType} is ${treasury.available.toFixed(4)}. Try a smaller bet or use ${coinType === 'SBETS' ? 'SUI' : 'SBETS'} instead.`
         };
       }
       
@@ -377,18 +388,22 @@ export function useOnChainBet() {
         const errorMsg = status.error || 'Transaction failed on-chain';
         console.error('[useOnChainBet] Move abort detected:', errorMsg);
         
-        // Map common abort codes to user-friendly messages
         let userMessage = 'Transaction failed on the blockchain. Your funds were NOT deducted.';
-        if (errorMsg.includes('EInsufficientBalance') || errorMsg.includes('7')) {
-          userMessage = 'Bet rejected: Platform treasury cannot cover this payout. Try a smaller bet or different currency.';
-        } else if (errorMsg.includes('EPlatformPaused') || errorMsg.includes('1')) {
+        const abortCodeMatch = errorMsg.match(/},\s*(\d+)\)\s*in\s*command/);
+        const abortCode = abortCodeMatch ? parseInt(abortCodeMatch[1]) : -1;
+        
+        if (abortCode === 0 || errorMsg.includes('EInsufficientBalance')) {
+          userMessage = 'Bet rejected: Platform treasury cannot cover this payout. Try a smaller bet or use a different currency.';
+        } else if (abortCode === 7 || errorMsg.includes('EPlatformPaused')) {
           userMessage = 'Platform is temporarily paused. Please try again later.';
-        } else if (errorMsg.includes('EExceedsMaxBet') || errorMsg.includes('4')) {
+        } else if (abortCode === 8 || errorMsg.includes('EExceedsMaxBet')) {
           userMessage = 'Bet amount exceeds maximum allowed. Please reduce your stake.';
-        } else if (errorMsg.includes('EExceedsMinBet') || errorMsg.includes('5')) {
+        } else if (abortCode === 9 || errorMsg.includes('EExceedsMinBet')) {
           userMessage = 'Bet amount below minimum required.';
-        } else if (errorMsg.includes('EInvalidOdds') || errorMsg.includes('3')) {
+        } else if (abortCode === 3 || errorMsg.includes('EInvalidOdds')) {
           userMessage = 'Invalid odds detected. Please refresh and try again.';
+        } else if (abortCode === 11 || errorMsg.includes('EInsufficientTreasury')) {
+          userMessage = 'Platform treasury insufficient. Try a smaller bet or different currency.';
         }
         
         throw new Error(userMessage);
