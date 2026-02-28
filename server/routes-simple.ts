@@ -3002,6 +3002,43 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
 
       // Store bet in storage
       const storedBet = await storage.createBet(bet);
+
+      // WALRUS: Store bet receipt on decentralized storage (non-blocking)
+      (async () => {
+        try {
+          const { storeBetReceipt } = await import('./services/walrusStorageService');
+          const walrusResult = await storeBetReceipt({
+            betId,
+            walletAddress: walletAddress || userId,
+            eventId: String(eventId),
+            eventName: eventName || 'Sports Event',
+            homeTeam: resolvedHomeTeam || '',
+            awayTeam: resolvedAwayTeam || '',
+            prediction,
+            odds,
+            stake: betAmount,
+            currency: betCurrency,
+            potentialPayout,
+            txHash: txHash || undefined,
+            betObjectId: onChainBetId || undefined,
+            placedAt: Date.now(),
+          });
+          if (walrusResult.blobId) {
+            const { bets: betsTable } = await import('@shared/schema');
+            const { db: walrusDb } = await import('./db');
+            const { eq: walrusEq } = await import('drizzle-orm');
+            const wurlusId = storedBet?.wurlusBetId || storedBet?.id || betId;
+            if (wurlusId) {
+              await walrusDb.update(betsTable)
+                .set({ walrusBlobId: walrusResult.blobId })
+                .where(walrusEq(betsTable.wurlusBetId, String(wurlusId)));
+            }
+            console.log(`🐋 Walrus receipt saved for bet ${betId}: ${walrusResult.blobId}`);
+          }
+        } catch (walrusErr: any) {
+          console.warn(`[Walrus] Non-blocking store failed: ${walrusErr.message}`);
+        }
+      })();
       
       // UPDATE LIMITS AFTER SUCCESSFUL BET PLACEMENT
       if (limitsCheckPassed && userWalletForLimits) {
@@ -7105,6 +7142,24 @@ setTimeout(function(){l.classList.add('h');},6000);
     } catch (error: any) {
       console.error(`[Streaming] JS proxy error for ${req.params.filename}:`, error.message);
       res.status(502).send('');
+    }
+  });
+
+  // === WALRUS DECENTRALIZED STORAGE ENDPOINTS ===
+  app.get("/api/walrus/receipt/:blobId", async (req: Request, res: Response) => {
+    try {
+      const { blobId } = req.params;
+      if (!blobId) {
+        return res.status(400).json({ message: "Missing blobId" });
+      }
+      const { getBetReceipt, getWalrusAggregatorUrl } = await import('./services/walrusStorageService');
+      const receipt = await getBetReceipt(blobId);
+      if (!receipt) {
+        return res.status(404).json({ message: "Receipt not found on Walrus" });
+      }
+      res.json({ receipt, aggregatorUrl: getWalrusAggregatorUrl(blobId) });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to fetch Walrus receipt" });
     }
   });
 

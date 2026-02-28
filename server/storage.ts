@@ -455,7 +455,8 @@ export class DatabaseStorage implements IStorage {
         txHash: bet.txHash,
         currency: bet.feeCurrency || 'SUI',
         betType: bet.betType,
-        result: bet.result
+        result: bet.result,
+        walrusBlobId: bet.walrusBlobId
       }));
     } catch (error) {
       console.error('Error getting user bets:', error);
@@ -512,7 +513,8 @@ export class DatabaseStorage implements IStorage {
         feeCurrency: bet.feeCurrency, // Keep for backwards compatibility
         betType: bet.betType,
         platformFee: bet.platformFee,
-        networkFee: bet.networkFee
+        networkFee: bet.networkFee,
+        walrusBlobId: bet.walrusBlobId
       }));
     } catch (error) {
       console.error('Error getting all bets:', error);

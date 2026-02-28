@@ -20,44 +20,24 @@ Preferred communication style: Simple, everyday language.
 - **Real-time**: WebSocket for live score updates
 - **Data Aggregation**: Multi-API with resilience and fallback mechanisms
 - **Authentication**: Session-based with optional blockchain authentication
-- **Security**: Server-authoritative betting cutoff (45 minutes for live betting), rejection of stale event data, anti-exploit protections.
-- **Anti-Exploit Measures**: Rate limiting (7 bets/24 hours/wallet), 30-second cooldown between bets, max 2 bets per event per wallet, Unknown Event rejection, event validation before bet acceptance, settlement blocking for unverified events, live betting restricted to Match Winner only (first 45 min).
+- **Security**: Server-authoritative betting cutoff, rejection of stale event data, anti-exploit protections (rate limiting, cooldowns, max bets per event, event validation, settlement blocking).
 
 ### Data Storage
 - **Primary Database**: PostgreSQL with Drizzle ORM
-- **Caching**: In-memory caching for odds and event data with specific strategies.
+- **Caching**: In-memory caching for odds and event data.
 
 ### Key Features
 - **Sports Data Integration**: Aggregates real-time scores and odds from multiple providers.
 - **Blockchain Integration**: Sui blockchain for secure transactions, SBETS token support, and Move smart contracts for betting and automated payouts.
-- **Betting System**: Real-time odds, multiple market types, live betting via WebSockets, betting slip management, automated on-chain payouts.
-- **Parlay Support**: Multi-leg parlay betting with combined odds calculation.
-- **User Management**: Wallet-based authentication, user profiles, SUI and SBETS token balance management.
-- **On-Chain Fund Flow**: Full on-chain dual-token system for bets and settlements via smart contracts, with transparent treasury management and fee accrual.
-- **Revenue Sharing**: SBETS token holders can claim 30% of weekly platform revenue proportionally. Revenue is split 30% to holders, 40% to treasury buffer, 30% for liquidity/buybacks.
-- **Liability Tracking**: Explicit `currency` column for bets, reconciliation endpoint, maximum stake limits (100 SUI / 10,000 SBETS), treasury pre-checks before settlement. Real liability calculated from active DB bets (pending/confirmed/in_play/open) instead of phantom on-chain counter. On-chain liability shown separately as "Phantom On-Chain" for reference only.
-- **On-Chain Bet Synchronization**: Automatic and manual sync of on-chain bets, with detailed status tracking and prediction extraction.
-- **Treasury Auto-Withdraw System**: MANUAL ONLY (disabled auto-run). Trigger via /api/admin/treasury/withdraw endpoint. Zero-amount guards prevent empty transactions.
-- **Automatic On-Chain Payouts**: Direct token transfers to user wallets for winners from DB-only settlements, funded from the admin wallet.
-- **Leaderboard System**: Weekly, monthly, and all-time rankings based on profit, tracking total bets, win rate, and profit/loss.
-- **User Betting Limits**: User-configurable daily, weekly, and monthly spending limits in USD, session timers, and self-exclusion options.
-- **Referral System**: Wallet-address generated referral codes with a bonus structure and tracking for pending, qualified, and rewarded referrals.
-- **Additional Betting Markets**: Includes BTTS, Double Chance, Half-Time Result, Over/Under Goals, and Correct Score. Over/Under markets (Over 1.5, Over 2.5, etc.) restricted to first 20 minutes only during live matches.
-- **Social Network Effect Engine ("Predict Anything")**: Standalone /network page with 4 sub-tabs (Home, Predict, Challenge, Social). Features custom prediction markets (SBETS-only currency), viral challenges, public profiles with X/Twitter linking, live chat (polling-based), follow system, and leaderboard integration. 6 DB tables (social_predictions, social_prediction_bets, social_challenges, social_challenge_participants, social_follows, social_chat_messages), 12+ API endpoints under /api/social/*, and network.tsx page.
-  - **On-Chain Prediction Bets**: Users sign real SBETS transfer to treasury wallet via wallet (Slush/Nightly). Backend verifies on-chain: sender, recipient=treasury, amount, SBETS coin type. No fake txIds - every bet is a real blockchain transaction.
-  - **On-Chain Challenge Stakes**: Same pattern - joining a challenge requires signing SBETS transfer. Backend verifies before recording participation.
-  - **Prediction Market Creation**: Creators can optionally place an initial bet (100 to 1,000,000 SBETS) when creating a market, choosing YES or NO side. On-chain SBETS transfer verified before recording. Totals updated atomically only after bet insert succeeds.
-  - **Prediction Market Resolution**: Majority-wins model. When time expires, the side (YES/NO) with more SBETS wagered wins automatically. Auto-resolve worker runs every 2 minutes. Any connected wallet can also manually trigger resolution after expiry. Shared resolvingPredictions guard prevents double-resolution between auto-worker and manual endpoint. Winners split entire pool proportionally.
-  - **Challenge Auto-Settlement**: Expired challenges auto-refund all participants (creator + joiners) their stake amount via on-chain SBETS transfer. Worker runs every 2 minutes, 3-second delay between transactions to prevent blockchain object version conflicts. Shared settlingChallenges guard prevents double-settlement. Partial refund is a final state (no auto-retry to prevent double-refunds).
-  - **Anti-Exploit Security**: Creator self-bet blocked, duplicate join prevented (DB unique constraint on wallet+challengeId), duplicate tx hash reuse blocked (unique index on txId/txHash + in-memory Set), atomic SQL increments for pool totals (no race conditions), rate limiting (7 bets/24hrs, 30 chat/min), double-resolve/settle guards, early resolution blocked.
-  - **Settlement Payouts**: Winners receive real SBETS from treasury via blockchainBetService.sendSbetsToUser(). Per-wallet success/failure tracking with detailed logs.
-  - Educational "How You Win" and "Predict vs Challenge" explainers. No mock/seed data - all content is user-generated.
-
-- **Live Streaming Section**: Accessible via More menu at /streaming. Proxies the streamed.pk API through backend (`/api/streaming/football`, `/api/streaming/live`, `/api/streaming/stream/:source/:id`) to avoid CORS. Shows live and upcoming football matches with stream counts, HD badges, viewer counts, and embedded iframe playback. Users can switch between multiple stream sources per match.
-
-- **zkLogin (Google OAuth)**: Full Sui zkLogin implementation for seedless wallet login via Google. Frontend: ZkLoginContext.tsx (ephemeral key pair generation, nonce creation, JWT-to-address derivation, ZK proof from Mysten prover, transaction signing). Auth callback page at /auth/callback processes OAuth redirect. Google login button in ConnectWalletModal (shown when VITE_GOOGLE_CLIENT_ID is configured). Backend: /api/zklogin/salt (deterministic salt per provider+subject, stored in zkloginSalts table), /api/zklogin/save-address (saves derived Sui address). Session stored in sessionStorage with 24hr expiry. On-chain betting integrated: useOnChainBet.ts detects zkLogin session and routes transactions through signAndExecuteZkLogin instead of dapp-kit signAndExecute. BettingContext uses activeWalletAddress (dapp-kit address OR zkLogin address) for all bet placement flows. Prover URL gated by SUI_NETWORK (mainnet uses mainnet prover only, devnet/testnet uses dev prover only). **Note**: Mainnet prover requires Google Client ID to be registered via Mysten Enoki portal.
-
-- **SuiNS Integration**: Resolves wallet addresses to `.sui` domain names via `suix_resolveNameServiceNames` RPC. Backend service (`server/services/suinsService.ts`) with 30-min in-memory cache, batch resolution, and dedup of pending lookups. Frontend `SuiNSName` component and `useSuiNSName`/`useSuiNSNames` hooks replace all raw address displays across leaderboard, bet history, network/social, settings, activity, wallet dashboard, and more. Falls back to truncated `0x1234...abcd` for users without .sui names.
+- **Betting System**: Real-time odds, multiple market types, live betting via WebSockets, betting slip management, automated on-chain payouts, multi-leg parlay betting.
+- **User Management**: Wallet-based authentication, user profiles, SUI and SBETS token balance management, user betting limits, referral system.
+- **On-Chain Fund Flow**: Full on-chain dual-token system for bets and settlements via smart contracts, transparent treasury management, and fee accrual.
+- **Liability Tracking**: Explicit currency tracking, maximum stake limits, treasury pre-checks, on-chain bet synchronization.
+- **Social Network Effect Engine ("Predict Anything")**: Standalone /network page with custom prediction markets, viral challenges, public profiles, live chat, follow system, and leaderboard integration. Features on-chain prediction bets and challenge stakes, atomic pool updates, and automated resolution/settlement with anti-exploit security.
+- **Live Streaming Section**: Proxies `streamed.pk` API for live and upcoming football matches with embedded playback.
+- **zkLogin (Google OAuth)**: Full Sui zkLogin implementation for seedless wallet login via Google, integrated with on-chain betting.
+- **Walrus Decentralized Storage**: Stores bet receipts on Walrus Protocol.
+- **SuiNS Integration**: Resolves wallet addresses to `.sui` domain names for enhanced UI.
 
 ### Architecture Model
 - **Full On-Chain Model**: Bets placed directly on smart contracts, tracked in PostgreSQL for UI, settlements automated on-chain.
@@ -66,30 +46,8 @@ Preferred communication style: Simple, everyday language.
 ## External Dependencies
 
 ### Sports Data Providers
-- **API-Sports**: Primary data source for Football (paid tier with live betting).
-- **Free Sports API**: Basketball, Baseball, Ice Hockey, MMA, American Football, AFL, Formula 1, Handball, NBA, NFL, Rugby, Volleyball, Tennis, Boxing (upcoming at 6 AM UTC, 7-day lookahead, no live betting).
-- **Free Sports Settlement**: Settlement worker actively fetches results for free sports every 30 minutes (only for sports with pending bets). Results cached to file for restart persistence. Also receives nightly batch at 11 PM UTC via freeSportsService as fallback.
-- **Sports Coverage**:
-  - **Football (sportId 1)**: Live betting (first 45 min only) + Upcoming matches, paid API
-  - **Basketball (sportId 2)**: Upcoming only, free API, 2-day lookahead
-  - **Baseball (sportId 5)**: Upcoming only, free API
-  - **Ice Hockey (sportId 6)**: Upcoming only, free API
-  - **MMA (sportId 7)**: Upcoming only, free API (events on fight nights)
-  - **American Football (sportId 4)**: Upcoming only, free API (seasonal, NFL off-season Feb-Sep)
-  - **AFL (sportId 10)**: Upcoming only, free API (seasonal, starts March)
-  - **Formula 1 (sportId 11)**: Upcoming only, free API (seasonal, starts March)
-  - **Handball (sportId 12)**: Upcoming only, free API
-  - **NFL (sportId 14)**: Upcoming only, free API (seasonal, off-season Feb-Sep)
-  - **Rugby (sportId 15)**: Upcoming only, free API
-  - **Volleyball (sportId 16)**: Upcoming only, free API
-  - **Tennis (sportId 3)**: Frontend sport button exists, API not available on current subscription
-  - **Boxing (sportId 17)**: Frontend sport button exists, API not available on current subscription
-  - **Esports (sportId 9)**: Placeholder (no API-Sports endpoint available)
-- **Free API Date Restriction**: Free plans only allow ±1 day from today; all free sports use 2-day lookahead.
-- **Parlay Leg Results**: Settlement stores per-leg won/lost results as JSON in bet's `result` field; frontend shows green/red coloring per leg on settled parlays.
-- **Pre-game Cutoff**: Server-side enforcement prevents betting on free sports events that have already started (no live betting for free sports).
-- **Odds Cache**: Football odds cache TTL extended to 4 hours with 30-minute prefetch interval for consistent coverage.
-- **Live Fallback Odds**: Probability-based model accounting for score difference AND match time elapsed. A team leading 3-1 at minute 43 gets ~1.15 odds (not 3.0). Odds capped at 51.00 max. Uses 5% bookmaker margin.
+- **API-Sports**: Primary data source for Football (paid tier, live betting).
+- **Free Sports API**: Provides data for Basketball, Baseball, Ice Hockey, MMA, American Football, AFL, Formula 1, Handball, NFL, Rugby, Volleyball (upcoming only, no live betting for free sports).
 
 ### Blockchain Services
 - **Sui Network**: Layer 1 blockchain.
@@ -97,27 +55,11 @@ Preferred communication style: Simple, everyday language.
 - **SBETS Token (Mainnet)**: `0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285::sbets::SBETS`
 - **SuiBettingPlatform Contract (Mainnet)**: Deployed at `0x737324ddac9fb96e3d7ffab524f5489c1a0b3e5b4bffa2f244303005001b4ada` (Package ID) and `0x5fc1073c9533c6737fa3a0882055d1778602681df70bdabde96b0127b588f082` (Shared object).
 
-### Betting Promotion System (Active: January 27 - February 10, 2026)
-- **Promotion**: Bet $15 (in SUI or SBETS) → Get $5 FREE bonus.
-- **Tracking**: On-chain bets tracked and converted to USD value (SUI = $3.50 USD, SBETS = $0.000001 USD).
-
 ### Promotions System
-- **Welcome Bonus**: 1,000 SBETS for new users (one-time per wallet, stored in `welcomeBonusClaimed` field)
-- **Referral System**: 1,000 SBETS reward per qualified referral (when referred user places first bet)
-- **Loyalty Program**: 
-  - Points earned per $1 wagered
-  - Tiers: Bronze (<1000 pts), Silver (1000+), Gold (2500+), Platinum (5000+), Diamond (10000+)
-  - Points displayed on leaderboard with tier badges
-- **SBETS Staking**: 
-  - Two plans: 1-Week lock (5% APY) and 3-Month lock (8% APY)
-  - Treasury pool: 50 billion SBETS
-  - Minimum stake: 100,000 SBETS
-  - Per-stake APY stored in `rewardRate` column; lock period derived from `lockedUntil - stakingDate`
-  - Daily reward withdrawals allowed (claim rewards anytime without unstaking)
-  - Stake/unstake/claim-rewards functionality via `wurlusStaking` table
-  - Automated hourly reward accrual worker (accrueStakingRewards) updates accumulated_rewards for all active stakes
-  - Reward model: max(liveCalculation, workerAccumulated) prevents double-counting; capped at maxAnnualReward
-  - Claim resets stakingDate + accumulatedRewards to 0 for next accrual period
+- **Welcome Bonus**: 1,000 SBETS for new users.
+- **Referral System**: 1,000 SBETS reward per qualified referral.
+- **Loyalty Program**: Tier-based system with points earned per wager.
+- **SBETS Staking**: 1-Week and 3-Month lock plans with APY, daily reward withdrawals, and hourly accrual.
 
 ### Payment Integration
 - **Stripe**: Optional fiat payment processing.

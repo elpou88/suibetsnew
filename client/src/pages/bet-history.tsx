@@ -34,6 +34,7 @@ interface Bet {
   txHash?: string;
   currency?: 'SUI' | 'SBETS';
   result?: string;
+  walrusBlobId?: string;
 }
 
 export default function BetHistoryPage() {
@@ -393,6 +394,18 @@ export default function BetHistoryPage() {
                         data-testid={`tx-link-${bet.id}`}
                       >
                         View on Explorer
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+                    {bet.walrusBlobId && (
+                      <a
+                        href={`https://aggregator.walrus-mainnet.walrus.space/v1/blobs/${bet.walrusBlobId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-purple-400 hover:text-purple-300 text-xs flex items-center gap-1 justify-end mt-1"
+                        data-testid={`walrus-link-${bet.id}`}
+                      >
+                        Verify on Walrus
                         <ExternalLink className="h-3 w-3" />
                       </a>
                     )}
