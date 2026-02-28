@@ -1,4 +1,7 @@
-const WALRUS_PUBLISHER = 'https://publisher.walrus-mainnet.walrus.space/v1/blobs';
+const WALRUS_PUBLISHERS = [
+  'https://publisher.walrus-mainnet.walrus.space/v1/blobs',
+  'https://wal-publisher-mainnet.staketab.org/v1/blobs',
+];
 const WALRUS_AGGREGATOR = 'https://aggregator.walrus-mainnet.walrus.space/v1/blobs';
 
 interface BetReceiptData {
@@ -21,6 +24,45 @@ interface BetReceiptData {
 interface WalrusStoreResponse {
   blobId: string | null;
   error?: string;
+  publisherUsed?: string;
+}
+
+async function tryPublisher(url: string, body: string): Promise<{ blobId: string; publisher: string } | null> {
+  try {
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/octet-stream' },
+      body,
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      console.warn(`[Walrus] ${url} failed (${response.status}): ${text.slice(0, 100)}`);
+      return null;
+    }
+
+    const result = await response.json();
+
+    let blobId: string | null = null;
+    if (result.newlyCreated?.blobObject?.blobId) {
+      blobId = result.newlyCreated.blobObject.blobId;
+    } else if (result.alreadyCertified?.blobId) {
+      blobId = result.alreadyCertified.blobId;
+    } else if (result.blobId) {
+      blobId = result.blobId;
+    }
+
+    if (blobId) {
+      return { blobId, publisher: url };
+    }
+
+    console.warn(`[Walrus] No blobId from ${url}:`, JSON.stringify(result).slice(0, 200));
+    return null;
+  } catch (err: any) {
+    console.warn(`[Walrus] ${url} error: ${err.message}`);
+    return null;
+  }
 }
 
 export async function storeBetReceipt(data: BetReceiptData): Promise<WalrusStoreResponse> {
@@ -36,37 +78,15 @@ export async function storeBetReceipt(data: BetReceiptData): Promise<WalrusStore
 
     const body = JSON.stringify(receipt);
 
-    const response = await fetch(WALRUS_PUBLISHER, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body,
-      signal: AbortSignal.timeout(10000),
-    });
-
-    if (!response.ok) {
-      const text = await response.text().catch(() => '');
-      console.warn(`[Walrus] Upload failed (${response.status}): ${text.slice(0, 200)}`);
-      return { blobId: null, error: `HTTP ${response.status}` };
+    for (const publisher of WALRUS_PUBLISHERS) {
+      const result = await tryPublisher(publisher, body);
+      if (result) {
+        console.log(`🐋 Walrus receipt stored via ${result.publisher}: ${result.blobId}`);
+        return { blobId: result.blobId, publisherUsed: result.publisher };
+      }
     }
 
-    const result = await response.json();
-
-    let blobId: string | null = null;
-    if (result.newlyCreated?.blobObject?.blobId) {
-      blobId = result.newlyCreated.blobObject.blobId;
-    } else if (result.alreadyCertified?.blobId) {
-      blobId = result.alreadyCertified.blobId;
-    } else if (result.blobId) {
-      blobId = result.blobId;
-    }
-
-    if (blobId) {
-      console.log(`[Walrus] Receipt stored: ${blobId}`);
-    } else {
-      console.warn(`[Walrus] No blobId in response:`, JSON.stringify(result).slice(0, 300));
-    }
-
-    return { blobId };
+    return { blobId: null, error: 'All Walrus mainnet publishers unreachable' };
   } catch (err: any) {
     console.warn(`[Walrus] Store failed: ${err.message}`);
     return { blobId: null, error: err.message };
