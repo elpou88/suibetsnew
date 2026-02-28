@@ -215,6 +215,27 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
           }
         }
 
+        // On iOS, <a download> is ignored — go straight to inline image for long-press save
+        // On Android without Web Share, try anchor download first
+        const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+        
+        if (!isIOS) {
+          try {
+            const dataUrl = canvas.toDataURL('image/png');
+            const link = document.createElement('a');
+            link.download = `suibets-bet-${bet.id}.png`;
+            link.href = dataUrl;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            setTimeout(() => document.body.removeChild(link), 200);
+            toast({ title: 'Downloaded!', description: 'Bet slip saved to your device' });
+            setSaving(false);
+            return;
+          } catch {}
+        }
+
+        // Fallback: show inline image for long-press save (primary path on iOS)
         const dataUrl = canvas.toDataURL('image/png');
         setInlineImageUrl(dataUrl);
         toast({ title: 'Image ready!', description: 'Long press the image below to save it' });
@@ -516,6 +537,18 @@ export function ShareableBetCard({ bet, isParlay = false, parlayLegs = [], isOpe
               {copied ? 'Copied!' : 'Share'}
             </Button>
           </div>
+
+          {inlineImageUrl && (
+            <div className="mt-4 rounded-lg overflow-hidden border border-cyan-500/30 bg-black/40 p-2">
+              <p className="text-xs text-gray-400 text-center mb-2">Long press the image to save it</p>
+              <img
+                src={inlineImageUrl}
+                alt="Bet slip"
+                className="w-full rounded"
+                data-testid="img-inline-download"
+              />
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
