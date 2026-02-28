@@ -11,3 +11,6 @@ sui_contracts
 suibets-vercel-package
 *.log
 .DS_Store
+attached_assets
+.cache
+.local
