@@ -3780,6 +3780,43 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
 
       console.log(`🔥 PARLAY PLACED: ${parlayId} - ${selections.length} selections @ ${parlayOdds.toFixed(2)} odds, Stake: ${betAmount} ${currency}, Potential: ${potentialPayout} ${currency}`);
 
+      (async () => {
+        try {
+          const { storeBetReceipt } = await import('./services/walrusStorageService');
+          const parlayLegsStr = selections.map((s: any) => `${s.eventName || s.eventId}: ${s.selection || s.prediction}`).join(' | ');
+          const walrusResult = await storeBetReceipt({
+            betId: parlayId,
+            walletAddress: userIdStr,
+            eventId: selections.map((s: any) => s.eventId).join(','),
+            eventName: `Parlay (${selections.length} legs): ${parlayLegsStr}`,
+            homeTeam: selections[0]?.homeTeam || '',
+            awayTeam: selections[0]?.awayTeam || '',
+            prediction: parlayLegsStr,
+            odds: parlayOdds,
+            stake: betAmount,
+            currency,
+            potentialPayout,
+            placedAt: Date.now(),
+          });
+          const { bets: betsTable } = await import('@shared/schema');
+          const { db: walrusDb } = await import('./db');
+          const { eq: walrusEq } = await import('drizzle-orm');
+          const updateFields: any = { walrusReceiptData: walrusResult.receiptJson };
+          if (walrusResult.blobId) {
+            updateFields.walrusBlobId = walrusResult.blobId;
+          } else {
+            updateFields.walrusBlobId = `local_${walrusResult.receiptHash}`;
+          }
+          const walrusUpdateResult = await walrusDb.update(betsTable)
+            .set(updateFields)
+            .where(walrusEq(betsTable.wurlusBetId, parlayId))
+            .returning({ id: betsTable.id });
+          console.log(`🐋 Parlay receipt saved: ${parlayId}: ${updateFields.walrusBlobId} (${walrusUpdateResult.length} rows updated)`);
+        } catch (walrusErr: any) {
+          console.warn(`[Walrus] Parlay receipt failed: ${walrusErr.message}`);
+        }
+      })();
+
       res.json({
         success: true,
         parlay: storedParlay || parlay,
@@ -3938,6 +3975,45 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       const storedParlay = await storage.createParlay(parlay);
 
       console.log(`✅ ON-CHAIN PARLAY STORED: ${parlayId} with betObjectId: ${onChainBetId}`);
+
+      (async () => {
+        try {
+          const { storeBetReceipt } = await import('./services/walrusStorageService');
+          const parlayLegsStr = (legs || []).map((l: any) => `${l.eventName || l.eventId}: ${l.selection || l.prediction}`).join(' | ');
+          const walrusResult = await storeBetReceipt({
+            betId: parlayId,
+            walletAddress: walletAddress || userId,
+            eventId: (legs || []).map((l: any) => l.eventId).join(','),
+            eventName: `Parlay (${legs?.length || 0} legs): ${parlayLegsStr}`,
+            homeTeam: legs?.[0]?.homeTeam || '',
+            awayTeam: legs?.[0]?.awayTeam || '',
+            prediction: parlayLegsStr,
+            odds: totalOdds,
+            stake: betAmount,
+            currency,
+            potentialPayout: potentialPayout || (betAmount * totalOdds),
+            txHash: txHash || undefined,
+            betObjectId: onChainBetId || undefined,
+            placedAt: Date.now(),
+          });
+          const { bets: betsTable } = await import('@shared/schema');
+          const { db: walrusDb } = await import('./db');
+          const { eq: walrusEq } = await import('drizzle-orm');
+          const updateFields: any = { walrusReceiptData: walrusResult.receiptJson };
+          if (walrusResult.blobId) {
+            updateFields.walrusBlobId = walrusResult.blobId;
+          } else {
+            updateFields.walrusBlobId = `local_${walrusResult.receiptHash}`;
+          }
+          const walrusUpdateResult = await walrusDb.update(betsTable)
+            .set(updateFields)
+            .where(walrusEq(betsTable.wurlusBetId, parlayId))
+            .returning({ id: betsTable.id });
+          console.log(`🐋 On-chain parlay receipt saved: ${parlayId}: ${updateFields.walrusBlobId} (${walrusUpdateResult.length} rows updated)`);
+        } catch (walrusErr: any) {
+          console.warn(`[Walrus] On-chain parlay receipt failed: ${walrusErr.message}`);
+        }
+      })();
 
       res.json({
         success: true,
