@@ -425,8 +425,8 @@ export default function CleanHome() {
         </div>
       )}
 
-      {/* Hero Banner - simple img, no cropping possible */}
-      <div className="relative w-full" data-testid="hero-banner">
+      {/* Hero Banner */}
+      <div className="relative w-full pt-4" data-testid="hero-banner">
         <img
           src={suibetsHeroImage}
           alt="SuiBets - Sports Betting on Sui Blockchain"
