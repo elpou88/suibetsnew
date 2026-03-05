@@ -89,7 +89,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 2,
     name: 'Basketball',
     hasDraws: false,
-    daysAhead: 2
+    daysAhead: 30
   },
   baseball: {
     endpoint: 'https://v1.baseball.api-sports.io/games',
@@ -97,7 +97,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 5,
     name: 'Baseball',
     hasDraws: false,
-    daysAhead: 2
+    daysAhead: 30
   },
   'ice-hockey': {
     endpoint: 'https://v1.hockey.api-sports.io/games',
@@ -105,7 +105,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 6,
     name: 'Ice Hockey',
     hasDraws: false,
-    daysAhead: 2
+    daysAhead: 30
   },
   mma: {
     endpoint: 'https://v1.mma.api-sports.io/fights',
@@ -113,7 +113,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 7,
     name: 'MMA',
     hasDraws: false,
-    daysAhead: 7
+    daysAhead: 30
   },
   'american-football': {
     endpoint: 'https://v1.american-football.api-sports.io/games',
@@ -121,7 +121,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 4,
     name: 'American Football',
     hasDraws: false,
-    daysAhead: 7
+    daysAhead: 30
   },
   afl: {
     endpoint: 'https://v1.afl.api-sports.io/games',
@@ -129,7 +129,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 10,
     name: 'AFL',
     hasDraws: true,
-    daysAhead: 7
+    daysAhead: 30
   },
   'formula-1': {
     endpoint: 'https://v1.formula-1.api-sports.io/races',
@@ -137,7 +137,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 11,
     name: 'Formula 1',
     hasDraws: false,
-    daysAhead: 7
+    daysAhead: 30
   },
   handball: {
     endpoint: 'https://v1.handball.api-sports.io/games',
@@ -145,7 +145,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 12,
     name: 'Handball',
     hasDraws: true,
-    daysAhead: 2
+    daysAhead: 30
   },
   rugby: {
     endpoint: 'https://v1.rugby.api-sports.io/games',
@@ -153,7 +153,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 15,
     name: 'Rugby',
     hasDraws: true,
-    daysAhead: 2
+    daysAhead: 30
   },
   volleyball: {
     endpoint: 'https://v1.volleyball.api-sports.io/games',
@@ -161,7 +161,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 16,
     name: 'Volleyball',
     hasDraws: false,
-    daysAhead: 2
+    daysAhead: 30
   },
 };
 

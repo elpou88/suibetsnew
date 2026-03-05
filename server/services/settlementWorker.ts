@@ -1822,8 +1822,8 @@ class SettlementWorkerService {
         await balanceService.addWinnings(bet.userId || 'user1', payout, (bet.feeCurrency || 'SUI') as 'SUI' | 'SBETS');
         console.log(`💰 MANUAL SETTLE (DB): ${bet.userId} won ${payout} ${bet.feeCurrency}`);
       } else if (outcome === 'void') {
-        await balanceService.addWinnings(bet.userId || 'user1', payout, (bet.feeCurrency || 'SUI') as 'SUI' | 'SBETS');
-        console.log(`🔄 VOIDED (DB): Refunded ${payout} to ${bet.userId}`);
+        await balanceService.addRevenue(bet.betAmount, (bet.feeCurrency || 'SUI') as 'SUI' | 'SBETS');
+        console.log(`🔄 VOIDED -> TREASURY: ${bet.betAmount} ${bet.feeCurrency} kept in treasury from voided bet ${bet.id} (NOT refunded to user)`);
       } else {
         await balanceService.addRevenue(bet.betAmount, (bet.feeCurrency || 'SUI') as 'SUI' | 'SBETS');
         console.log(`📉 MANUAL LOSS (DB): Added ${bet.betAmount} to platform revenue`);
@@ -1858,12 +1858,16 @@ class SettlementWorkerService {
 
       console.log(`🔧 FORCE ON-CHAIN SETTLEMENT: Bet ${betId} (${currency}) -> ${outcome}`);
 
+      if (isVoid) {
+        console.log(`🚫 VOID ON-CHAIN BLOCKED: void_bet sends funds to user — settling as LOST on-chain to keep stake in treasury`);
+      }
+
       let result;
       if (isVoid) {
         if (currency === 'SBETS') {
-          result = await blockchainBetService.executeVoidBetSbetsOnChain(betObjectId);
+          result = await blockchainBetService.executeSettleBetSbetsOnChain(betObjectId, false);
         } else {
-          result = await blockchainBetService.executeVoidBetOnChain(betObjectId);
+          result = await blockchainBetService.executeSettleBetOnChain(betObjectId, false);
         }
       } else {
         if (currency === 'SBETS') {

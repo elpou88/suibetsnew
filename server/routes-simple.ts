@@ -748,7 +748,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
           if (statusUpdated) {
             if (outcome === 'won') {
               await balanceService.addWinnings(bet.walletAddress || String(bet.userId), bet.potentialWin || 0, bet.currency === 'SBETS' ? 'SBETS' : 'SUI');
-            } else if (outcome === 'lost') {
+            } else if (outcome === 'lost' || outcome === 'void') {
               await balanceService.addRevenue(bet.stake || 0, bet.currency === 'SBETS' ? 'SBETS' : 'SUI');
             }
             results.push({ betId: bet.id, status: 'settled', outcome });
