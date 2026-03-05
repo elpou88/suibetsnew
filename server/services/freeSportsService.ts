@@ -113,7 +113,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 7,
     name: 'MMA',
     hasDraws: false,
-    daysAhead: 2
+    daysAhead: 7
   },
   'american-football': {
     endpoint: 'https://v1.american-football.api-sports.io/games',
@@ -121,7 +121,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 4,
     name: 'American Football',
     hasDraws: false,
-    daysAhead: 2
+    daysAhead: 7
   },
   afl: {
     endpoint: 'https://v1.afl.api-sports.io/games',
@@ -129,7 +129,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 10,
     name: 'AFL',
     hasDraws: true,
-    daysAhead: 2
+    daysAhead: 7
   },
   'formula-1': {
     endpoint: 'https://v1.formula-1.api-sports.io/races',
@@ -137,7 +137,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 11,
     name: 'Formula 1',
     hasDraws: false,
-    daysAhead: 2
+    daysAhead: 7
   },
   handball: {
     endpoint: 'https://v1.handball.api-sports.io/games',

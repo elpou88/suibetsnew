@@ -43,19 +43,18 @@ const suibetsHeroBg = "/images/hero-bg.png";
 const SPORTS_LIST = [
   { id: 1, name: "Football", icon: "⚽" },
   { id: 2, name: "Basketball", icon: "🏀" },
-  { id: 14, name: "NFL", icon: "🏈" },
   { id: 6, name: "Hockey", icon: "🏒" },
+  { id: 5, name: "Baseball", icon: "⚾" },
+  { id: 16, name: "Volleyball", icon: "🏐" },
+  { id: 12, name: "Handball", icon: "🤾" },
+  { id: 15, name: "Rugby", icon: "🏉" },
+  { id: 24, name: "Esports", icon: "🎮" },
   { id: 7, name: "MMA", icon: "🥊" },
   { id: 17, name: "Boxing", icon: "🥊" },
-  { id: 5, name: "Baseball", icon: "⚾" },
   { id: 4, name: "American Football", icon: "🏈" },
-  { id: 15, name: "Rugby", icon: "🏉" },
   { id: 10, name: "AFL", icon: "🏉" },
-  { id: 12, name: "Handball", icon: "🤾" },
-  { id: 16, name: "Volleyball", icon: "🏐" },
   { id: 11, name: "Formula 1", icon: "🏎️" },
   { id: 3, name: "Tennis", icon: "🎾" },
-  { id: 24, name: "Esports", icon: "🎮" },
 ];
 
 interface Outcome {
@@ -198,6 +197,27 @@ export default function CleanHome() {
 
   const { data: liveEvents = [], isLoading: liveLoading, refetch: refetchLive } = useLiveEvents(selectedSport);
   const { data: upcomingEvents = [], isLoading: upcomingLoading, refetch: refetchUpcoming } = useUpcomingEvents(selectedSport);
+
+  const { data: allUpcomingForCounts = [] } = useQuery<any[]>({
+    queryKey: ['events', 'upcoming', 'counts'],
+    queryFn: async () => {
+      const response = await fetch('/api/events?isLive=false', { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch events for counts');
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
+    },
+    staleTime: 60000,
+    gcTime: 120000,
+    refetchOnWindowFocus: false,
+  });
+  const sportEventCounts = useMemo(() => {
+    const counts: Record<number, number> = {};
+    allUpcomingForCounts.forEach((e: any) => {
+      const sid = e.sportId;
+      if (sid) counts[sid] = (counts[sid] || 0) + 1;
+    });
+    return counts;
+  }, [allUpcomingForCounts]);
 
   const rawEvents = activeTab === "live" ? liveEvents : upcomingEvents;
   const isLoading = activeTab === "live" ? liveLoading : upcomingLoading;
@@ -484,21 +504,33 @@ export default function CleanHome() {
         {/* Sports - Horizontal scroll on mobile, wrapping grid on desktop */}
         <div className="mb-4 overflow-x-auto md:overflow-visible pb-2 md:pb-0 -mx-4 px-4 md:mx-0 md:px-0">
           <div className="flex gap-2 md:flex-wrap md:gap-3 w-max md:w-auto">
-            {SPORTS_LIST.map((sport) => (
-              <button
-                key={sport.id}
-                onClick={() => handleSportClick(sport.id)}
-                className={`py-2 px-3 md:py-3 md:px-4 rounded-lg whitespace-nowrap text-sm md:text-base transition-all flex-shrink-0 md:flex-shrink ${
-                  selectedSport === sport.id
-                    ? "bg-cyan-500 text-black font-bold"
-                    : "bg-[#111111] text-gray-300 hover:bg-[#1a1a1a] border border-cyan-900/30"
-                }`}
-                data-testid={`sport-btn-${sport.name.toLowerCase().replace(/\s+/g, '-')}`}
-              >
-                <span className="mr-1 md:mr-2">{sport.icon}</span>
-                {sport.name}
-              </button>
-            ))}
+            {SPORTS_LIST.map((sport) => {
+              const count = sportEventCounts[sport.id] || 0;
+              return (
+                <button
+                  key={sport.id}
+                  onClick={() => handleSportClick(sport.id)}
+                  className={`py-2 px-3 md:py-3 md:px-4 rounded-lg whitespace-nowrap text-sm md:text-base transition-all flex-shrink-0 md:flex-shrink ${
+                    selectedSport === sport.id
+                      ? "bg-cyan-500 text-black font-bold"
+                      : count > 0
+                        ? "bg-[#111111] text-gray-300 hover:bg-[#1a1a1a] border border-cyan-900/30"
+                        : "bg-[#0a0a0a] text-gray-500 hover:bg-[#111111] border border-gray-800/30"
+                  }`}
+                  data-testid={`sport-btn-${sport.name.toLowerCase().replace(/\s+/g, '-')}`}
+                >
+                  <span className="mr-1 md:mr-2">{sport.icon}</span>
+                  {sport.name}
+                  {count > 0 && (
+                    <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${
+                      selectedSport === sport.id ? "bg-black/20 text-black" : "bg-cyan-900/40 text-cyan-400"
+                    }`} data-testid={`sport-count-${sport.id}`}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -545,11 +577,12 @@ export default function CleanHome() {
               <p className="text-gray-400 mb-2">No {activeTab} events available</p>
               <p className="text-gray-500 text-sm">
                 {showFavoritesOnly ? "Star some teams to see them here!" : 
-                  [4, 14].includes(selectedSport) ? "NFL/American Football is in the off-season. Check back in September!" :
-                  selectedSport === 11 ? "Formula 1 season starts in March. Check back soon!" :
-                  selectedSport === 10 ? "AFL season starts in March. Check back soon!" :
+                  selectedSport === 4 ? "American Football events update weekly. Check back soon!" :
+                  selectedSport === 11 ? "Formula 1 races update weekly. Check back closer to race weekend!" :
+                  selectedSport === 10 ? "AFL events update weekly. Check back soon!" :
                   selectedSport === 24 ? "No esports matches scheduled right now. Check back soon!" :
                   selectedSport === 3 ? "Tennis events coming soon!" :
+                  selectedSport === 7 ? "MMA fights update weekly. Check back closer to fight night!" :
                   selectedSport === 17 ? "Boxing events appear closer to fight nights!" :
                   "Check back later for more events"}
               </p>
