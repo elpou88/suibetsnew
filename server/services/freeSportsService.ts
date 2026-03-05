@@ -89,7 +89,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 2,
     name: 'Basketball',
     hasDraws: false,
-    daysAhead: 30
+    daysAhead: 3
   },
   baseball: {
     endpoint: 'https://v1.baseball.api-sports.io/games',
@@ -97,7 +97,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 5,
     name: 'Baseball',
     hasDraws: false,
-    daysAhead: 30
+    daysAhead: 3
   },
   'ice-hockey': {
     endpoint: 'https://v1.hockey.api-sports.io/games',
@@ -105,7 +105,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 6,
     name: 'Ice Hockey',
     hasDraws: false,
-    daysAhead: 30
+    daysAhead: 3
   },
   mma: {
     endpoint: 'https://v1.mma.api-sports.io/fights',
@@ -113,7 +113,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 7,
     name: 'MMA',
     hasDraws: false,
-    daysAhead: 30
+    daysAhead: 3
   },
   'american-football': {
     endpoint: 'https://v1.american-football.api-sports.io/games',
@@ -121,7 +121,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 4,
     name: 'American Football',
     hasDraws: false,
-    daysAhead: 30
+    daysAhead: 3
   },
   afl: {
     endpoint: 'https://v1.afl.api-sports.io/games',
@@ -129,7 +129,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 10,
     name: 'AFL',
     hasDraws: true,
-    daysAhead: 30
+    daysAhead: 3
   },
   'formula-1': {
     endpoint: 'https://v1.formula-1.api-sports.io/races',
@@ -137,7 +137,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 11,
     name: 'Formula 1',
     hasDraws: false,
-    daysAhead: 30
+    daysAhead: 3
   },
   handball: {
     endpoint: 'https://v1.handball.api-sports.io/games',
@@ -145,7 +145,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 12,
     name: 'Handball',
     hasDraws: true,
-    daysAhead: 30
+    daysAhead: 3
   },
   rugby: {
     endpoint: 'https://v1.rugby.api-sports.io/games',
@@ -153,7 +153,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 15,
     name: 'Rugby',
     hasDraws: true,
-    daysAhead: 30
+    daysAhead: 3
   },
   volleyball: {
     endpoint: 'https://v1.volleyball.api-sports.io/games',
@@ -161,7 +161,7 @@ const FREE_SPORTS_CONFIG: Record<string, {
     sportId: 16,
     name: 'Volleyball',
     hasDraws: false,
-    daysAhead: 30
+    daysAhead: 3
   },
 };
 
@@ -352,6 +352,18 @@ export class FreeSportsService {
       console.error(`[FreeSports] Cricket fetch error:`, error.message);
     }
 
+    try {
+      const scheduledEvents = this.getScheduledCombatAndMotorsportEvents();
+      if (scheduledEvents.length > 0) {
+        const existingIds = new Set(allEvents.map(e => String(e.id)));
+        const newEvents = scheduledEvents.filter(e => !existingIds.has(String(e.id)));
+        allEvents.push(...newEvents);
+        console.log(`[FreeSports] 🥊🏎️ Added ${newEvents.length} scheduled Boxing/F1/MMA events (${scheduledEvents.length} total, ${scheduledEvents.length - newEvents.length} dupes skipped)`);
+      }
+    } catch (error: any) {
+      console.error(`[FreeSports] Scheduled events error:`, error.message);
+    }
+
     if (allEvents.length > 0) {
       cachedFreeSportsEvents = allEvents;
       lastFetchTime = Date.now();
@@ -384,14 +396,17 @@ export class FreeSportsService {
         timeout: 10000
       });
 
-      // Check for API-Sports error responses (rate limit, subscription issues)
       if (response.data?.errors && Object.keys(response.data.errors).length > 0) {
         const errorMsg = JSON.stringify(response.data.errors);
         console.warn(`[FreeSports] API error for ${config.name} (${dateStr}): ${errorMsg}`);
         
-        // Signal rate limit by throwing with specific status code
         if (response.data.errors.requests && String(response.data.errors.requests).includes('request limit')) {
           const err: any = new Error('API rate limit reached');
+          err.response = { status: 429 };
+          throw err;
+        }
+        if (response.data.errors.plan && String(response.data.errors.plan).includes('Free plans')) {
+          const err: any = new Error('Free plan date/season restriction');
           err.response = { status: 429 };
           throw err;
         }
@@ -591,6 +606,66 @@ export class FreeSportsService {
     } catch (error: any) {
       console.error(`[FreeSports] ❌ Failed to trigger settlement:`, error.message);
     }
+  }
+
+  private getScheduledCombatAndMotorsportEvents(): SportEvent[] {
+    const now = Date.now();
+    const events: SportEvent[] = [];
+
+    const scheduledEvents = [
+      { id: 'boxing_20260305_1', sportId: 17, league: 'DAZN Boxing', home: 'Steven Butler', away: 'Ramadan Hiseni', date: '2026-03-05T23:00:00Z', venue: 'Montreal, Canada', slug: 'boxing' },
+      { id: 'boxing_20260305_2', sportId: 17, league: 'DAZN Boxing', home: 'Lenar Perez', away: 'Isaac Chilemba', date: '2026-03-05T23:30:00Z', venue: 'Montreal, Canada', slug: 'boxing' },
+      { id: 'boxing_20260305_3', sportId: 17, league: 'DAZN Boxing', home: 'Jhon Orobio', away: 'Yomar Alamo', date: '2026-03-06T00:00:00Z', venue: 'Montreal, Canada', slug: 'boxing' },
+      { id: 'boxing_20260305_4', sportId: 17, league: 'DAZN Boxing', home: 'Steve Claggett', away: 'TBA', date: '2026-03-06T00:30:00Z', venue: 'Montreal, Canada', slug: 'boxing' },
+      { id: 'boxing_20260308_1', sportId: 17, league: 'Paramount+ Boxing', home: 'Jai Opetaia', away: 'Brandon Glanton', date: '2026-03-08T22:00:00Z', venue: 'Las Vegas, NV, USA', slug: 'boxing' },
+      { id: 'boxing_20260314_1', sportId: 17, league: 'DAZN Boxing - Dublin', home: 'Jazza Dickens', away: 'Anthony Cacace', date: '2026-03-14T20:00:00Z', venue: 'Dublin, Ireland', slug: 'boxing' },
+      { id: 'boxing_20260314_2', sportId: 17, league: 'DAZN Boxing - Dublin', home: "Pierce O'Leary", away: 'Mark Chamberlain', date: '2026-03-14T21:00:00Z', venue: 'Dublin, Ireland', slug: 'boxing' },
+      { id: 'boxing_20260314_3', sportId: 17, league: 'DAZN Boxing - Dublin', home: 'Jono Carroll', away: 'Colm Murphy', date: '2026-03-14T19:00:00Z', venue: 'Dublin, Ireland', slug: 'boxing' },
+      { id: 'boxing_20260919_1', sportId: 17, league: 'Sphere Arena - Super Fight', home: 'Floyd Mayweather Jr.', away: 'Manny Pacquiao', date: '2026-09-19T23:00:00Z', venue: 'Las Vegas, NV, USA', slug: 'boxing' },
+
+      { id: 'f1_2026_r01_fp', sportId: 11, league: 'Formula 1 2026', home: 'Australian Grand Prix', away: 'Practice & Qualifying', date: '2026-03-06T05:00:00Z', venue: 'Melbourne, Australia', slug: 'formula-1' },
+      { id: 'f1_2026_r01_race', sportId: 11, league: 'Formula 1 2026', home: 'Australian Grand Prix', away: 'Race', date: '2026-03-08T04:00:00Z', venue: 'Melbourne, Australia', slug: 'formula-1' },
+      { id: 'f1_2026_r02_fp', sportId: 11, league: 'Formula 1 2026', home: 'Chinese Grand Prix', away: 'Practice & Qualifying', date: '2026-03-13T07:00:00Z', venue: 'Shanghai, China', slug: 'formula-1' },
+      { id: 'f1_2026_r02_race', sportId: 11, league: 'Formula 1 2026', home: 'Chinese Grand Prix', away: 'Race', date: '2026-03-15T07:00:00Z', venue: 'Shanghai, China', slug: 'formula-1' },
+      { id: 'f1_2026_r03_fp', sportId: 11, league: 'Formula 1 2026', home: 'Japanese Grand Prix', away: 'Practice & Qualifying', date: '2026-03-27T06:00:00Z', venue: 'Suzuka, Japan', slug: 'formula-1' },
+      { id: 'f1_2026_r03_race', sportId: 11, league: 'Formula 1 2026', home: 'Japanese Grand Prix', away: 'Race', date: '2026-03-29T05:00:00Z', venue: 'Suzuka, Japan', slug: 'formula-1' },
+
+      { id: 'mma_20260308_1', sportId: 7, league: 'UFC Fight Night', home: 'TBA', away: 'TBA', date: '2026-03-08T23:00:00Z', venue: 'Las Vegas, NV, USA', slug: 'mma' },
+    ];
+
+    for (const ev of scheduledEvents) {
+      const startMs = new Date(ev.date).getTime();
+      if (startMs < now) continue;
+
+      const homeOdds = parseFloat((1.7 + Math.random() * 0.6).toFixed(2));
+      const awayOdds = parseFloat((1.7 + Math.random() * 0.6).toFixed(2));
+
+      const outcomes: OutcomeData[] = [
+        { id: 'home', name: ev.home, odds: homeOdds, probability: 1 / homeOdds },
+        { id: 'away', name: ev.away, odds: awayOdds, probability: 1 / awayOdds }
+      ];
+
+      const markets: MarketData[] = [
+        { id: 'winner', name: 'Match Winner', outcomes }
+      ];
+
+      events.push({
+        id: `${ev.slug}_${ev.id}`,
+        sportId: ev.sportId,
+        leagueName: ev.league,
+        homeTeam: ev.home,
+        awayTeam: ev.away,
+        startTime: ev.date,
+        status: 'scheduled',
+        isLive: false,
+        markets,
+        homeOdds,
+        awayOdds,
+        venue: ev.venue,
+      } as SportEvent);
+    }
+
+    return events;
   }
 
   private async fetchCricketMatches(): Promise<SportEvent[]> {
