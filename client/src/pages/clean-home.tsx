@@ -426,12 +426,12 @@ export default function CleanHome() {
       )}
 
       {/* Hero Banner */}
-      <div className="relative w-full pt-4" data-testid="hero-banner">
+      <div className="relative w-full mt-6" data-testid="hero-banner">
         <img
           src={suibetsHeroImage}
           alt="SuiBets - Sports Betting on Sui Blockchain"
           draggable={false}
-          style={{ display: 'block', width: '100%', height: 'auto' }}
+          style={{ display: 'block', width: '100%', height: 'auto', minHeight: '300px' }}
         />
         <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#0a0e1a] to-transparent pointer-events-none"></div>
       </div>
