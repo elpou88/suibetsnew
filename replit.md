@@ -48,6 +48,7 @@ Preferred communication style: Simple, everyday language.
 ### Sports Data Providers
 - **API-Sports**: Primary data source for Football (paid tier, live betting).
 - **Free Sports API**: Provides data for Basketball, Baseball, Ice Hockey, MMA, American Football, AFL, Formula 1, Handball, Rugby, Volleyball (upcoming only, no live betting for free sports). Each sport API has independent 100/day request limit on free tier. Data fetched daily at 6 AM UTC, results at 11 PM UTC. Admin force-refresh: POST `/api/admin/free-sports/refresh`. NFL and Tennis API hostnames don't exist — removed from config.
+- **Cricket (Cricbuzz RapidAPI)**: Uses `free-cricbuzz-cricket-api.p.rapidapi.com` (RAPIDAPI_KEY env var). Endpoint: `/cricket-schedule` for fixtures, `/cricket-match-info?matchid=X` for results. sportId=9. Fetched alongside other free sports at 6 AM UTC daily. Cricket events prefixed `cricket_`. Supports TEST/ODI/T20 formats. Draw odds only for TEST matches. Dedicated endpoint: GET `/api/events/cricket`. Frontend page: `client/src/pages/sports-live/cricket.tsx`.
 
 ### Blockchain Services
 - **Sui Network**: Layer 1 blockchain.

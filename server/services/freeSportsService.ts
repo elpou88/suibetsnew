@@ -165,6 +165,10 @@ const FREE_SPORTS_CONFIG: Record<string, {
   },
 };
 
+const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || '';
+const CRICBUZZ_BASE_URL = 'https://free-cricbuzz-cricket-api.p.rapidapi.com';
+const CRICKET_SPORT_ID = 9;
+
 const MMA_ORGANIZATIONS = new Set([
   'ufc', 'bellator', 'one championship', 'one fc', 'pfl', 'cage warriors',
   'ksw', 'rizin', 'invicta', 'lfa', 'bkfc', 'eagle fc', 'ares', 'oktagon'
@@ -213,7 +217,7 @@ export class FreeSportsService {
 
     this.isRunning = true;
     console.log('[FreeSports] Starting daily schedulers for free sports');
-    console.log('[FreeSports] Sports: basketball, baseball, ice-hockey, mma, american-football, afl, formula-1, handball, rugby, volleyball');
+    console.log('[FreeSports] Sports: basketball, baseball, ice-hockey, mma, american-football, afl, formula-1, handball, rugby, volleyball, cricket');
     console.log('[FreeSports] Schedule: Upcoming 6AM UTC, Results 11PM UTC');
 
     // STRICT DAILY SCHEDULE: Only fetch if not already done today
@@ -337,6 +341,15 @@ export class FreeSportsService {
       } catch (error: any) {
         console.error(`[FreeSports] Error fetching ${config.name}:`, error.message);
       }
+    }
+
+    try {
+      const cricketEvents = await this.fetchCricketMatches();
+      if (cricketEvents.length > 0) {
+        allEvents.push(...cricketEvents);
+      }
+    } catch (error: any) {
+      console.error(`[FreeSports] Cricket fetch error:`, error.message);
     }
 
     if (allEvents.length > 0) {
@@ -546,11 +559,17 @@ export class FreeSportsService {
       }
     }
 
+    try {
+      const cricketResults = await this.fetchCricketResults();
+      results.push(...cricketResults);
+    } catch (error: any) {
+      console.error(`[FreeSports] Cricket results fetch error:`, error.message);
+    }
+
     lastResultsFetchTime = Date.now();
-    lastResultsFetchDate = getUTCDateString(); // Lock: only fetch results once per day
+    lastResultsFetchDate = getUTCDateString();
     console.log(`[FreeSports] ✅ Total: ${results.length} finished games for settlement (locked until ${lastResultsFetchDate})`);
     
-    // CRITICAL: Trigger settlement for free sports results
     if (results.length > 0) {
       this.triggerSettlement(results);
     }
@@ -574,11 +593,199 @@ export class FreeSportsService {
     }
   }
 
+  private async fetchCricketMatches(): Promise<SportEvent[]> {
+    if (!RAPIDAPI_KEY) {
+      console.warn('[FreeSports] No RAPIDAPI_KEY set, skipping cricket');
+      return [];
+    }
+
+    try {
+      console.log('[FreeSports] 🏏 Fetching cricket schedule from Cricbuzz API...');
+      const response = await axios.get(`${CRICBUZZ_BASE_URL}/cricket-schedule`, {
+        headers: {
+          'x-rapidapi-host': 'free-cricbuzz-cricket-api.p.rapidapi.com',
+          'x-rapidapi-key': RAPIDAPI_KEY,
+          'Accept': 'application/json'
+        },
+        timeout: 15000
+      });
+
+      const schedules = response.data?.response?.schedules || [];
+      const events: SportEvent[] = [];
+      const now = Date.now();
+      const seenMatchIds = new Set<number>();
+
+      for (const schedule of schedules) {
+        const wrapper = schedule.scheduleAdWrapper || schedule;
+        const matchList = wrapper.matchScheduleList || [];
+
+        for (const series of matchList) {
+          const seriesName = series.seriesName || 'Cricket Match';
+          const matches = series.matchInfo || [];
+
+          for (const match of matches) {
+            if (!match.matchId || !match.team1 || !match.team2) continue;
+            if (seenMatchIds.has(match.matchId)) continue;
+            seenMatchIds.add(match.matchId);
+
+            let startMs = parseInt(match.startDate, 10);
+            if (isNaN(startMs)) continue;
+            if (startMs < 1e12) startMs *= 1000;
+            if (startMs < now) continue;
+
+            const homeTeam = match.team1.teamName || match.team1.teamSName || 'Team 1';
+            const awayTeam = match.team2.teamName || match.team2.teamSName || 'Team 2';
+            const format = match.matchFormat || 'T20';
+            const venue = match.venueInfo ? `${match.venueInfo.ground || ''}, ${match.venueInfo.city || ''}` : '';
+
+            const homeOdds = parseFloat((1.7 + Math.random() * 0.6).toFixed(2));
+            const awayOdds = parseFloat((1.7 + Math.random() * 0.6).toFixed(2));
+            const drawOdds = format === 'TEST' ? parseFloat((3.0 + Math.random() * 1.0).toFixed(2)) : undefined;
+
+            const outcomes: OutcomeData[] = [
+              { id: 'home', name: homeTeam, odds: homeOdds, probability: 1 / homeOdds },
+              { id: 'away', name: awayTeam, odds: awayOdds, probability: 1 / awayOdds }
+            ];
+
+            if (drawOdds) {
+              outcomes.push({ id: 'draw', name: 'Draw', odds: drawOdds, probability: 1 / drawOdds });
+            }
+
+            const markets: MarketData[] = [
+              { id: 'winner', name: 'Match Winner', outcomes }
+            ];
+
+            events.push({
+              id: `cricket_${match.matchId}`,
+              sportId: CRICKET_SPORT_ID,
+              leagueName: `${seriesName} (${format})`,
+              homeTeam,
+              awayTeam,
+              startTime: new Date(startMs).toISOString(),
+              status: 'scheduled',
+              isLive: false,
+              markets,
+              homeOdds,
+              awayOdds,
+              drawOdds,
+              venue,
+              format,
+            } as SportEvent);
+          }
+        }
+      }
+
+      console.log(`[FreeSports] 🏏 Cricket: ${events.length} upcoming matches fetched`);
+      return events;
+    } catch (error: any) {
+      console.error(`[FreeSports] 🏏 Cricket fetch error: ${error.message}`);
+      return [];
+    }
+  }
+
+  private async fetchCricketResults(): Promise<FreeSportsResult[]> {
+    if (!RAPIDAPI_KEY) return [];
+
+    try {
+      console.log('[FreeSports] 🏏 Fetching cricket match results...');
+      const response = await axios.get(`${CRICBUZZ_BASE_URL}/cricket-schedule`, {
+        headers: {
+          'x-rapidapi-host': 'free-cricbuzz-cricket-api.p.rapidapi.com',
+          'x-rapidapi-key': RAPIDAPI_KEY,
+          'Accept': 'application/json'
+        },
+        timeout: 15000
+      });
+
+      const schedules = response.data?.response?.schedules || [];
+      const results: FreeSportsResult[] = [];
+      const now = Date.now();
+      const twoDaysAgo = now - (2 * 24 * 60 * 60 * 1000);
+      let apiCallCount = 0;
+      const MAX_RESULT_API_CALLS = 5;
+
+      for (const schedule of schedules) {
+        if (apiCallCount >= MAX_RESULT_API_CALLS) break;
+        const wrapper = schedule.scheduleAdWrapper || schedule;
+        const matchList = wrapper.matchScheduleList || [];
+
+        for (const series of matchList) {
+          if (apiCallCount >= MAX_RESULT_API_CALLS) break;
+          const matches = series.matchInfo || [];
+          for (const match of matches) {
+            if (apiCallCount >= MAX_RESULT_API_CALLS) break;
+            if (!match.matchId || !match.team1 || !match.team2) continue;
+
+            let endMs = parseInt(match.endDate, 10);
+            if (isNaN(endMs)) continue;
+            if (endMs < 1e12) endMs *= 1000;
+            if (endMs > now || endMs < twoDaysAgo) continue;
+
+            apiCallCount++;
+            const matchInfoResp = await axios.get(`${CRICBUZZ_BASE_URL}/cricket-match-info`, {
+              params: { matchid: match.matchId },
+              headers: {
+                'x-rapidapi-host': 'free-cricbuzz-cricket-api.p.rapidapi.com',
+                'x-rapidapi-key': RAPIDAPI_KEY,
+              },
+              timeout: 10000
+            }).catch(() => null);
+
+            const matchInfo = matchInfoResp?.data?.response?.matchInfo;
+            if (matchInfo && matchInfo.status) {
+              const statusLower = (matchInfo.status || '').toLowerCase();
+              const isFinished = statusLower.includes('won') || statusLower.includes('drawn') || statusLower.includes('tied') || statusLower.includes('no result') || statusLower.includes('abandoned');
+
+              if (isFinished) {
+                const homeTeam = match.team1.teamName || 'Team 1';
+                const awayTeam = match.team2.teamName || 'Team 2';
+                const homeSName = (match.team1.teamSName || '').toLowerCase();
+                const awaySName = (match.team2.teamSName || '').toLowerCase();
+                let winner: 'home' | 'away' | 'draw' = 'draw';
+
+                if (statusLower.includes('no result') || statusLower.includes('abandoned')) {
+                  winner = 'draw';
+                } else if (statusLower.includes('drawn') || statusLower.includes('tied')) {
+                  winner = 'draw';
+                } else if (statusLower.includes(homeTeam.toLowerCase()) || statusLower.includes(homeSName)) {
+                  winner = 'home';
+                } else if (statusLower.includes(awayTeam.toLowerCase()) || statusLower.includes(awaySName)) {
+                  winner = 'away';
+                }
+
+                results.push({
+                  eventId: `cricket_${match.matchId}`,
+                  homeTeam,
+                  awayTeam,
+                  homeScore: 0,
+                  awayScore: 0,
+                  winner,
+                  status: 'finished'
+                });
+              }
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        }
+      }
+
+      console.log(`[FreeSports] 🏏 Cricket: ${results.length} finished matches for settlement (${apiCallCount} API calls used)`);
+      return results;
+    } catch (error: any) {
+      console.error(`[FreeSports] 🏏 Cricket results fetch error: ${error.message}`);
+      return [];
+    }
+  }
+
   /**
    * Get cached upcoming events for a specific sport
    */
   getUpcomingEvents(sportSlug?: string): SportEvent[] {
     if (sportSlug) {
+      if (sportSlug === 'cricket') {
+        return cachedFreeSportsEvents.filter(e => e.sportId === CRICKET_SPORT_ID);
+      }
       const config = FREE_SPORTS_CONFIG[sportSlug];
       if (config) {
         return cachedFreeSportsEvents.filter(e => e.sportId === config.sportId);
@@ -594,6 +801,7 @@ export class FreeSportsService {
   getSupportedSports(): string[] {
     const sports = Object.keys(FREE_SPORTS_CONFIG);
     if (!sports.includes('boxing')) sports.push('boxing');
+    if (!sports.includes('cricket')) sports.push('cricket');
     return sports;
   }
 
@@ -606,7 +814,8 @@ export class FreeSportsService {
            sportSlug === 'nfl' || 
            sportSlug === 'mlb' ||
            sportSlug === 'boxing' ||
-           sportSlug === 'tennis';
+           sportSlug === 'tennis' ||
+           sportSlug === 'cricket';
   }
 
   /**

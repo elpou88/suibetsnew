@@ -1961,7 +1961,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         if (cleaned && cleaned !== rawEventId) idsToTry.push(cleaned);
       }
       if (/^\d+$/.test(rawEventId)) {
-        const sportPrefixes = ['basketball', 'ice-hockey', 'baseball', 'handball', 'rugby', 'volleyball', 'mma', 'american-football', 'afl', 'formula-1', 'boxing', 'esports'];
+        const sportPrefixes = ['basketball', 'ice-hockey', 'baseball', 'handball', 'rugby', 'volleyball', 'mma', 'american-football', 'afl', 'formula-1', 'boxing', 'esports', 'cricket'];
         for (const prefix of sportPrefixes) {
           idsToTry.push(`${prefix}_${rawEventId}`);
         }
@@ -2041,7 +2041,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       }
       
       // FAST PATH: Free sports (non-football, non-esports) - return from daily cache
-      const FREE_SPORT_IDS = [2, 3, 4, 5, 6, 7, 10, 11, 12, 14, 15, 16, 17];
+      const FREE_SPORT_IDS = [2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 14, 15, 16, 17];
       if (reqSportId && FREE_SPORT_IDS.includes(reqSportId)) {
         const freeSportsEvents = freeSportsService.getUpcomingEvents();
         const now = Date.now();
@@ -2431,6 +2431,15 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
       });
     } catch (error) {
       res.status(500).json({ success: false, message: "Failed to get free sports events" });
+    }
+  });
+
+  app.get("/api/events/cricket", async (req: Request, res: Response) => {
+    try {
+      const events = freeSportsService.getUpcomingEvents('cricket');
+      res.json(events);
+    } catch (error) {
+      res.status(500).json([]);
     }
   });
 

@@ -55,6 +55,7 @@ const SPORTS_LIST = [
   { id: 4, name: "American Football", icon: "🏈" },
   { id: 10, name: "AFL", icon: "🏉" },
   { id: 11, name: "Formula 1", icon: "🏎️" },
+  { id: 9, name: "Cricket", icon: "🏏" },
   { id: 3, name: "Tennis", icon: "🎾" },
 ];
 
