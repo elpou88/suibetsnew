@@ -17,7 +17,7 @@ import Footer from "@/components/layout/Footer";
 import { useLiveEvents, useUpcomingEvents } from "@/hooks/useEvents";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import suibetsHeroImage from "@assets/image_1772732740806.png";
+import suibetsHeroImage from "@assets/image_1772732892909.png";
 
 // Favorites management using localStorage
 const FAVORITES_KEY = 'suibets_favorites';
@@ -427,34 +427,13 @@ export default function CleanHome() {
 
       {/* Hero Banner */}
       <div className="relative w-full overflow-hidden" data-testid="hero-banner">
-        <div className="w-full h-64 md:h-80 lg:h-96 relative">
+        <div className="w-full relative">
           <img
             src={suibetsHeroImage}
             alt="SuiBets - Sports Betting on Sui Blockchain"
-            className="w-full h-full object-cover object-center"
+            className="w-full h-auto block"
           />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#0a0e1a]"></div>
-          <div className="absolute inset-0 flex flex-col items-center justify-end text-center px-4 pb-8">
-            <p className="text-gray-300 text-lg md:text-xl max-w-2xl mb-6">
-              The Future of Sports Betting on Sui Blockchain
-            </p>
-            <div className="flex gap-4">
-              <button 
-                onClick={() => handleTabClick("live")}
-                className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold px-6 py-3 rounded-lg transition-all"
-                data-testid="hero-btn-live"
-              >
-                🔴 Live Matches
-              </button>
-              <button 
-                onClick={() => handleTabClick("upcoming")}
-                className="border border-cyan-500 text-cyan-400 hover:bg-cyan-500/10 font-bold px-6 py-3 rounded-lg transition-all"
-                data-testid="hero-btn-upcoming"
-              >
-                📅 Upcoming
-              </button>
-            </div>
-          </div>
         </div>
       </div>
 
