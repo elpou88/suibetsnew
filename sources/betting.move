@@ -994,6 +994,25 @@ module suibets::betting {
         bet.market_id
     }
 
+    // ============ ADMIN LIABILITY RESET ============
+    // Resets phantom liability counters that accumulate from settled/voided bets
+    // Only callable by admin - sets liability to the actual value of active pending bets
+    public entry fun admin_reset_liability_sbets(
+        _admin_cap: &AdminCap,
+        platform: &mut BettingPlatform,
+        new_liability: u64,
+    ) {
+        platform.total_potential_liability_sbets = new_liability;
+    }
+
+    public entry fun admin_reset_liability_sui(
+        _admin_cap: &AdminCap,
+        platform: &mut BettingPlatform,
+        new_liability: u64,
+    ) {
+        platform.total_potential_liability_sui = new_liability;
+    }
+
     // ============ RECEIVE STUCK COINS ============
     // Receives SBETS coin objects that were sent to the platform shared object
     // and transfers them to the admin caller

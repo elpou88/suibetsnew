@@ -1488,6 +1488,54 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
 
+  app.post("/api/admin/reset-onchain-liability", async (req: Request, res: Response) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace('Bearer ', '');
+      const adminPassword = req.headers['x-admin-password'] as string || req.body?.adminPassword;
+      
+      const hasValidToken = token && isValidAdminSession(token);
+      const envPassword = process.env.ADMIN_PASSWORD;
+      const hasValidPassword = envPassword && adminPassword === envPassword;
+      
+      if (!hasValidToken && !hasValidPassword) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      const allBets = await storage.getAllBets();
+      const activeBets = allBets.filter((b: any) => 
+        b.status === 'pending' || b.status === 'confirmed' || b.status === 'in_play' || b.status === 'open'
+      );
+      const realLiabilitySui = activeBets
+        .filter((b: any) => b.currency === 'SUI')
+        .reduce((sum: number, b: any) => sum + (b.potentialPayout || b.potentialWin || 0), 0);
+      const realLiabilitySbets = activeBets
+        .filter((b: any) => b.currency === 'SBETS')
+        .reduce((sum: number, b: any) => sum + (b.potentialPayout || b.potentialWin || 0), 0);
+
+      const currency = req.body?.currency || 'SBETS';
+      const newLiability = currency === 'SBETS' ? realLiabilitySbets : realLiabilitySui;
+
+      console.log(`🔧 Admin resetting on-chain ${currency} liability to ${newLiability.toFixed(4)} (from DB active bets)`);
+
+      const result = await blockchainBetService.resetOnChainLiability(currency as 'SUI' | 'SBETS', newLiability);
+
+      res.json({
+        success: result.success,
+        message: result.success 
+          ? `Reset ${currency} liability to ${newLiability.toFixed(4)} (matching ${activeBets.filter((b: any) => b.currency === currency).length} active bets)`
+          : result.error,
+        txHash: result.txHash,
+        newLiability,
+        activeBetCount: activeBets.filter((b: any) => b.currency === currency).length,
+        timestamp: Date.now()
+      });
+    } catch (error: any) {
+      console.error('Liability reset failed:', error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
   // Get on-chain bet details including prediction (admin only)
   app.get("/api/admin/onchain-bet/:betObjectId", async (req: Request, res: Response) => {
     try {

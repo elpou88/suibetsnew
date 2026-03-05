@@ -1754,6 +1754,119 @@ export class BlockchainBetService {
       return { voided, errors, skipped, liabilityFreed };
     }
   }
+  async depositLiquiditySbets(amount: number): Promise<{ success: boolean; txHash?: string; error?: string; deposited?: number }> {
+    const keypair = this.getAdminKeypair();
+    if (!keypair) {
+      return { success: false, error: 'Admin private key not configured' };
+    }
+
+    try {
+      const adminCapId = await this.findAdminCap(keypair.toSuiAddress());
+      if (!adminCapId) {
+        return { success: false, error: 'AdminCap not found for admin wallet' };
+      }
+
+      const amountInSmallest = BigInt(Math.floor(amount * 1_000_000_000));
+      const SBETS_TYPE = '0x6a4d9c0eab7ac40371a7453d1aa6c89b130950e8af6868ba975fdd81371a7285::sbets::SBETS';
+
+      const coins = await this.suiClient.getCoins({
+        owner: keypair.toSuiAddress(),
+        coinType: SBETS_TYPE,
+      });
+
+      if (!coins.data || coins.data.length === 0) {
+        return { success: false, error: 'No SBETS coins found in admin wallet. Send SBETS to admin wallet first.' };
+      }
+
+      const totalBalance = coins.data.reduce((sum, c) => sum + BigInt(c.balance), BigInt(0));
+      if (totalBalance < amountInSmallest) {
+        return { success: false, error: `Insufficient SBETS in admin wallet: ${Number(totalBalance) / 1e9} < ${amount}. Send more SBETS to admin wallet.` };
+      }
+
+      const tx = new Transaction();
+      const coinIds = coins.data.map(c => c.coinObjectId);
+      
+      let paymentCoin;
+      if (coinIds.length > 1) {
+        tx.mergeCoins(tx.object(coinIds[0]), coinIds.slice(1).map(id => tx.object(id)));
+      }
+      [paymentCoin] = tx.splitCoins(tx.object(coinIds[0]), [amountInSmallest]);
+
+      tx.moveCall({
+        target: `${BETTING_PACKAGE_ID}::betting::deposit_liquidity_sbets`,
+        arguments: [
+          tx.object(adminCapId),
+          tx.object(BETTING_PLATFORM_ID),
+          paymentCoin,
+          tx.object('0x6'),
+        ],
+      });
+
+      const result = await this.suiClient.signAndExecuteTransaction({
+        transaction: tx,
+        signer: keypair,
+        options: { showEffects: true },
+      });
+
+      const status = result.effects?.status?.status;
+      if (status === 'success') {
+        console.log(`✅ Deposited ${amount} SBETS to treasury | TX: ${result.digest}`);
+        return { success: true, txHash: result.digest, deposited: amount };
+      } else {
+        const error = result.effects?.status?.error || 'Transaction failed';
+        return { success: false, error };
+      }
+    } catch (error: any) {
+      console.error('❌ SBETS deposit error:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async resetOnChainLiability(currency: 'SUI' | 'SBETS', newLiability: number): Promise<{ success: boolean; txHash?: string; error?: string }> {
+    const keypair = this.getAdminKeypair();
+    if (!keypair) {
+      return { success: false, error: 'Admin private key not configured' };
+    }
+
+    try {
+      const adminCapId = await this.findAdminCap(keypair.toSuiAddress());
+      if (!adminCapId) {
+        return { success: false, error: 'AdminCap not found for admin wallet' };
+      }
+
+      const functionName = currency === 'SBETS' ? 'admin_reset_liability_sbets' : 'admin_reset_liability_sui';
+      const liabilityValue = BigInt(Math.floor(newLiability * 1_000_000_000));
+
+      const tx = new Transaction();
+      tx.moveCall({
+        target: `${BETTING_PACKAGE_ID}::betting::${functionName}`,
+        arguments: [
+          tx.object(adminCapId),
+          tx.object(BETTING_PLATFORM_ID),
+          tx.pure.u64(liabilityValue),
+        ],
+      });
+
+      const result = await this.suiClient.signAndExecuteTransaction({
+        transaction: tx,
+        signer: keypair,
+        options: { showEffects: true },
+      });
+
+      const status = result.effects?.status?.status;
+      if (status === 'success') {
+        console.log(`✅ On-chain ${currency} liability reset to ${newLiability} | TX: ${result.digest}`);
+        return { success: true, txHash: result.digest };
+      } else {
+        const error = result.effects?.status?.error || 'Transaction failed';
+        console.error(`❌ Liability reset failed: ${error}`);
+        return { success: false, error };
+      }
+    } catch (error: any) {
+      console.error(`❌ Liability reset error:`, error);
+      return { success: false, error: error.message };
+    }
+  }
 }
 
 export const blockchainBetService = new BlockchainBetService();

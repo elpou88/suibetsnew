@@ -110,6 +110,8 @@ export default function AdminPanel() {
   const [triggeringTreasuryWithdraw, setTriggeringTreasuryWithdraw] = useState(false);
   const [voidingPhantom, setVoidingPhantom] = useState(false);
   const [voidResult, setVoidResult] = useState<any>(null);
+  const [resettingLiability, setResettingLiability] = useState(false);
+  const [resetLiabilityResult, setResetLiabilityResult] = useState<any>(null);
   const [payingUnpaidWinners, setPayingUnpaidWinners] = useState(false);
   const [allStakes, setAllStakes] = useState<any[]>([]);
   const [loadingStakes, setLoadingStakes] = useState(false);
@@ -741,6 +743,38 @@ export default function AdminPanel() {
     setVoidingPhantom(false);
   };
 
+  const resetOnChainLiability = async (currency: 'SUI' | 'SBETS') => {
+    setResettingLiability(true);
+    setResetLiabilityResult(null);
+    try {
+      const response = await fetch('/api/admin/reset-onchain-liability', {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${getToken()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ currency })
+      });
+      const data = await response.json();
+      setResetLiabilityResult(data);
+      toast({
+        title: data.success ? 'Liability Reset Complete' : 'Reset Failed',
+        description: data.message || data.error,
+        variant: data.success ? 'default' : 'destructive',
+      });
+      if (data.success) {
+        fetchPlatformInfo();
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to reset liability',
+        variant: 'destructive',
+      });
+    }
+    setResettingLiability(false);
+  };
+
   const settleBet = async (betId: string, outcome: 'won' | 'lost' | 'void') => {
     setSettling(betId);
     try {
@@ -980,8 +1014,8 @@ export default function AdminPanel() {
                           Available: {(platformInfo.treasurySui - platformInfo.realLiabilitySui).toFixed(4)} SUI
                         </p>
                         {platformInfo.totalPotentialLiabilitySui > platformInfo.realLiabilitySui + 0.01 && (
-                          <p className="text-xs text-orange-400/60 mt-1">
-                            Phantom On-Chain: {platformInfo.totalPotentialLiabilitySui.toFixed(4)} SUI
+                          <p className="text-xs text-gray-600 mt-1" title="Legacy on-chain counter (cosmetic only, does NOT affect betting or available balance)">
+                            On-Chain Counter: {platformInfo.totalPotentialLiabilitySui.toFixed(4)} SUI (ignored)
                           </p>
                         )}
                       </>
@@ -1012,8 +1046,8 @@ export default function AdminPanel() {
                           Available: {(platformInfo.treasurySbets - platformInfo.realLiabilitySbets).toFixed(4)} SBETS
                         </p>
                         {platformInfo.totalPotentialLiabilitySbets > platformInfo.realLiabilitySbets + 0.01 && (
-                          <p className="text-xs text-orange-400/60 mt-1">
-                            Phantom On-Chain: {platformInfo.totalPotentialLiabilitySbets.toFixed(4)} SBETS
+                          <p className="text-xs text-gray-600 mt-1" title="Legacy on-chain counter (cosmetic only, does NOT affect betting or available balance)">
+                            On-Chain Counter: {platformInfo.totalPotentialLiabilitySbets.toFixed(4)} SBETS (ignored)
                           </p>
                         )}
                       </>
