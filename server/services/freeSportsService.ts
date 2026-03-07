@@ -976,6 +976,62 @@ export class FreeSportsService {
         title: 'WBO/WBA Light Flyweight Titles', venue: 'Korakuen Hall, Tokyo',
         date: '2026-04-03T11:00:00Z', league: 'World Championship Boxing'
       },
+      {
+        id: 'ramirez-benavidez', fighter1: 'Gilberto Ramirez', fighter2: 'David Benavidez',
+        record1: '46-1 (30 KOs)', record2: '29-0 (24 KOs)',
+        odds1: 2.80, odds2: 1.42,
+        title: 'WBO & WBA Cruiserweight Titles', venue: 'T-Mobile Arena, Las Vegas',
+        date: '2026-05-02T21:00:00Z', league: 'DAZN Boxing'
+      },
+      {
+        id: 'wardley-dubois', fighter1: 'Fabio Wardley', fighter2: 'Daniel Dubois',
+        record1: '18-0 (17 KOs)', record2: '22-2 (21 KOs)',
+        odds1: 2.10, odds2: 1.72,
+        title: 'WBO Heavyweight Title', venue: 'Co-op Live Arena, Manchester',
+        date: '2026-05-09T20:00:00Z', league: 'DAZN PPV'
+      },
+      {
+        id: 'usyk-verhoeven', fighter1: 'Oleksandr Usyk', fighter2: 'Rico Verhoeven',
+        record1: '22-0 (14 KOs)', record2: '1-0 (Boxing)',
+        odds1: 1.18, odds2: 4.50,
+        title: 'WBC Heavyweight Title', venue: 'Pyramids of Giza, Egypt',
+        date: '2026-05-23T20:00:00Z', league: 'DAZN Boxing'
+      },
+      {
+        id: 'smith-puello', fighter1: 'Dalton Smith', fighter2: 'Alberto Puello',
+        record1: '18-0 (13 KOs)', record2: '24-1 (12 KOs)',
+        odds1: 1.45, odds2: 2.70,
+        title: 'WBC Super Lightweight Title', venue: 'Sheffield Arena, UK',
+        date: '2026-06-06T20:00:00Z', league: 'DAZN Boxing'
+      },
+      {
+        id: 'crawford-spence', fighter1: 'Terence Crawford', fighter2: 'Errol Spence Jr.',
+        record1: '41-0 (31 KOs)', record2: '28-1 (22 KOs)',
+        odds1: 1.40, odds2: 2.85,
+        title: 'WBA Super Middleweight Title', venue: 'T-Mobile Arena, Las Vegas',
+        date: '2026-07-11T21:00:00Z', league: 'PBC PPV on Prime Video'
+      },
+      {
+        id: 'inoue-nery2', fighter1: 'Naoya Inoue', fighter2: 'Luis Nery',
+        record1: '29-0 (25 KOs)', record2: '35-2 (27 KOs)',
+        odds1: 1.15, odds2: 5.00,
+        title: 'Undisputed Super Bantamweight', venue: 'Tokyo Dome, Japan',
+        date: '2026-07-25T10:00:00Z', league: 'Top Rank Boxing'
+      },
+      {
+        id: 'bivol-beterbiev2', fighter1: 'Dmitry Bivol', fighter2: 'Artur Beterbiev',
+        record1: '24-1 (12 KOs)', record2: '21-0 (20 KOs)',
+        odds1: 2.20, odds2: 1.65,
+        title: 'Undisputed Light Heavyweight Rematch', venue: 'Kingdom Arena, Riyadh',
+        date: '2026-08-15T20:00:00Z', league: 'Riyadh Season Boxing'
+      },
+      {
+        id: 'mayweather-pacquiao2', fighter1: 'Floyd Mayweather', fighter2: 'Manny Pacquiao',
+        record1: '50-0 (27 KOs)', record2: '62-8-2 (39 KOs)',
+        odds1: 1.55, odds2: 2.40,
+        title: 'Exhibition Bout', venue: 'The Sphere, Las Vegas',
+        date: '2026-09-19T21:00:00Z', league: 'Netflix Boxing PPV'
+      },
     ];
 
     const now = new Date();
@@ -1019,102 +1075,36 @@ export class FreeSportsService {
       odds1: number; odds2: number; tournament: string; round: string;
       date: string; surface: string; location: string;
     }[] = [
-      {
-        id: 'iw-alcaraz-sinner', player1: 'Carlos Alcaraz', player2: 'Jannik Sinner',
-        ranking1: 1, ranking2: 2, odds1: 1.83, odds2: 1.95,
-        tournament: 'BNP Paribas Open', round: 'Final',
-        date: '2026-03-15T21:00:00Z', surface: 'Hard', location: 'Indian Wells, USA'
-      },
-      {
-        id: 'iw-djokovic-fritz', player1: 'Novak Djokovic', player2: 'Taylor Fritz',
-        ranking1: 5, ranking2: 4, odds1: 1.55, odds2: 2.40,
-        tournament: 'BNP Paribas Open', round: 'Semi-Final',
-        date: '2026-03-14T20:00:00Z', surface: 'Hard', location: 'Indian Wells, USA'
-      },
-      {
-        id: 'iw-zverev-draper', player1: 'Alexander Zverev', player2: 'Jack Draper',
-        ranking1: 3, ranking2: 8, odds1: 1.65, odds2: 2.20,
-        tournament: 'BNP Paribas Open', round: 'Semi-Final',
-        date: '2026-03-14T18:00:00Z', surface: 'Hard', location: 'Indian Wells, USA'
-      },
-      {
-        id: 'iw-medvedev-shelton', player1: 'Daniil Medvedev', player2: 'Ben Shelton',
-        ranking1: 6, ranking2: 10, odds1: 1.72, odds2: 2.10,
-        tournament: 'BNP Paribas Open', round: 'Quarter-Final',
-        date: '2026-03-13T19:00:00Z', surface: 'Hard', location: 'Indian Wells, USA'
-      },
-      {
-        id: 'iw-rublev-musetti', player1: 'Andrey Rublev', player2: 'Lorenzo Musetti',
-        ranking1: 9, ranking2: 15, odds1: 1.60, odds2: 2.30,
-        tournament: 'BNP Paribas Open', round: 'Quarter-Final',
-        date: '2026-03-13T17:00:00Z', surface: 'Hard', location: 'Indian Wells, USA'
-      },
-      {
-        id: 'miami-alcaraz-djokovic', player1: 'Carlos Alcaraz', player2: 'Novak Djokovic',
-        ranking1: 1, ranking2: 5, odds1: 1.50, odds2: 2.55,
-        tournament: 'Miami Open', round: 'Final',
-        date: '2026-03-29T20:00:00Z', surface: 'Hard', location: 'Miami, USA'
-      },
-      {
-        id: 'miami-sinner-zverev', player1: 'Jannik Sinner', player2: 'Alexander Zverev',
-        ranking1: 2, ranking2: 3, odds1: 1.65, odds2: 2.20,
-        tournament: 'Miami Open', round: 'Semi-Final',
-        date: '2026-03-28T19:00:00Z', surface: 'Hard', location: 'Miami, USA'
-      },
-      {
-        id: 'miami-fritz-draper', player1: 'Taylor Fritz', player2: 'Jack Draper',
-        ranking1: 4, ranking2: 8, odds1: 1.80, odds2: 2.00,
-        tournament: 'Miami Open', round: 'Semi-Final',
-        date: '2026-03-28T17:00:00Z', surface: 'Hard', location: 'Miami, USA'
-      },
-      {
-        id: 'mc-alcaraz-sinner', player1: 'Carlos Alcaraz', player2: 'Jannik Sinner',
-        ranking1: 1, ranking2: 2, odds1: 1.60, odds2: 2.25,
-        tournament: 'Monte-Carlo Masters', round: 'Final',
-        date: '2026-04-19T14:00:00Z', surface: 'Clay', location: 'Monte-Carlo, Monaco'
-      },
-      {
-        id: 'mc-djokovic-rublev', player1: 'Novak Djokovic', player2: 'Andrey Rublev',
-        ranking1: 5, ranking2: 9, odds1: 1.45, odds2: 2.70,
-        tournament: 'Monte-Carlo Masters', round: 'Semi-Final',
-        date: '2026-04-18T14:00:00Z', surface: 'Clay', location: 'Monte-Carlo, Monaco'
-      },
-      {
-        id: 'mc-zverev-musetti', player1: 'Alexander Zverev', player2: 'Lorenzo Musetti',
-        ranking1: 3, ranking2: 15, odds1: 1.40, odds2: 2.85,
-        tournament: 'Monte-Carlo Masters', round: 'Quarter-Final',
-        date: '2026-04-17T12:00:00Z', surface: 'Clay', location: 'Monte-Carlo, Monaco'
-      },
-      {
-        id: 'rg-alcaraz-sinner', player1: 'Carlos Alcaraz', player2: 'Jannik Sinner',
-        ranking1: 1, ranking2: 2, odds1: 1.55, odds2: 2.40,
-        tournament: 'French Open', round: 'Final',
-        date: '2026-06-07T14:00:00Z', surface: 'Clay', location: 'Paris, France'
-      },
-      {
-        id: 'rg-djokovic-zverev', player1: 'Novak Djokovic', player2: 'Alexander Zverev',
-        ranking1: 5, ranking2: 3, odds1: 1.70, odds2: 2.10,
-        tournament: 'French Open', round: 'Semi-Final',
-        date: '2026-06-06T14:00:00Z', surface: 'Clay', location: 'Paris, France'
-      },
-      {
-        id: 'wim-alcaraz-sinner', player1: 'Carlos Alcaraz', player2: 'Jannik Sinner',
-        ranking1: 1, ranking2: 2, odds1: 1.75, odds2: 2.05,
-        tournament: 'Wimbledon', round: 'Final',
-        date: '2026-07-12T14:00:00Z', surface: 'Grass', location: 'London, UK'
-      },
-      {
-        id: 'wim-djokovic-fritz', player1: 'Novak Djokovic', player2: 'Taylor Fritz',
-        ranking1: 5, ranking2: 4, odds1: 1.60, odds2: 2.30,
-        tournament: 'Wimbledon', round: 'Semi-Final',
-        date: '2026-07-11T14:00:00Z', surface: 'Grass', location: 'London, UK'
-      },
-      {
-        id: 'uso-sinner-alcaraz', player1: 'Jannik Sinner', player2: 'Carlos Alcaraz',
-        ranking1: 2, ranking2: 1, odds1: 1.85, odds2: 1.95,
-        tournament: 'US Open', round: 'Final',
-        date: '2026-09-13T20:00:00Z', surface: 'Hard', location: 'New York, USA'
-      },
+      { id: 'iw-alcaraz-sinner', player1: 'Carlos Alcaraz', player2: 'Jannik Sinner', ranking1: 1, ranking2: 2, odds1: 1.83, odds2: 1.95, tournament: 'BNP Paribas Open', round: 'Final', date: '2026-03-15T21:00:00Z', surface: 'Hard', location: 'Indian Wells, USA' },
+      { id: 'iw-djokovic-fritz', player1: 'Novak Djokovic', player2: 'Taylor Fritz', ranking1: 5, ranking2: 4, odds1: 1.55, odds2: 2.40, tournament: 'BNP Paribas Open', round: 'Semi-Final', date: '2026-03-14T20:00:00Z', surface: 'Hard', location: 'Indian Wells, USA' },
+      { id: 'iw-zverev-draper', player1: 'Alexander Zverev', player2: 'Jack Draper', ranking1: 3, ranking2: 8, odds1: 1.65, odds2: 2.20, tournament: 'BNP Paribas Open', round: 'Semi-Final', date: '2026-03-14T18:00:00Z', surface: 'Hard', location: 'Indian Wells, USA' },
+      { id: 'iw-medvedev-shelton', player1: 'Daniil Medvedev', player2: 'Ben Shelton', ranking1: 6, ranking2: 10, odds1: 1.72, odds2: 2.10, tournament: 'BNP Paribas Open', round: 'Quarter-Final', date: '2026-03-13T19:00:00Z', surface: 'Hard', location: 'Indian Wells, USA' },
+      { id: 'iw-rublev-musetti', player1: 'Andrey Rublev', player2: 'Lorenzo Musetti', ranking1: 9, ranking2: 15, odds1: 1.60, odds2: 2.30, tournament: 'BNP Paribas Open', round: 'Quarter-Final', date: '2026-03-13T17:00:00Z', surface: 'Hard', location: 'Indian Wells, USA' },
+      { id: 'miami-alcaraz-djokovic', player1: 'Carlos Alcaraz', player2: 'Novak Djokovic', ranking1: 1, ranking2: 5, odds1: 1.50, odds2: 2.55, tournament: 'Miami Open', round: 'Final', date: '2026-03-29T20:00:00Z', surface: 'Hard', location: 'Miami, USA' },
+      { id: 'miami-sinner-zverev', player1: 'Jannik Sinner', player2: 'Alexander Zverev', ranking1: 2, ranking2: 3, odds1: 1.65, odds2: 2.20, tournament: 'Miami Open', round: 'Semi-Final', date: '2026-03-28T19:00:00Z', surface: 'Hard', location: 'Miami, USA' },
+      { id: 'miami-fritz-draper', player1: 'Taylor Fritz', player2: 'Jack Draper', ranking1: 4, ranking2: 8, odds1: 1.80, odds2: 2.00, tournament: 'Miami Open', round: 'Semi-Final', date: '2026-03-28T17:00:00Z', surface: 'Hard', location: 'Miami, USA' },
+      { id: 'mc-alcaraz-sinner', player1: 'Carlos Alcaraz', player2: 'Jannik Sinner', ranking1: 1, ranking2: 2, odds1: 1.60, odds2: 2.25, tournament: 'Monte-Carlo Masters', round: 'Final', date: '2026-04-19T14:00:00Z', surface: 'Clay', location: 'Monte-Carlo, Monaco' },
+      { id: 'mc-djokovic-rublev', player1: 'Novak Djokovic', player2: 'Andrey Rublev', ranking1: 5, ranking2: 9, odds1: 1.45, odds2: 2.70, tournament: 'Monte-Carlo Masters', round: 'Semi-Final', date: '2026-04-18T14:00:00Z', surface: 'Clay', location: 'Monte-Carlo, Monaco' },
+      { id: 'mc-zverev-musetti', player1: 'Alexander Zverev', player2: 'Lorenzo Musetti', ranking1: 3, ranking2: 15, odds1: 1.40, odds2: 2.85, tournament: 'Monte-Carlo Masters', round: 'Quarter-Final', date: '2026-04-17T12:00:00Z', surface: 'Clay', location: 'Monte-Carlo, Monaco' },
+      { id: 'rome-sinner-alcaraz', player1: 'Jannik Sinner', player2: 'Carlos Alcaraz', ranking1: 2, ranking2: 1, odds1: 1.90, odds2: 1.90, tournament: 'Italian Open', round: 'Final', date: '2026-05-17T14:00:00Z', surface: 'Clay', location: 'Rome, Italy' },
+      { id: 'rome-djokovic-zverev', player1: 'Novak Djokovic', player2: 'Alexander Zverev', ranking1: 5, ranking2: 3, odds1: 1.75, odds2: 2.05, tournament: 'Italian Open', round: 'Semi-Final', date: '2026-05-16T14:00:00Z', surface: 'Clay', location: 'Rome, Italy' },
+      { id: 'rome-fritz-rublev', player1: 'Taylor Fritz', player2: 'Andrey Rublev', ranking1: 4, ranking2: 9, odds1: 1.85, odds2: 1.95, tournament: 'Italian Open', round: 'Semi-Final', date: '2026-05-16T11:00:00Z', surface: 'Clay', location: 'Rome, Italy' },
+      { id: 'rg-alcaraz-sinner', player1: 'Carlos Alcaraz', player2: 'Jannik Sinner', ranking1: 1, ranking2: 2, odds1: 1.55, odds2: 2.40, tournament: 'French Open', round: 'Final', date: '2026-06-07T14:00:00Z', surface: 'Clay', location: 'Paris, France' },
+      { id: 'rg-djokovic-zverev', player1: 'Novak Djokovic', player2: 'Alexander Zverev', ranking1: 5, ranking2: 3, odds1: 1.70, odds2: 2.10, tournament: 'French Open', round: 'Semi-Final', date: '2026-06-06T14:00:00Z', surface: 'Clay', location: 'Paris, France' },
+      { id: 'rg-fritz-shelton', player1: 'Taylor Fritz', player2: 'Ben Shelton', ranking1: 4, ranking2: 10, odds1: 1.55, odds2: 2.40, tournament: 'French Open', round: 'Quarter-Final', date: '2026-06-04T14:00:00Z', surface: 'Clay', location: 'Paris, France' },
+      { id: 'rg-draper-rublev', player1: 'Jack Draper', player2: 'Andrey Rublev', ranking1: 8, ranking2: 9, odds1: 1.90, odds2: 1.90, tournament: 'French Open', round: 'Quarter-Final', date: '2026-06-04T11:00:00Z', surface: 'Clay', location: 'Paris, France' },
+      { id: 'halle-sinner-fritz', player1: 'Jannik Sinner', player2: 'Taylor Fritz', ranking1: 2, ranking2: 4, odds1: 1.45, odds2: 2.70, tournament: 'Terra Wortmann Open', round: 'Final', date: '2026-06-21T14:00:00Z', surface: 'Grass', location: 'Halle, Germany' },
+      { id: 'queens-alcaraz-draper', player1: 'Carlos Alcaraz', player2: 'Jack Draper', ranking1: 1, ranking2: 8, odds1: 1.40, odds2: 2.85, tournament: 'Queens Club Championships', round: 'Final', date: '2026-06-21T14:00:00Z', surface: 'Grass', location: 'London, UK' },
+      { id: 'wim-alcaraz-sinner', player1: 'Carlos Alcaraz', player2: 'Jannik Sinner', ranking1: 1, ranking2: 2, odds1: 1.75, odds2: 2.05, tournament: 'Wimbledon', round: 'Final', date: '2026-07-12T14:00:00Z', surface: 'Grass', location: 'London, UK' },
+      { id: 'wim-djokovic-fritz', player1: 'Novak Djokovic', player2: 'Taylor Fritz', ranking1: 5, ranking2: 4, odds1: 1.60, odds2: 2.30, tournament: 'Wimbledon', round: 'Semi-Final', date: '2026-07-11T14:00:00Z', surface: 'Grass', location: 'London, UK' },
+      { id: 'wim-zverev-shelton', player1: 'Alexander Zverev', player2: 'Ben Shelton', ranking1: 3, ranking2: 10, odds1: 1.55, odds2: 2.40, tournament: 'Wimbledon', round: 'Semi-Final', date: '2026-07-11T11:00:00Z', surface: 'Grass', location: 'London, UK' },
+      { id: 'wim-draper-medvedev', player1: 'Jack Draper', player2: 'Daniil Medvedev', ranking1: 8, ranking2: 6, odds1: 1.72, odds2: 2.10, tournament: 'Wimbledon', round: 'Quarter-Final', date: '2026-07-09T14:00:00Z', surface: 'Grass', location: 'London, UK' },
+      { id: 'cin-sinner-zverev', player1: 'Jannik Sinner', player2: 'Alexander Zverev', ranking1: 2, ranking2: 3, odds1: 1.55, odds2: 2.40, tournament: 'Cincinnati Masters', round: 'Final', date: '2026-08-23T19:00:00Z', surface: 'Hard', location: 'Cincinnati, USA' },
+      { id: 'cin-alcaraz-medvedev', player1: 'Carlos Alcaraz', player2: 'Daniil Medvedev', ranking1: 1, ranking2: 6, odds1: 1.45, odds2: 2.70, tournament: 'Cincinnati Masters', round: 'Semi-Final', date: '2026-08-22T19:00:00Z', surface: 'Hard', location: 'Cincinnati, USA' },
+      { id: 'uso-sinner-alcaraz', player1: 'Jannik Sinner', player2: 'Carlos Alcaraz', ranking1: 2, ranking2: 1, odds1: 1.85, odds2: 1.95, tournament: 'US Open', round: 'Final', date: '2026-09-13T20:00:00Z', surface: 'Hard', location: 'New York, USA' },
+      { id: 'uso-djokovic-fritz', player1: 'Novak Djokovic', player2: 'Taylor Fritz', ranking1: 5, ranking2: 4, odds1: 1.65, odds2: 2.20, tournament: 'US Open', round: 'Semi-Final', date: '2026-09-12T19:00:00Z', surface: 'Hard', location: 'New York, USA' },
+      { id: 'uso-zverev-draper', player1: 'Alexander Zverev', player2: 'Jack Draper', ranking1: 3, ranking2: 8, odds1: 1.60, odds2: 2.30, tournament: 'US Open', round: 'Semi-Final', date: '2026-09-12T16:00:00Z', surface: 'Hard', location: 'New York, USA' },
+      { id: 'uso-shelton-rublev', player1: 'Ben Shelton', player2: 'Andrey Rublev', ranking1: 10, ranking2: 9, odds1: 1.80, odds2: 2.00, tournament: 'US Open', round: 'Quarter-Final', date: '2026-09-10T19:00:00Z', surface: 'Hard', location: 'New York, USA' },
     ];
 
     const now = new Date();
