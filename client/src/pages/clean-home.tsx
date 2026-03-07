@@ -546,6 +546,24 @@ export default function CleanHome() {
           </button>
         </div>
 
+        {selectedSport === 18 && events.length > 0 && (
+          <div className="bg-[#0d1117] rounded-xl border border-cyan-900/20 px-4 py-3 mb-4" data-testid="horse-racing-explainer">
+            <div className="flex items-start gap-3">
+              <span className="text-lg mt-0.5">🏇</span>
+              <div className="text-xs text-gray-400 leading-relaxed">
+                <span className="text-white font-semibold">How to bet: </span>
+                <span className="text-cyan-400 font-semibold">Win</span> = horse finishes 1st
+                <span className="text-gray-600 mx-1.5">|</span>
+                <span className="text-emerald-400 font-semibold">Place</span> = horse finishes top 2
+                <span className="text-gray-600 mx-1.5">|</span>
+                <span className="text-amber-400 font-semibold">Show</span> = horse finishes top 3
+                <span className="text-gray-600 mx-1.5">|</span>
+                <span className="text-gray-500">Easier bets pay less, riskier bets pay more.</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Events List - Grouped by League */}
         <div className="space-y-4 pb-24">
           {isLoading ? (
