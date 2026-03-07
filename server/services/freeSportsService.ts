@@ -612,38 +612,39 @@ export class FreeSportsService {
 
   private generateF1RaceEvent(raceId: string, gpName: string, circuitName: string, startTime: string, sportId: number): SportEvent {
     const f1Grid: { name: string; team: string; number: number; rating: number }[] = [
-      { name: 'Max Verstappen', team: 'Red Bull Racing', number: 1, rating: 98 },
-      { name: 'Liam Lawson', team: 'Red Bull Racing', number: 30, rating: 72 },
-      { name: 'Charles Leclerc', team: 'Ferrari', number: 16, rating: 92 },
-      { name: 'Lewis Hamilton', team: 'Ferrari', number: 44, rating: 90 },
-      { name: 'Lando Norris', team: 'McLaren', number: 4, rating: 93 },
-      { name: 'Oscar Piastri', team: 'McLaren', number: 81, rating: 88 },
-      { name: 'George Russell', team: 'Mercedes', number: 63, rating: 87 },
-      { name: 'Andrea Kimi Antonelli', team: 'Mercedes', number: 12, rating: 74 },
-      { name: 'Fernando Alonso', team: 'Aston Martin', number: 14, rating: 82 },
-      { name: 'Lance Stroll', team: 'Aston Martin', number: 18, rating: 65 },
-      { name: 'Pierre Gasly', team: 'Alpine', number: 10, rating: 78 },
-      { name: 'Jack Doohan', team: 'Alpine', number: 7, rating: 68 },
-      { name: 'Carlos Sainz', team: 'Williams', number: 55, rating: 86 },
-      { name: 'Alex Albon', team: 'Williams', number: 23, rating: 79 },
-      { name: 'Yuki Tsunoda', team: 'RB', number: 22, rating: 76 },
-      { name: 'Isack Hadjar', team: 'RB', number: 6, rating: 70 },
-      { name: 'Nico Hülkenberg', team: 'Sauber', number: 27, rating: 75 },
-      { name: 'Gabriel Bortoleto', team: 'Sauber', number: 5, rating: 69 },
-      { name: 'Esteban Ocon', team: 'Haas', number: 31, rating: 77 },
-      { name: 'Oliver Bearman', team: 'Haas', number: 87, rating: 71 },
+      { name: 'Max Verstappen', team: 'Red Bull Racing', number: 1, rating: 92 },
+      { name: 'Liam Lawson', team: 'Red Bull Racing', number: 30, rating: 68 },
+      { name: 'Charles Leclerc', team: 'Ferrari', number: 16, rating: 88 },
+      { name: 'Lewis Hamilton', team: 'Ferrari', number: 44, rating: 85 },
+      { name: 'Lando Norris', team: 'McLaren', number: 4, rating: 86 },
+      { name: 'Oscar Piastri', team: 'McLaren', number: 81, rating: 83 },
+      { name: 'George Russell', team: 'Mercedes', number: 63, rating: 96 },
+      { name: 'Andrea Kimi Antonelli', team: 'Mercedes', number: 12, rating: 87 },
+      { name: 'Fernando Alonso', team: 'Aston Martin', number: 14, rating: 75 },
+      { name: 'Lance Stroll', team: 'Aston Martin', number: 18, rating: 60 },
+      { name: 'Pierre Gasly', team: 'Alpine', number: 10, rating: 72 },
+      { name: 'Jack Doohan', team: 'Alpine', number: 7, rating: 64 },
+      { name: 'Carlos Sainz', team: 'Williams', number: 55, rating: 80 },
+      { name: 'Alex Albon', team: 'Williams', number: 23, rating: 74 },
+      { name: 'Yuki Tsunoda', team: 'RB', number: 22, rating: 71 },
+      { name: 'Isack Hadjar', team: 'RB', number: 6, rating: 65 },
+      { name: 'Nico Hülkenberg', team: 'Sauber', number: 27, rating: 70 },
+      { name: 'Gabriel Bortoleto', team: 'Sauber', number: 5, rating: 63 },
+      { name: 'Esteban Ocon', team: 'Haas', number: 31, rating: 73 },
+      { name: 'Oliver Bearman', team: 'Haas', number: 87, rating: 66 },
     ];
 
     const rawPowers = f1Grid.map(driver => {
-      const jitter = (Math.random() - 0.5) * 0.06;
-      return Math.max(0.1, (driver.rating / 100) ** 2 + jitter);
+      const jitter = (Math.random() - 0.5) * 0.01;
+      return Math.max(0.005, Math.pow(driver.rating / 60, 6) + jitter);
     });
     const totalPower = rawPowers.reduce((s, v) => s + v, 0);
-    const MARGIN = 1.20;
 
+    const TARGET_OVERROUND = 1.20;
     const outcomes: OutcomeData[] = f1Grid.map((driver, idx) => {
-      const prob = rawPowers[idx] / totalPower;
-      const odds = parseFloat(Math.max(1.50, MARGIN / prob).toFixed(2));
+      const fairProb = rawPowers[idx] / totalPower;
+      const bookedProb = fairProb * TARGET_OVERROUND;
+      const odds = parseFloat(Math.max(1.50, 1 / bookedProb).toFixed(2));
       return {
         id: `driver_${driver.number}`,
         name: driver.name,
@@ -759,7 +760,7 @@ export class FreeSportsService {
             const rH = rateTeam(homeTeam);
             const rA = rateTeam(awayTeam);
             const homeAdv = 1.03;
-            const CMARGIN = format === 'TEST' ? 1.12 : 1.08;
+            const OVERROUND = format === 'TEST' ? 1.08 : 1.06;
             const rawPH = (rH * homeAdv) / (rH * homeAdv + rA);
             const jitterC = (Math.random() - 0.5) * 0.04;
             const pH = Math.max(0.08, Math.min(0.92, rawPH + jitterC));
@@ -771,12 +772,12 @@ export class FreeSportsService {
               const remProb = 1 - drawProb;
               const testPH = pH * remProb;
               const testPA = pA * remProb;
-              homeOdds = parseFloat((CMARGIN / testPH).toFixed(2));
-              awayOdds = parseFloat((CMARGIN / testPA).toFixed(2));
-              drawOdds = parseFloat((CMARGIN / drawProb).toFixed(2));
+              homeOdds = parseFloat(Math.max(1.10, 1 / (testPH * OVERROUND)).toFixed(2));
+              awayOdds = parseFloat(Math.max(1.10, 1 / (testPA * OVERROUND)).toFixed(2));
+              drawOdds = parseFloat(Math.max(2.00, 1 / (drawProb * OVERROUND)).toFixed(2));
             } else {
-              homeOdds = parseFloat((CMARGIN / pH).toFixed(2));
-              awayOdds = parseFloat((CMARGIN / pA).toFixed(2));
+              homeOdds = parseFloat(Math.max(1.10, 1 / (pH * OVERROUND)).toFixed(2));
+              awayOdds = parseFloat(Math.max(1.10, 1 / (pA * OVERROUND)).toFixed(2));
               drawOdds = undefined;
             }
 
@@ -956,13 +957,14 @@ export class FreeSportsService {
             return Math.max(0.05, 1.8 + formScore * 0.7 + drawAdv - weightPen - positionBias);
           });
           const totalPower = rawPowers.reduce((s: number, v: number) => s + v, 0);
-          const RACE_MARGIN = 1.15 + (fieldSize > 8 ? 0.05 : 0) + (fieldSize > 14 ? 0.05 : 0);
+          const OVERROUND = 1.15 + (fieldSize > 8 ? 0.05 : 0) + (fieldSize > 14 ? 0.05 : 0);
 
           const outcomes: OutcomeData[] = runners.map((runner: any, idx: number) => {
-            const prob = rawPowers[idx] / totalPower;
-            const jitter = (Math.random() - 0.5) * 0.02;
-            const adjProb = Math.max(0.03, Math.min(0.80, prob + jitter));
-            const odds = parseFloat(Math.max(1.20, RACE_MARGIN / adjProb).toFixed(2));
+            const fairProb = rawPowers[idx] / totalPower;
+            const jitter = (Math.random() - 0.5) * 0.015;
+            const adjProb = Math.max(0.02, Math.min(0.60, fairProb + jitter));
+            const bookedProb = adjProb * OVERROUND;
+            const odds = parseFloat(Math.max(1.20, 1 / bookedProb).toFixed(2));
             return {
               id: `runner_${runner.number || idx}`,
               name: runner.horse || `Runner ${idx + 1}`,
