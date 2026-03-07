@@ -565,6 +565,24 @@ export default function CleanHome() {
           </div>
         )}
 
+        {(selectedSport === 11 || selectedSport === 19) && events.length > 0 && (
+          <div className="bg-[#0d1117] rounded-xl border border-cyan-900/20 px-4 py-3 mb-4" data-testid="motorsport-explainer">
+            <div className="flex items-start gap-3">
+              <span className="text-lg mt-0.5">{selectedSport === 11 ? '🏎️' : '🏍️'}</span>
+              <div className="text-xs text-gray-400 leading-relaxed">
+                <span className="text-white font-semibold">How to bet: </span>
+                <span className="text-cyan-400 font-semibold">Win</span> = finishes 1st
+                <span className="text-gray-600 mx-1.5">|</span>
+                <span className="text-emerald-400 font-semibold">Top 2</span> = finishes 1st or 2nd
+                <span className="text-gray-600 mx-1.5">|</span>
+                <span className="text-amber-400 font-semibold">Podium</span> = finishes top 3
+                <span className="text-gray-600 mx-1.5">|</span>
+                <span className="text-gray-500">Safer bets pay less, riskier bets pay more.</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Events List - Grouped by League */}
         <div className="space-y-4 pb-24">
           {isLoading ? (
@@ -805,7 +823,8 @@ function RaceEventCard({ event }: { event: Event }) {
   const runnersInfo = (event as any).runnersInfo || [];
   const raceDetails = (event as any).raceDetails;
   const isHorseRacing = event.sportId === 18;
-  const hasWPS = isHorseRacing && placeMarket && showMarket;
+  const isMotorsport = event.sportId === 11 || event.sportId === 19;
+  const hasWPS = (isHorseRacing || isMotorsport) && placeMarket && showMarket;
 
   const formatTime = (dateStr: string) => {
     try {
@@ -866,8 +885,8 @@ function RaceEventCard({ event }: { event: Event }) {
         <div className="flex items-center justify-end gap-1 mb-1 ml-0 md:ml-[80px] pr-3">
           <div className="flex-1" />
           <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider min-w-[48px] text-center">Win</span>
-          <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider min-w-[48px] text-center">Place</span>
-          <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider min-w-[48px] text-center">Show</span>
+          <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider min-w-[48px] text-center">{isMotorsport ? 'Top 2' : 'Place'}</span>
+          <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider min-w-[48px] text-center">{isMotorsport ? 'Podium' : 'Show'}</span>
         </div>
       )}
 
@@ -909,7 +928,7 @@ function RaceEventCard({ event }: { event: Event }) {
                 {hasWPS && (
                   <>
                     <button
-                      onClick={() => placeOdds && handleRunnerBet(runner, idx, 'Place', 'race_place', placeOdds)}
+                      onClick={() => placeOdds && handleRunnerBet(runner, idx, isMotorsport ? 'Top 2' : 'Place', 'race_place', placeOdds)}
                       className="px-2 py-1.5 rounded text-xs font-bold bg-[#1a1a1a] text-emerald-400 hover:bg-emerald-500 hover:text-black transition-all min-w-[48px] text-center"
                       data-testid={`odds-place-${event.id}-${idx}`}
                       disabled={!placeOdds}
@@ -917,7 +936,7 @@ function RaceEventCard({ event }: { event: Event }) {
                       {placeOdds?.toFixed(2) || 'N/A'}
                     </button>
                     <button
-                      onClick={() => showOdds && handleRunnerBet(runner, idx, 'Show', 'race_show', showOdds)}
+                      onClick={() => showOdds && handleRunnerBet(runner, idx, isMotorsport ? 'Podium' : 'Show', 'race_show', showOdds)}
                       className="px-2 py-1.5 rounded text-xs font-bold bg-[#1a1a1a] text-amber-400 hover:bg-amber-500 hover:text-black transition-all min-w-[48px] text-center"
                       data-testid={`odds-show-${event.id}-${idx}`}
                       disabled={!showOdds}

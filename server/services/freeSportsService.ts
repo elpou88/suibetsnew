@@ -725,6 +725,16 @@ export class FreeSportsService {
       };
     });
 
+    const placeOutcomes: OutcomeData[] = outcomes.map(w => {
+      const placeOdds = parseFloat(Math.max(1.20, ((w.odds - 1) / 3.0) + 1).toFixed(2));
+      return { id: w.id, name: w.name, odds: placeOdds, probability: 1 / placeOdds };
+    });
+
+    const podiumOutcomes: OutcomeData[] = outcomes.map(w => {
+      const podiumOdds = parseFloat(Math.max(1.10, ((w.odds - 1) / 5.0) + 1).toFixed(2));
+      return { id: w.id, name: w.name, odds: podiumOdds, probability: 1 / podiumOdds };
+    });
+
     const runnersInfo = f1Grid.map(driver => ({
       name: driver.name,
       number: driver.number,
@@ -745,11 +755,11 @@ export class FreeSportsService {
       startTime,
       status: 'scheduled',
       isLive: false,
-      markets: [{
-        id: 'race_winner',
-        name: 'Race Winner',
-        outcomes
-      }],
+      markets: [
+        { id: 'race_winner', name: 'Win', outcomes },
+        { id: 'race_place', name: 'Top 2', outcomes: placeOutcomes },
+        { id: 'race_show', name: 'Podium', outcomes: podiumOutcomes },
+      ],
       homeOdds: outcomes[0]?.odds || 3.0,
       awayOdds: outcomes[1]?.odds || 4.0,
       runnersInfo,
@@ -850,6 +860,16 @@ export class FreeSportsService {
       };
     });
 
+    const placeOutcomes: OutcomeData[] = outcomes.map(w => {
+      const placeOdds = parseFloat(Math.max(1.20, ((w.odds - 1) / 3.0) + 1).toFixed(2));
+      return { id: w.id, name: w.name, odds: placeOdds, probability: 1 / placeOdds };
+    });
+
+    const podiumOutcomes: OutcomeData[] = outcomes.map(w => {
+      const podiumOdds = parseFloat(Math.max(1.10, ((w.odds - 1) / 5.0) + 1).toFixed(2));
+      return { id: w.id, name: w.name, odds: podiumOdds, probability: 1 / podiumOdds };
+    });
+
     const runnersInfo = motoGPGrid.map(rider => ({
       name: rider.name,
       number: rider.number,
@@ -870,11 +890,11 @@ export class FreeSportsService {
       startTime,
       status: 'scheduled',
       isLive: false,
-      markets: [{
-        id: 'race_winner',
-        name: 'Race Winner',
-        outcomes
-      }],
+      markets: [
+        { id: 'race_winner', name: 'Win', outcomes },
+        { id: 'race_place', name: 'Top 2', outcomes: placeOutcomes },
+        { id: 'race_show', name: 'Podium', outcomes: podiumOutcomes },
+      ],
       homeOdds: outcomes[0]?.odds || 3.0,
       awayOdds: outcomes[1]?.odds || 4.0,
       runnersInfo,
