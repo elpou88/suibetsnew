@@ -52,7 +52,7 @@ const SPORTS_LIST = [
   { id: 24, name: "Esports", icon: "🎮" },
   { id: 7, name: "MMA", icon: "🥊" },
   { id: 18, name: "Horse Racing", icon: "🏇" },
-  { id: 10, name: "AFL", icon: "🏉" },
+  { id: 17, name: "Boxing", icon: "🥊" },
   { id: 11, name: "Formula 1", icon: "🏎️" },
   { id: 9, name: "Cricket", icon: "🏏" },
   { id: 3, name: "Tennis", icon: "🎾" },
@@ -559,7 +559,7 @@ export default function CleanHome() {
               <p className="text-gray-500 text-sm">
                 {showFavoritesOnly ? "Star some teams to see them here!" : 
                   selectedSport === 11 ? "Formula 1 races update weekly. Check back closer to race weekend!" :
-                  selectedSport === 10 ? "AFL events update weekly. Check back soon!" :
+                  selectedSport === 17 ? "Boxing fights update weekly. Check back closer to fight night!" :
                   selectedSport === 24 ? "No esports matches scheduled right now. Check back soon!" :
                   selectedSport === 3 ? "Tennis events coming soon!" :
                   selectedSport === 7 ? "MMA / Boxing fights update weekly. Check back closer to fight night!" :
