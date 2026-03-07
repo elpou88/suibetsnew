@@ -364,6 +364,15 @@ export class FreeSportsService {
       console.error(`[FreeSports] Horse Racing fetch error:`, error.message);
     }
 
+    try {
+      const motoGPEvents = this.generateMotoGPEvents();
+      if (motoGPEvents.length > 0) {
+        allEvents.push(...motoGPEvents);
+        console.log(`[FreeSports] 🏍️ MotoGP: ${motoGPEvents.length} upcoming races generated`);
+      }
+    } catch (error: any) {
+      console.error(`[FreeSports] MotoGP generation error:`, error.message);
+    }
 
     if (allEvents.length > 0) {
       cachedFreeSportsEvents = allEvents;
@@ -740,6 +749,130 @@ export class FreeSportsService {
     } as SportEvent;
   }
 
+  private generateMotoGPEvents(): SportEvent[] {
+    const MOTOGP_SPORT_ID = 19;
+    const motoGPSchedule2026: { id: string; gpName: string; circuit: string; date: string }[] = [
+      { id: 'thai-gp', gpName: 'Thai Grand Prix', circuit: 'Chang International Circuit, Buriram', date: '2026-03-01T09:00:00Z' },
+      { id: 'brazilian-gp', gpName: 'Brazilian Grand Prix', circuit: 'Autódromo de Goiânia, Brazil', date: '2026-03-22T18:00:00Z' },
+      { id: 'americas-gp', gpName: 'Grand Prix of the Americas', circuit: 'Circuit of The Americas, Austin', date: '2026-03-29T19:00:00Z' },
+      { id: 'qatar-gp', gpName: 'Qatar Grand Prix', circuit: 'Lusail International Circuit', date: '2026-04-12T17:00:00Z' },
+      { id: 'spanish-gp', gpName: 'Spanish Grand Prix', circuit: 'Circuito de Jerez, Spain', date: '2026-04-26T13:00:00Z' },
+      { id: 'french-gp', gpName: 'French Grand Prix', circuit: 'Le Mans, France', date: '2026-05-10T13:00:00Z' },
+      { id: 'catalan-gp', gpName: 'Catalan Grand Prix', circuit: 'Circuit de Barcelona-Catalunya', date: '2026-05-17T13:00:00Z' },
+      { id: 'italian-gp', gpName: 'Italian Grand Prix', circuit: 'Autodromo del Mugello, Italy', date: '2026-05-31T13:00:00Z' },
+      { id: 'hungarian-gp', gpName: 'Hungarian Grand Prix', circuit: 'Balaton Park Circuit, Hungary', date: '2026-06-07T13:00:00Z' },
+      { id: 'czech-gp', gpName: 'Czech Grand Prix', circuit: 'Automotodrom Brno, Czech Republic', date: '2026-06-21T13:00:00Z' },
+      { id: 'german-gp', gpName: 'German Grand Prix', circuit: 'Sachsenring, Germany', date: '2026-06-28T13:00:00Z' },
+      { id: 'dutch-gp', gpName: 'Dutch Grand Prix', circuit: 'TT Circuit Assen, Netherlands', date: '2026-07-12T13:00:00Z' },
+      { id: 'british-gp', gpName: 'British Grand Prix', circuit: 'Silverstone Circuit, UK', date: '2026-08-02T13:00:00Z' },
+      { id: 'austrian-gp', gpName: 'Austrian Grand Prix', circuit: 'Red Bull Ring, Spielberg', date: '2026-08-16T13:00:00Z' },
+      { id: 'aragon-gp', gpName: 'Aragon Grand Prix', circuit: 'MotorLand Aragón, Spain', date: '2026-08-30T13:00:00Z' },
+      { id: 'san-marino-gp', gpName: 'San Marino Grand Prix', circuit: 'Misano World Circuit, Italy', date: '2026-09-13T13:00:00Z' },
+      { id: 'indonesian-gp', gpName: 'Indonesian Grand Prix', circuit: 'Mandalika Circuit, Lombok', date: '2026-09-27T08:00:00Z' },
+      { id: 'japanese-gp', gpName: 'Japanese Grand Prix', circuit: 'Mobility Resort Motegi, Japan', date: '2026-10-04T06:00:00Z' },
+      { id: 'australian-gp', gpName: 'Australian Grand Prix', circuit: 'Phillip Island Circuit, Australia', date: '2026-10-18T05:00:00Z' },
+      { id: 'malaysian-gp', gpName: 'Malaysian Grand Prix', circuit: 'Sepang International Circuit', date: '2026-11-01T08:00:00Z' },
+      { id: 'portuguese-gp', gpName: 'Portuguese Grand Prix', circuit: 'Autódromo do Algarve, Portimão', date: '2026-11-08T14:00:00Z' },
+      { id: 'valencia-gp', gpName: 'Valencian Grand Prix', circuit: 'Circuit Ricardo Tormo, Valencia', date: '2026-11-15T14:00:00Z' },
+    ];
+
+    const now = new Date();
+    const upcomingRaces = motoGPSchedule2026.filter(race => new Date(race.date) > now);
+    const racesToShow = upcomingRaces.slice(0, 3);
+
+    return racesToShow.map(race =>
+      this.generateMotoGPRaceEvent(race.id, race.gpName, race.circuit, race.date, MOTOGP_SPORT_ID)
+    );
+  }
+
+  private generateMotoGPRaceEvent(raceId: string, gpName: string, circuitName: string, startTime: string, sportId: number): SportEvent {
+    const motoGPGrid: { name: string; team: string; number: number; rating: number }[] = [
+      { name: 'Marc Márquez', team: 'Ducati Lenovo', number: 93, rating: 95 },
+      { name: 'Marco Bezzecchi', team: 'Aprilia Racing', number: 72, rating: 85 },
+      { name: 'Alex Márquez', team: 'Gresini Ducati', number: 73, rating: 82 },
+      { name: 'Pedro Acosta', team: 'Red Bull KTM', number: 31, rating: 83 },
+      { name: 'Francesco Bagnaia', team: 'Ducati Lenovo', number: 1, rating: 88 },
+      { name: 'Jorge Martín', team: 'Aprilia Racing', number: 89, rating: 80 },
+      { name: 'Enea Bastianini', team: 'KTM Tech3', number: 23, rating: 79 },
+      { name: 'Maverick Viñales', team: 'KTM Tech3', number: 12, rating: 78 },
+      { name: 'Fabio Di Giannantonio', team: 'VR46 Ducati', number: 49, rating: 77 },
+      { name: 'Fermín Aldeguer', team: 'Gresini Ducati', number: 54, rating: 74 },
+      { name: 'Brad Binder', team: 'Red Bull KTM', number: 33, rating: 76 },
+      { name: 'Jack Miller', team: 'Pramac Yamaha', number: 43, rating: 73 },
+      { name: 'Fabio Quartararo', team: 'Monster Yamaha', number: 20, rating: 75 },
+      { name: 'Alex Rins', team: 'Monster Yamaha', number: 42, rating: 72 },
+      { name: 'Raúl Fernández', team: 'Trackhouse Aprilia', number: 25, rating: 74 },
+      { name: 'Ai Ogura', team: 'Trackhouse Aprilia', number: 79, rating: 71 },
+      { name: 'Franco Morbidelli', team: 'VR46 Ducati', number: 21, rating: 72 },
+      { name: 'Johann Zarco', team: 'Honda LCR', number: 5, rating: 70 },
+      { name: 'Joan Mir', team: 'Repsol Honda', number: 36, rating: 71 },
+      { name: 'Luca Marini', team: 'Repsol Honda', number: 10, rating: 68 },
+      { name: 'Somkiat Chantra', team: 'Honda LCR', number: 35, rating: 66 },
+      { name: 'Joe Roberts', team: 'Pramac Yamaha', number: 16, rating: 69 },
+    ];
+
+    const rawPowers = motoGPGrid.map(rider => {
+      const jitter = (Math.random() - 0.5) * 0.01;
+      return Math.max(0.005, Math.pow(rider.rating / 60, 6) + jitter);
+    });
+    const totalPower = rawPowers.reduce((s, v) => s + v, 0);
+
+    const TARGET_OVERROUND = 1.20;
+    const outcomes: OutcomeData[] = motoGPGrid.map((rider, idx) => {
+      const fairProb = rawPowers[idx] / totalPower;
+      const bookedProb = fairProb * TARGET_OVERROUND;
+      const odds = parseFloat(Math.max(1.50, 1 / bookedProb).toFixed(2));
+      return {
+        id: `rider_${rider.number}`,
+        name: rider.name,
+        odds,
+        probability: 1 / odds
+      };
+    });
+
+    const runnersInfo = motoGPGrid.map(rider => ({
+      name: rider.name,
+      number: rider.number,
+      jockey: rider.team,
+      trainer: '',
+      form: '',
+      age: null,
+      weight: null,
+      draw: null,
+    }));
+
+    return {
+      id: `motogp_${raceId}`,
+      sportId,
+      leagueName: 'MotoGP',
+      homeTeam: gpName,
+      awayTeam: `${motoGPGrid.length} riders`,
+      startTime,
+      status: 'scheduled',
+      isLive: false,
+      markets: [{
+        id: 'race_winner',
+        name: 'Race Winner',
+        outcomes
+      }],
+      homeOdds: outcomes[0]?.odds || 3.0,
+      awayOdds: outcomes[1]?.odds || 4.0,
+      runnersInfo,
+      raceDetails: {
+        course: circuitName,
+        region: '',
+        raceType: 'Grand Prix',
+        distance: '',
+        going: '',
+        surface: 'Circuit',
+        raceClass: 'MotoGP',
+        prize: '',
+        fieldSize: motoGPGrid.length,
+        ageBand: '',
+        pattern: '',
+      },
+    } as SportEvent;
+  }
 
   private async fetchCricketMatches(): Promise<SportEvent[]> {
     if (!RAPIDAPI_KEY) {

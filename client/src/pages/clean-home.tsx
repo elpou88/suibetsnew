@@ -54,6 +54,7 @@ const SPORTS_LIST = [
   { id: 18, name: "Horse Racing", icon: "🏇" },
   { id: 17, name: "Boxing", icon: "🥊" },
   { id: 11, name: "Formula 1", icon: "🏎️" },
+  { id: 19, name: "MotoGP", icon: "🏍️" },
   { id: 9, name: "Cricket", icon: "🏏" },
   { id: 3, name: "Tennis", icon: "🎾" },
 ];
@@ -855,7 +856,7 @@ function RaceEventCard({ event }: { event: Event }) {
               {raceDetails.going && <><span>•</span><span>{raceDetails.going}</span></>}
               {raceDetails.prize && <><span>•</span><span>{raceDetails.prize}</span></>}
               <span>•</span>
-              <span>{raceDetails.fieldSize || runners.length} {event.sportId === 11 ? 'drivers' : 'runners'}</span>
+              <span>{raceDetails.fieldSize || runners.length} {(event.sportId === 11 || event.sportId === 19) ? 'riders' : 'runners'}</span>
             </div>
           )}
         </div>
@@ -887,11 +888,11 @@ function RaceEventCard({ event }: { event: Event }) {
                   <span className="text-white text-sm font-medium">{runner.name}</span>
                   {info && (
                     <span className="text-gray-500 text-[10px] ml-2">
-                      {event.sportId === 11 ? (info.jockey || '') : `J: ${info.jockey || 'TBA'}${info.trainer ? ` / ${info.trainer}` : ''}`}
+                      {(event.sportId === 11 || event.sportId === 19) ? (info.jockey || '') : `J: ${info.jockey || 'TBA'}${info.trainer ? ` / ${info.trainer}` : ''}`}
                     </span>
                   )}
                 </div>
-                {info?.form && event.sportId !== 11 && (
+                {info?.form && event.sportId !== 11 && event.sportId !== 19 && (
                   <span className="text-yellow-400/60 text-[10px] font-mono bg-yellow-400/5 px-1.5 py-0.5 rounded hidden md:inline">
                     {info.form}
                   </span>
@@ -968,7 +969,7 @@ function LeagueGroup({ leagueName, events, defaultExpanded = false, favorites, t
       {isExpanded && (
         <div className="divide-y divide-cyan-900/20">
           {events.map((event, index) => (
-            (event.sportId === 18 || event.sportId === 11) ? (
+            (event.sportId === 18 || event.sportId === 11 || event.sportId === 19) ? (
               <RaceEventCard
                 key={`${event.sportId}-${event.id}-${index}`}
                 event={event}

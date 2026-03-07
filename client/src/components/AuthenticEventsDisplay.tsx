@@ -251,7 +251,7 @@ export function AuthenticEventsDisplay({ sportId, sportName, selectedTab }: Auth
             </CardHeader>
             
             <CardContent className="pt-6">
-              {(sportId === 18 || sportId === 11) ? (
+              {(sportId === 18 || sportId === 11 || sportId === 19) ? (
                 <>
                   <div className="text-center mb-4">
                     <h3 className="text-xl font-bold text-white mb-1" data-testid={`text-race-name-${event.id}`}>
@@ -265,7 +265,7 @@ export function AuthenticEventsDisplay({ sportId, sportName, selectedTab }: Auth
                         {(event as any).raceDetails.going && <><span>•</span><span>{(event as any).raceDetails.going}</span></>}
                         {(event as any).raceDetails.prize && <><span>•</span><span>{(event as any).raceDetails.prize}</span></>}
                         <span>•</span>
-                        <span>{(event as any).raceDetails.fieldSize || (event as any).runnersInfo?.length || '?'} {sportId === 11 ? 'drivers' : 'runners'}</span>
+                        <span>{(event as any).raceDetails.fieldSize || (event as any).runnersInfo?.length || '?'} {(sportId === 11 || sportId === 19) ? 'riders' : 'runners'}</span>
                       </div>
                     )}
                   </div>
@@ -286,7 +286,7 @@ export function AuthenticEventsDisplay({ sportId, sportName, selectedTab }: Auth
                               <div className="font-bold text-white text-sm truncate">{runner.name}</div>
                               {runnerInfo && (
                                 <div className="text-xs text-gray-400 truncate">
-                                  {sportId === 11 ? '' : 'J: '}{runnerInfo.jockey || 'TBA'}
+                                  {(sportId === 11 || sportId === 19) ? '' : 'J: '}{runnerInfo.jockey || 'TBA'}
                                   {runnerInfo.trainer && ` • T: ${runnerInfo.trainer}`}
                                 </div>
                               )}
