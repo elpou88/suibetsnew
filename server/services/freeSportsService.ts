@@ -364,17 +364,6 @@ export class FreeSportsService {
       console.error(`[FreeSports] Horse Racing fetch error:`, error.message);
     }
 
-    try {
-      const scheduledEvents = this.getScheduledCombatAndMotorsportEvents();
-      if (scheduledEvents.length > 0) {
-        const existingIds = new Set(allEvents.map(e => String(e.id)));
-        const newEvents = scheduledEvents.filter(e => !existingIds.has(String(e.id)));
-        allEvents.push(...newEvents);
-        console.log(`[FreeSports] 🥊🏎️ Added ${newEvents.length} scheduled Boxing/F1/MMA events (${scheduledEvents.length} total, ${scheduledEvents.length - newEvents.length} dupes skipped)`);
-      }
-    } catch (error: any) {
-      console.error(`[FreeSports] Scheduled events error:`, error.message);
-    }
 
     if (allEvents.length > 0) {
       cachedFreeSportsEvents = allEvents;
@@ -658,87 +647,6 @@ export class FreeSportsService {
     });
   }
 
-  private getScheduledCombatAndMotorsportEvents(): SportEvent[] {
-    const now = Date.now();
-    const events: SportEvent[] = [];
-
-    const scheduledEvents = [
-      { id: 'boxing_20260305_1', sportId: 17, league: 'DAZN Boxing', home: 'Steven Butler', away: 'Ramadan Hiseni', date: '2026-03-05T23:00:00Z', venue: 'Montreal, Canada', slug: 'boxing' },
-      { id: 'boxing_20260305_2', sportId: 17, league: 'DAZN Boxing', home: 'Lenar Perez', away: 'Isaac Chilemba', date: '2026-03-05T23:30:00Z', venue: 'Montreal, Canada', slug: 'boxing' },
-      { id: 'boxing_20260305_3', sportId: 17, league: 'DAZN Boxing', home: 'Jhon Orobio', away: 'Yomar Alamo', date: '2026-03-06T00:00:00Z', venue: 'Montreal, Canada', slug: 'boxing' },
-      { id: 'boxing_20260305_4', sportId: 17, league: 'DAZN Boxing', home: 'Steve Claggett', away: 'TBA', date: '2026-03-06T00:30:00Z', venue: 'Montreal, Canada', slug: 'boxing' },
-      { id: 'boxing_20260308_1', sportId: 17, league: 'Paramount+ Boxing', home: 'Jai Opetaia', away: 'Brandon Glanton', date: '2026-03-08T22:00:00Z', venue: 'Las Vegas, NV, USA', slug: 'boxing' },
-      { id: 'boxing_20260314_1', sportId: 17, league: 'DAZN Boxing - Dublin', home: 'Jazza Dickens', away: 'Anthony Cacace', date: '2026-03-14T20:00:00Z', venue: 'Dublin, Ireland', slug: 'boxing' },
-      { id: 'boxing_20260314_2', sportId: 17, league: 'DAZN Boxing - Dublin', home: "Pierce O'Leary", away: 'Mark Chamberlain', date: '2026-03-14T21:00:00Z', venue: 'Dublin, Ireland', slug: 'boxing' },
-      { id: 'boxing_20260314_3', sportId: 17, league: 'DAZN Boxing - Dublin', home: 'Jono Carroll', away: 'Colm Murphy', date: '2026-03-14T19:00:00Z', venue: 'Dublin, Ireland', slug: 'boxing' },
-      { id: 'boxing_20260919_1', sportId: 17, league: 'Sphere Arena - Super Fight', home: 'Floyd Mayweather Jr.', away: 'Manny Pacquiao', date: '2026-09-19T23:00:00Z', venue: 'Las Vegas, NV, USA', slug: 'boxing' },
-
-      { id: 'f1_2026_r02_h2h_1', sportId: 11, league: 'F1 Chinese GP - Driver H2H', home: 'Max Verstappen', away: 'Lewis Hamilton', date: '2026-03-15T07:00:00Z', venue: 'Shanghai, China', slug: 'formula-1' },
-      { id: 'f1_2026_r02_h2h_2', sportId: 11, league: 'F1 Chinese GP - Driver H2H', home: 'Charles Leclerc', away: 'Lando Norris', date: '2026-03-15T07:00:00Z', venue: 'Shanghai, China', slug: 'formula-1' },
-      { id: 'f1_2026_r02_h2h_3', sportId: 11, league: 'F1 Chinese GP - Driver H2H', home: 'Oscar Piastri', away: 'George Russell', date: '2026-03-15T07:00:00Z', venue: 'Shanghai, China', slug: 'formula-1' },
-      { id: 'f1_2026_r02_h2h_4', sportId: 11, league: 'F1 Chinese GP - Driver H2H', home: 'Carlos Sainz', away: 'Fernando Alonso', date: '2026-03-15T07:00:00Z', venue: 'Shanghai, China', slug: 'formula-1' },
-      { id: 'f1_2026_r02_h2h_5', sportId: 11, league: 'F1 Chinese GP - Driver H2H', home: 'Liam Lawson', away: 'Andrea Kimi Antonelli', date: '2026-03-15T07:00:00Z', venue: 'Shanghai, China', slug: 'formula-1' },
-
-      { id: 'f1_2026_r03_h2h_1', sportId: 11, league: 'F1 Japanese GP - Driver H2H', home: 'Max Verstappen', away: 'Charles Leclerc', date: '2026-03-29T05:00:00Z', venue: 'Suzuka, Japan', slug: 'formula-1' },
-      { id: 'f1_2026_r03_h2h_2', sportId: 11, league: 'F1 Japanese GP - Driver H2H', home: 'Lewis Hamilton', away: 'Lando Norris', date: '2026-03-29T05:00:00Z', venue: 'Suzuka, Japan', slug: 'formula-1' },
-      { id: 'f1_2026_r03_h2h_3', sportId: 11, league: 'F1 Japanese GP - Driver H2H', home: 'Oscar Piastri', away: 'Carlos Sainz', date: '2026-03-29T05:00:00Z', venue: 'Suzuka, Japan', slug: 'formula-1' },
-      { id: 'f1_2026_r03_h2h_4', sportId: 11, league: 'F1 Japanese GP - Driver H2H', home: 'George Russell', away: 'Fernando Alonso', date: '2026-03-29T05:00:00Z', venue: 'Suzuka, Japan', slug: 'formula-1' },
-      { id: 'f1_2026_r03_h2h_5', sportId: 11, league: 'F1 Japanese GP - Driver H2H', home: 'Alex Albon', away: 'Pierre Gasly', date: '2026-03-29T05:00:00Z', venue: 'Suzuka, Japan', slug: 'formula-1' },
-
-      { id: 'f1_2026_r04_h2h_1', sportId: 11, league: 'F1 Bahrain GP - Driver H2H', home: 'Max Verstappen', away: 'Lando Norris', date: '2026-04-12T15:00:00Z', venue: 'Sakhir, Bahrain', slug: 'formula-1' },
-      { id: 'f1_2026_r04_h2h_2', sportId: 11, league: 'F1 Bahrain GP - Driver H2H', home: 'Lewis Hamilton', away: 'Charles Leclerc', date: '2026-04-12T15:00:00Z', venue: 'Sakhir, Bahrain', slug: 'formula-1' },
-      { id: 'f1_2026_r04_h2h_3', sportId: 11, league: 'F1 Bahrain GP - Driver H2H', home: 'Oscar Piastri', away: 'George Russell', date: '2026-04-12T15:00:00Z', venue: 'Sakhir, Bahrain', slug: 'formula-1' },
-      { id: 'f1_2026_r04_h2h_4', sportId: 11, league: 'F1 Bahrain GP - Driver H2H', home: 'Carlos Sainz', away: 'Liam Lawson', date: '2026-04-12T15:00:00Z', venue: 'Sakhir, Bahrain', slug: 'formula-1' },
-      { id: 'f1_2026_r04_h2h_5', sportId: 11, league: 'F1 Bahrain GP - Driver H2H', home: 'Fernando Alonso', away: 'Nico Hülkenberg', date: '2026-04-12T15:00:00Z', venue: 'Sakhir, Bahrain', slug: 'formula-1' },
-
-      { id: 'f1_2026_r05_h2h_1', sportId: 11, league: 'F1 Saudi Arabian GP - Driver H2H', home: 'Max Verstappen', away: 'Oscar Piastri', date: '2026-04-19T17:00:00Z', venue: 'Jeddah, Saudi Arabia', slug: 'formula-1' },
-      { id: 'f1_2026_r05_h2h_2', sportId: 11, league: 'F1 Saudi Arabian GP - Driver H2H', home: 'Charles Leclerc', away: 'George Russell', date: '2026-04-19T17:00:00Z', venue: 'Jeddah, Saudi Arabia', slug: 'formula-1' },
-      { id: 'f1_2026_r05_h2h_3', sportId: 11, league: 'F1 Saudi Arabian GP - Driver H2H', home: 'Lewis Hamilton', away: 'Lando Norris', date: '2026-04-19T17:00:00Z', venue: 'Jeddah, Saudi Arabia', slug: 'formula-1' },
-      { id: 'f1_2026_r05_h2h_4', sportId: 11, league: 'F1 Saudi Arabian GP - Driver H2H', home: 'Andrea Kimi Antonelli', away: 'Oliver Bearman', date: '2026-04-19T17:00:00Z', venue: 'Jeddah, Saudi Arabia', slug: 'formula-1' },
-
-      { id: 'f1_2026_r06_h2h_1', sportId: 11, league: 'F1 Miami GP - Driver H2H', home: 'Max Verstappen', away: 'Lewis Hamilton', date: '2026-05-03T19:00:00Z', venue: 'Miami, FL, USA', slug: 'formula-1' },
-      { id: 'f1_2026_r06_h2h_2', sportId: 11, league: 'F1 Miami GP - Driver H2H', home: 'Lando Norris', away: 'Charles Leclerc', date: '2026-05-03T19:00:00Z', venue: 'Miami, FL, USA', slug: 'formula-1' },
-      { id: 'f1_2026_r06_h2h_3', sportId: 11, league: 'F1 Miami GP - Driver H2H', home: 'Oscar Piastri', away: 'Carlos Sainz', date: '2026-05-03T19:00:00Z', venue: 'Miami, FL, USA', slug: 'formula-1' },
-      { id: 'f1_2026_r06_h2h_4', sportId: 11, league: 'F1 Miami GP - Driver H2H', home: 'George Russell', away: 'Fernando Alonso', date: '2026-05-03T19:00:00Z', venue: 'Miami, FL, USA', slug: 'formula-1' },
-
-      { id: 'mma_20260308_1', sportId: 7, league: 'UFC Fight Night', home: 'TBA', away: 'TBA', date: '2026-03-08T23:00:00Z', venue: 'Las Vegas, NV, USA', slug: 'mma' },
-    ];
-
-    for (const ev of scheduledEvents) {
-      const startMs = new Date(ev.date).getTime();
-      if (startMs < now) continue;
-
-      const homeOdds = parseFloat((1.7 + Math.random() * 0.6).toFixed(2));
-      const awayOdds = parseFloat((1.7 + Math.random() * 0.6).toFixed(2));
-
-      const outcomes: OutcomeData[] = [
-        { id: 'home', name: ev.home, odds: homeOdds, probability: 1 / homeOdds },
-        { id: 'away', name: ev.away, odds: awayOdds, probability: 1 / awayOdds }
-      ];
-
-      const isF1 = ev.slug === 'formula-1';
-      const markets: MarketData[] = [
-        { id: 'winner', name: isF1 ? 'Driver H2H' : 'Match Winner', outcomes }
-      ];
-
-      events.push({
-        id: `${ev.slug}_${ev.id}`,
-        sportId: ev.sportId,
-        leagueName: ev.league,
-        homeTeam: ev.home,
-        awayTeam: ev.away,
-        startTime: ev.date,
-        status: 'scheduled',
-        isLive: false,
-        markets,
-        homeOdds,
-        awayOdds,
-        venue: ev.venue,
-      } as SportEvent);
-    }
-
-    return events;
-  }
 
   private async fetchCricketMatches(): Promise<SportEvent[]> {
     if (!RAPIDAPI_KEY) {
