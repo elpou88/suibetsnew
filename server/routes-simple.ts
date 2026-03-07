@@ -1673,13 +1673,13 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
 
   app.post("/api/admin/staking/force-unstake", async (req: Request, res: Response) => {
     try {
-      const { adminPassword, stakeId } = req.body;
+      const { stakeId, adminPassword } = req.body;
       const authHeader = req.headers.authorization;
       const token = authHeader?.replace('Bearer ', '');
       
       const hasValidToken = token && isValidAdminSession(token);
       const actualPassword = process.env.ADMIN_PASSWORD || 'change-me-in-production';
-      const hasValidPassword = adminPassword === actualPassword;
+      const hasValidPassword = adminPassword && adminPassword === actualPassword;
       
       if (!hasValidToken && !hasValidPassword) {
         return res.status(401).json({ success: false, message: "Unauthorized" });

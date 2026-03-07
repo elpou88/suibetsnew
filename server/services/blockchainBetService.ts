@@ -1387,14 +1387,40 @@ export class BlockchainBetService {
 
       console.log(`📊 Found ${eventsResponse.data.length} BetPlaced events on-chain`);
 
+      let skippedVoided = 0;
+      let skippedRejected = 0;
+
       for (const event of eventsResponse.data) {
         try {
           const parsed = event.parsedJson as any;
           const betObjectId = parsed.bet_id;
 
           if (rejectedOnChainBets.has(betObjectId)) {
+            skippedRejected++;
             continue;
           }
+
+          try {
+            const betObjCheck = await this.client.getObject({ id: betObjectId, options: { showContent: true } });
+            if (betObjCheck.data?.content && betObjCheck.data.content.dataType === 'moveObject') {
+              const betFields = (betObjCheck.data.content as any).fields;
+              const betStatus = parseInt(betFields.status || '0');
+              if (betStatus !== 0) {
+                rejectedOnChainBets.add(betObjectId);
+                skippedVoided++;
+                continue;
+              }
+            } else if (!betObjCheck.data) {
+              rejectedOnChainBets.add(betObjectId);
+              skippedVoided++;
+              continue;
+            }
+          } catch (objErr) {
+            rejectedOnChainBets.add(betObjectId);
+            skippedVoided++;
+            continue;
+          }
+
           const bettor = parsed.bettor;
           const stake = parseInt(parsed.stake) / 1e9;
           const odds = parseInt(parsed.odds) / 100;
@@ -1402,7 +1428,6 @@ export class BlockchainBetService {
           const coinType = parsed.coin_type === 0 ? 'SUI' : 'SBETS';
           const timestamp = parseInt(parsed.timestamp);
           
-          // Decode vector<u8> fields to strings
           const decodeBytes = (arr: number[] | undefined): string => {
             if (!arr || !Array.isArray(arr)) return 'Unknown';
             try {
@@ -1415,7 +1440,6 @@ export class BlockchainBetService {
           const prediction = decodeBytes(parsed.prediction);
           const market = decodeBytes(parsed.market);
           
-          // Try to extract event info from prediction or market
           let eventName = "Unknown Event";
           let homeTeam = "Unknown";
           let awayTeam = "Unknown";
@@ -1635,7 +1659,11 @@ export class BlockchainBetService {
         }
       }
 
-      console.log(`🔄 On-chain sync complete: ${synced} bets synced, ${errors.length} errors`);
+      if (skippedVoided > 0 || skippedRejected > 0) {
+        console.log(`🔄 On-chain sync complete: ${synced} synced, ${skippedVoided} voided/settled skipped, ${skippedRejected} cached-rejected skipped`);
+      } else {
+        console.log(`🔄 On-chain sync complete: ${synced} bets synced, ${errors.length} errors`);
+      }
       return { synced, errors };
     } catch (error: any) {
       console.error('❌ On-chain bet sync failed:', error);
