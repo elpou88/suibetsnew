@@ -155,7 +155,7 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
   esportsService.start();
   console.log('🎮 Esports service started - LoL Esports + Dota 2 pro matches (free APIs)');
 
-  // AUTO-VOID disabled: phantom SBETS cleanup already completed (0 voided on last runs)
+  // AUTO-VOID completed: 69 phantom bets voided, 30M+ SBETS liability freed (2026-03-07)
   // Can still be triggered manually via POST /api/admin/void-phantom-sbets if needed
 
   // Shared guard: prevents both auto-resolve worker and manual endpoint from resolving the same prediction simultaneously
@@ -1482,9 +1482,9 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
         return res.status(400).json({ success: false, message: preCheck.error });
       }
 
-      console.log('🗑️ Admin triggered phantom SBETS bet void (background)...');
-      blockchainBetService.voidPhantomSbetsBets().then(result => {
-        console.log(`🏁 Background void finished: ${result.voided} voided, ${result.liabilityFreed.toFixed(2)} SBETS freed`);
+      console.log('🗑️ Admin triggered ALL phantom bet void (SUI + SBETS, background)...');
+      blockchainBetService.voidAllPhantomBets().then(result => {
+        console.log(`🏁 Background void finished: ${result.voided} voided, ${result.liabilityFreed.toFixed(2)} total freed`);
       }).catch(err => {
         console.error('Background void error:', err);
       });

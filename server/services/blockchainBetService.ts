@@ -1776,6 +1776,143 @@ export class BlockchainBetService {
       return { voided: this.phantomVoidStatus.voided, errors: [...this.phantomVoidStatus.errors], skipped: this.phantomVoidStatus.skipped, liabilityFreed: this.phantomVoidStatus.liabilityFreed };
     }
   }
+
+  async voidAllPhantomBets(): Promise<{ voided: number; errors: string[]; skipped: number; liabilityFreed: number }> {
+    if (this.phantomVoidStatus?.running) {
+      return { voided: 0, errors: ['Void scan already in progress'], skipped: 0, liabilityFreed: 0 };
+    }
+
+    this.phantomVoidStatus = { running: true, voided: 0, skipped: 0, errors: [], liabilityFreed: 0, scanned: 0, total: 0, startedAt: Date.now() };
+
+    const keypair = this.getAdminKeypair();
+    if (!keypair) {
+      this.phantomVoidStatus = { ...this.phantomVoidStatus, running: false, errors: ['Admin private key not configured'], completedAt: Date.now() };
+      return { voided: 0, errors: ['Admin private key not configured'], skipped: 0, liabilityFreed: 0 };
+    }
+
+    try {
+      console.log('🔍 Scanning ALL phantom bets (SUI + SBETS) to void...');
+
+      const allBetObjects: { id: string; stake: number; potentialPayout: number; coinType: number }[] = [];
+      const seenIds = new Set<string>();
+      let cursor: any = null;
+      let hasMore = true;
+      let totalEvents = 0;
+
+      while (hasMore) {
+        const queryParams: any = {
+          query: { MoveEventType: `${BETTING_PACKAGE_ID}::betting::BetPlaced` },
+          limit: 50,
+          order: 'descending' as const
+        };
+        if (cursor) queryParams.cursor = cursor;
+
+        const eventsResponse = await this.client.queryEvents(queryParams);
+        totalEvents += eventsResponse.data.length;
+
+        for (const event of eventsResponse.data) {
+          const parsed = event.parsedJson as any;
+          const betObjectId = parsed.bet_id;
+          if (seenIds.has(betObjectId)) continue;
+          seenIds.add(betObjectId);
+
+          allBetObjects.push({
+            id: betObjectId,
+            stake: parseInt(parsed.stake) / 1e9,
+            potentialPayout: parseInt(parsed.potential_payout) / 1e9,
+            coinType: parsed.coin_type,
+          });
+        }
+
+        hasMore = eventsResponse.hasNextPage && eventsResponse.data.length > 0;
+        cursor = eventsResponse.nextCursor;
+      }
+
+      console.log(`📊 Scanned ${totalEvents} BetPlaced events, found ${allBetObjects.length} unique bet objects`);
+      this.phantomVoidStatus.total = allBetObjects.length;
+
+      const { db } = await import('../db');
+      const { sql } = await import('drizzle-orm');
+      const { bets } = await import('@shared/schema');
+
+      for (const betObj of allBetObjects) {
+        this.phantomVoidStatus.scanned++;
+        try {
+          const obj = await this.client.getObject({
+            id: betObj.id,
+            options: { showContent: true },
+          });
+
+          if (!obj.data?.content || obj.data.content.dataType !== 'moveObject') {
+            this.phantomVoidStatus.skipped++;
+            continue;
+          }
+
+          const fields = (obj.data.content as any).fields;
+          const status = parseInt(fields.status || '0');
+
+          if (status !== 0) {
+            this.phantomVoidStatus.skipped++;
+            continue;
+          }
+
+          const ownerInfo = obj.data.owner;
+          const isObjectOwned = typeof ownerInfo === 'object' && ownerInfo !== null && 'AddressOwner' in ownerInfo;
+
+          if (isObjectOwned) {
+            this.phantomVoidStatus.skipped++;
+            continue;
+          }
+
+          const dbCheck = await db.select({ id: bets.id }).from(bets)
+            .where(sql`${bets.betObjectId} = ${betObj.id} AND ${bets.status} IN ('pending', 'confirmed')`)
+            .limit(1);
+
+          if (dbCheck.length > 0) {
+            this.phantomVoidStatus.skipped++;
+            continue;
+          }
+
+          const coinLabel = betObj.coinType === 1 ? 'SBETS' : 'SUI';
+          console.log(`🗑️ Voiding phantom ${coinLabel} bet ${betObj.id.slice(0, 12)}... (liability: ${betObj.potentialPayout.toFixed(2)} ${coinLabel})`);
+
+          let result;
+          if (betObj.coinType === 1) {
+            result = await this.executeVoidBetSbetsOnChain(betObj.id);
+          } else {
+            result = await this.executeVoidBetOnChain(betObj.id);
+          }
+
+          if (result.success) {
+            this.phantomVoidStatus.voided++;
+            this.phantomVoidStatus.liabilityFreed += betObj.potentialPayout;
+            rejectedOnChainBets.add(betObj.id);
+            console.log(`✅ Voided: ${betObj.id.slice(0, 12)}... freed ${betObj.potentialPayout.toFixed(2)} ${coinLabel} liability | TX: ${result.txHash}`);
+          } else {
+            this.phantomVoidStatus.errors.push(`Failed to void ${betObj.id.slice(0, 12)}...: ${result.error}`);
+            console.warn(`❌ Failed to void ${betObj.id.slice(0, 12)}...: ${result.error}`);
+          }
+
+          await new Promise(r => setTimeout(r, 2000));
+        } catch (err: any) {
+          this.phantomVoidStatus.errors.push(`Error processing ${betObj.id.slice(0, 12)}...: ${err.message}`);
+        }
+      }
+
+      const { voided, skipped, errors, liabilityFreed } = this.phantomVoidStatus;
+      console.log(`🏁 All phantom void complete: ${voided} voided, ${skipped} skipped, ${errors.length} errors, ${liabilityFreed.toFixed(2)} total liability freed`);
+      this.phantomVoidStatus.running = false;
+      this.phantomVoidStatus.completedAt = Date.now();
+      return { voided, errors: [...errors], skipped, liabilityFreed };
+    } catch (error: any) {
+      console.error('❌ All phantom void scan failed:', error);
+      this.phantomVoidStatus.errors.push(`Scan failed: ${error.message}`);
+      this.phantomVoidStatus.running = false;
+      this.phantomVoidStatus.completedAt = Date.now();
+      return { voided: this.phantomVoidStatus.voided, errors: [...this.phantomVoidStatus.errors], skipped: this.phantomVoidStatus.skipped, liabilityFreed: this.phantomVoidStatus.liabilityFreed };
+    }
+  }
+
   async depositLiquiditySbets(amount: number): Promise<{ success: boolean; txHash?: string; error?: string; deposited?: number }> {
     const keypair = this.getAdminKeypair();
     if (!keypair) {
