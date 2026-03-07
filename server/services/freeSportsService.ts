@@ -449,8 +449,9 @@ export class FreeSportsService {
         awayTeam = game.players?.away?.name || game.teams?.away?.name || game.away?.name || 'Player 2';
       } else if (sportSlug === 'formula-1') {
         const gpName = game.competition?.name || game.circuit?.name || game.name || 'Grand Prix';
+        const circuitName = game.circuit?.name || game.competition?.name || gpName;
         const startTime = game.date || (game.timestamp ? new Date(game.timestamp * 1000).toISOString() : new Date().toISOString());
-        return this.generateF1DriverMatchups(gameId, gpName, startTime, config.sportId);
+        return this.generateF1RaceEvent(gameId, gpName, circuitName, startTime, config.sportId);
       } else {
         homeTeam = game.teams?.home?.name || game.home?.name || 'Home Team';
         awayTeam = game.teams?.away?.name || game.away?.name || 'Away Team';
@@ -609,65 +610,90 @@ export class FreeSportsService {
     }
   }
 
-  private generateF1DriverMatchups(raceId: string, gpName: string, startTime: string, sportId: number): SportEvent[] {
-    const f1Drivers: { name: string; rating: number }[] = [
-      { name: 'Max Verstappen', rating: 98 },
-      { name: 'Liam Lawson', rating: 72 },
-      { name: 'Charles Leclerc', rating: 92 },
-      { name: 'Lewis Hamilton', rating: 90 },
-      { name: 'Lando Norris', rating: 93 },
-      { name: 'Oscar Piastri', rating: 88 },
-      { name: 'George Russell', rating: 87 },
-      { name: 'Andrea Kimi Antonelli', rating: 74 },
-      { name: 'Fernando Alonso', rating: 82 },
-      { name: 'Lance Stroll', rating: 65 },
-      { name: 'Pierre Gasly', rating: 78 },
-      { name: 'Jack Doohan', rating: 68 },
-      { name: 'Carlos Sainz', rating: 86 },
-      { name: 'Alex Albon', rating: 79 },
-      { name: 'Yuki Tsunoda', rating: 76 },
-      { name: 'Isack Hadjar', rating: 70 },
-      { name: 'Nico Hülkenberg', rating: 75 },
-      { name: 'Gabriel Bortoleto', rating: 69 },
-      { name: 'Esteban Ocon', rating: 77 },
-      { name: 'Oliver Bearman', rating: 71 },
+  private generateF1RaceEvent(raceId: string, gpName: string, circuitName: string, startTime: string, sportId: number): SportEvent {
+    const f1Grid: { name: string; team: string; number: number; rating: number }[] = [
+      { name: 'Max Verstappen', team: 'Red Bull Racing', number: 1, rating: 98 },
+      { name: 'Liam Lawson', team: 'Red Bull Racing', number: 30, rating: 72 },
+      { name: 'Charles Leclerc', team: 'Ferrari', number: 16, rating: 92 },
+      { name: 'Lewis Hamilton', team: 'Ferrari', number: 44, rating: 90 },
+      { name: 'Lando Norris', team: 'McLaren', number: 4, rating: 93 },
+      { name: 'Oscar Piastri', team: 'McLaren', number: 81, rating: 88 },
+      { name: 'George Russell', team: 'Mercedes', number: 63, rating: 87 },
+      { name: 'Andrea Kimi Antonelli', team: 'Mercedes', number: 12, rating: 74 },
+      { name: 'Fernando Alonso', team: 'Aston Martin', number: 14, rating: 82 },
+      { name: 'Lance Stroll', team: 'Aston Martin', number: 18, rating: 65 },
+      { name: 'Pierre Gasly', team: 'Alpine', number: 10, rating: 78 },
+      { name: 'Jack Doohan', team: 'Alpine', number: 7, rating: 68 },
+      { name: 'Carlos Sainz', team: 'Williams', number: 55, rating: 86 },
+      { name: 'Alex Albon', team: 'Williams', number: 23, rating: 79 },
+      { name: 'Yuki Tsunoda', team: 'RB', number: 22, rating: 76 },
+      { name: 'Isack Hadjar', team: 'RB', number: 6, rating: 70 },
+      { name: 'Nico Hülkenberg', team: 'Sauber', number: 27, rating: 75 },
+      { name: 'Gabriel Bortoleto', team: 'Sauber', number: 5, rating: 69 },
+      { name: 'Esteban Ocon', team: 'Haas', number: 31, rating: 77 },
+      { name: 'Oliver Bearman', team: 'Haas', number: 87, rating: 71 },
     ];
-    const h2hPairs: [number, number][] = [
-      [0, 3], [2, 4], [5, 6], [12, 8], [1, 7]
-    ];
-    const MARGIN = 1.08;
-    return h2hPairs.map((pair, idx) => {
-      const [a, b] = pair;
-      const rA = f1Drivers[a].rating;
-      const rB = f1Drivers[b].rating;
-      const pA = rA / (rA + rB);
-      const pB = 1 - pA;
-      const jitter = (Math.random() - 0.5) * 0.04;
-      const adjA = Math.max(0.05, Math.min(0.95, pA + jitter));
-      const adjB = 1 - adjA;
-      const hOdds = parseFloat((MARGIN / adjA).toFixed(2));
-      const aOdds = parseFloat((MARGIN / adjB).toFixed(2));
-      return {
-        id: `formula-1_${raceId}_h2h_${idx}`,
-        sportId,
-        leagueName: `F1 ${gpName} - Driver H2H`,
-        homeTeam: f1Drivers[a].name,
-        awayTeam: f1Drivers[b].name,
-        startTime,
-        status: 'scheduled',
-        isLive: false,
-        markets: [{
-          id: 'winner',
-          name: 'Driver H2H',
-          outcomes: [
-            { id: 'home', name: f1Drivers[a].name, odds: hOdds, probability: 1 / hOdds },
-            { id: 'away', name: f1Drivers[b].name, odds: aOdds, probability: 1 / aOdds }
-          ]
-        }],
-        homeOdds: hOdds,
-        awayOdds: aOdds,
-      } as SportEvent;
+
+    const rawPowers = f1Grid.map(driver => {
+      const jitter = (Math.random() - 0.5) * 0.06;
+      return Math.max(0.1, (driver.rating / 100) ** 2 + jitter);
     });
+    const totalPower = rawPowers.reduce((s, v) => s + v, 0);
+    const MARGIN = 1.20;
+
+    const outcomes: OutcomeData[] = f1Grid.map((driver, idx) => {
+      const prob = rawPowers[idx] / totalPower;
+      const odds = parseFloat(Math.max(1.50, MARGIN / prob).toFixed(2));
+      return {
+        id: `driver_${driver.number}`,
+        name: driver.name,
+        odds,
+        probability: 1 / odds
+      };
+    });
+
+    const runnersInfo = f1Grid.map(driver => ({
+      name: driver.name,
+      number: driver.number,
+      jockey: driver.team,
+      trainer: '',
+      form: '',
+      age: null,
+      weight: null,
+      draw: null,
+    }));
+
+    return {
+      id: `formula-1_${raceId}`,
+      sportId,
+      leagueName: `Formula 1`,
+      homeTeam: gpName,
+      awayTeam: `${f1Grid.length} drivers`,
+      startTime,
+      status: 'scheduled',
+      isLive: false,
+      markets: [{
+        id: 'race_winner',
+        name: 'Race Winner',
+        outcomes
+      }],
+      homeOdds: outcomes[0]?.odds || 3.0,
+      awayOdds: outcomes[1]?.odds || 4.0,
+      runnersInfo,
+      raceDetails: {
+        course: circuitName,
+        region: '',
+        raceType: 'Grand Prix',
+        distance: '',
+        going: '',
+        surface: 'Circuit',
+        raceClass: '',
+        prize: '',
+        fieldSize: f1Grid.length,
+        ageBand: '',
+        pattern: '',
+      },
+    } as SportEvent;
   }
 
 

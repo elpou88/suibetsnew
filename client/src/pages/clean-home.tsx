@@ -775,7 +775,7 @@ function FloatingBetSlip({ isOpen, onToggle, bets, onRemoveBet, onClearAll }: Fl
   );
 }
 
-function HorseRacingEventCard({ event }: { event: Event }) {
+function RaceEventCard({ event }: { event: Event }) {
   const { addBet } = useBetting();
   const { toast } = useToast();
   const runners = (event as any).markets?.[0]?.outcomes || [];
@@ -827,14 +827,12 @@ function HorseRacingEventCard({ event }: { event: Event }) {
           <div className="text-gray-500 text-xs">{event.awayTeam}</div>
           {raceDetails && (
             <div className="flex items-center gap-2 mt-1 text-[10px] text-gray-600 flex-wrap">
-              <span>{raceDetails.surface}</span>
-              <span>•</span>
-              <span>{raceDetails.distance}</span>
-              <span>•</span>
-              <span>{raceDetails.going}</span>
+              {raceDetails.surface && <span>{raceDetails.surface}</span>}
+              {raceDetails.distance && <><span>•</span><span>{raceDetails.distance}</span></>}
+              {raceDetails.going && <><span>•</span><span>{raceDetails.going}</span></>}
               {raceDetails.prize && <><span>•</span><span>{raceDetails.prize}</span></>}
               <span>•</span>
-              <span>{raceDetails.fieldSize || runners.length} runners</span>
+              <span>{raceDetails.fieldSize || runners.length} {event.sportId === 11 ? 'drivers' : 'runners'}</span>
             </div>
           )}
         </div>
@@ -854,12 +852,11 @@ function HorseRacingEventCard({ event }: { event: Event }) {
                   <span className="text-white text-sm font-medium">{runner.name}</span>
                   {info && (
                     <span className="text-gray-500 text-[10px] ml-2">
-                      {info.jockey || 'TBA'}
-                      {info.trainer && ` / ${info.trainer}`}
+                      {event.sportId === 11 ? (info.jockey || '') : `J: ${info.jockey || 'TBA'}${info.trainer ? ` / ${info.trainer}` : ''}`}
                     </span>
                   )}
                 </div>
-                {info?.form && (
+                {info?.form && event.sportId !== 11 && (
                   <span className="text-yellow-400/60 text-[10px] font-mono bg-yellow-400/5 px-1.5 py-0.5 rounded hidden md:inline">
                     {info.form}
                   </span>
@@ -914,8 +911,8 @@ function LeagueGroup({ leagueName, events, defaultExpanded = false, favorites, t
       {isExpanded && (
         <div className="divide-y divide-cyan-900/20">
           {events.map((event, index) => (
-            event.sportId === 18 ? (
-              <HorseRacingEventCard
+            (event.sportId === 18 || event.sportId === 11) ? (
+              <RaceEventCard
                 key={`${event.sportId}-${event.id}-${index}`}
                 event={event}
               />
