@@ -374,6 +374,26 @@ export class FreeSportsService {
       console.error(`[FreeSports] MotoGP generation error:`, error.message);
     }
 
+    try {
+      const boxingEvents = this.generateBoxingEvents();
+      if (boxingEvents.length > 0) {
+        allEvents.push(...boxingEvents);
+        console.log(`[FreeSports] 🥊 Boxing: ${boxingEvents.length} upcoming fights generated`);
+      }
+    } catch (error: any) {
+      console.error(`[FreeSports] Boxing generation error:`, error.message);
+    }
+
+    try {
+      const tennisEvents = this.generateTennisEvents();
+      if (tennisEvents.length > 0) {
+        allEvents.push(...tennisEvents);
+        console.log(`[FreeSports] 🎾 Tennis: ${tennisEvents.length} upcoming matches generated`);
+      }
+    } catch (error: any) {
+      console.error(`[FreeSports] Tennis generation error:`, error.message);
+    }
+
     if (allEvents.length > 0) {
       cachedFreeSportsEvents = allEvents;
       lastFetchTime = Date.now();
@@ -872,6 +892,237 @@ export class FreeSportsService {
         pattern: '',
       },
     } as SportEvent;
+  }
+
+  private generateBoxingEvents(): SportEvent[] {
+    const BOXING_SPORT_ID = 17;
+    const boxingFights: {
+      id: string; fighter1: string; fighter2: string; record1: string; record2: string;
+      odds1: number; odds2: number; title: string; venue: string; date: string; league: string;
+    }[] = [
+      {
+        id: 'opetaia-glanton', fighter1: 'Jai Opetaia', fighter2: 'Brandon Glanton',
+        record1: '29-0 (23 KOs)', record2: '21-3 (18 KOs)',
+        odds1: 1.07, odds2: 9.00,
+        title: 'IBF Cruiserweight Title', venue: 'Meta APEX, Las Vegas',
+        date: '2026-03-08T21:00:00Z', league: 'Zuffa Boxing'
+      },
+      {
+        id: 'dickens-cacace', fighter1: 'Jazza Dickens', fighter2: 'Anthony Cacace',
+        record1: '36-4 (15 KOs)', record2: '23-1 (10 KOs)',
+        odds1: 2.75, odds2: 1.45,
+        title: 'WBA Super Featherweight Title', venue: '3Arena, Dublin',
+        date: '2026-03-14T20:00:00Z', league: 'DAZN Boxing'
+      },
+      {
+        id: 'adames-williams', fighter1: 'Carlos Adames', fighter2: 'Austin Williams',
+        record1: '24-1-1 (18 KOs)', record2: '19-1 (13 KOs)',
+        odds1: 1.25, odds2: 3.50,
+        title: 'WBC Middleweight Title', venue: 'Caribe Royale, Orlando',
+        date: '2026-03-21T21:00:00Z', league: 'DAZN Boxing'
+      },
+      {
+        id: 'fundora-thurman', fighter1: 'Sebastian Fundora', fighter2: 'Keith Thurman',
+        record1: '23-1-1 (15 KOs)', record2: '31-1 (23 KOs)',
+        odds1: 1.25, odds2: 3.50,
+        title: 'WBC Super Welterweight Title', venue: 'MGM Grand, Las Vegas',
+        date: '2026-03-28T21:00:00Z', league: 'PBC PPV on Prime Video'
+      },
+      {
+        id: 'itauma-franklin', fighter1: 'Moses Itauma', fighter2: 'Jermaine Franklin',
+        record1: '12-0 (10 KOs)', record2: '22-2 (14 KOs)',
+        odds1: 1.33, odds2: 3.00,
+        title: 'Heavyweight', venue: 'Co-op Live Arena, Manchester',
+        date: '2026-03-28T20:00:00Z', league: 'DAZN Boxing'
+      },
+      {
+        id: 'scotney-flores', fighter1: 'Ellie Scotney', fighter2: 'Mayelli Flores',
+        record1: '10-0 (2 KOs)', record2: '18-2 (5 KOs)',
+        odds1: 1.20, odds2: 4.00,
+        title: 'Undisputed Women\'s Super Bantamweight', venue: 'Olympia, London',
+        date: '2026-04-05T19:00:00Z', league: 'Sky Sports Boxing'
+      },
+      {
+        id: 'dubois-harper', fighter1: 'Caroline Dubois', fighter2: 'Terri Harper',
+        record1: '12-0 (4 KOs)', record2: '15-3-2 (6 KOs)',
+        odds1: 1.36, odds2: 2.90,
+        title: 'World Title Unification', venue: 'Olympia, London',
+        date: '2026-04-05T18:00:00Z', league: 'Sky Sports Boxing'
+      },
+      {
+        id: 'santiago-taniguchi', fighter1: 'Rene Santiago', fighter2: 'Masataka Taniguchi',
+        record1: '16-0 (10 KOs)', record2: '18-4 (10 KOs)',
+        odds1: 1.50, odds2: 2.50,
+        title: 'WBO/WBA Light Flyweight Titles', venue: 'Korakuen Hall, Tokyo',
+        date: '2026-04-03T11:00:00Z', league: 'World Championship Boxing'
+      },
+    ];
+
+    const now = new Date();
+    const upcomingFights = boxingFights.filter(f => new Date(f.date) > now);
+
+    return upcomingFights.map(fight => {
+      const drawOdds = parseFloat((15 + Math.random() * 10).toFixed(2));
+      return {
+        id: `boxing_${fight.id}`,
+        sportId: BOXING_SPORT_ID,
+        leagueName: fight.league,
+        homeTeam: fight.fighter1,
+        awayTeam: fight.fighter2,
+        startTime: fight.date,
+        status: 'scheduled',
+        isLive: false,
+        markets: [{
+          id: 'match_winner',
+          name: 'Fight Winner',
+          outcomes: [
+            { id: 'fighter1', name: fight.fighter1, odds: fight.odds1, probability: 1 / fight.odds1 },
+            { id: 'fighter2', name: fight.fighter2, odds: fight.odds2, probability: 1 / fight.odds2 },
+          ]
+        }],
+        homeOdds: fight.odds1,
+        awayOdds: fight.odds2,
+        drawOdds,
+        homeRecord: fight.record1,
+        awayRecord: fight.record2,
+        venue: fight.venue,
+        eventTitle: fight.title,
+      } as SportEvent;
+    });
+  }
+
+  private generateTennisEvents(): SportEvent[] {
+    const TENNIS_SPORT_ID = 3;
+
+    const tennisMatches: {
+      id: string; player1: string; player2: string; ranking1: number; ranking2: number;
+      odds1: number; odds2: number; tournament: string; round: string;
+      date: string; surface: string; location: string;
+    }[] = [
+      {
+        id: 'iw-alcaraz-sinner', player1: 'Carlos Alcaraz', player2: 'Jannik Sinner',
+        ranking1: 1, ranking2: 2, odds1: 1.83, odds2: 1.95,
+        tournament: 'BNP Paribas Open', round: 'Final',
+        date: '2026-03-15T21:00:00Z', surface: 'Hard', location: 'Indian Wells, USA'
+      },
+      {
+        id: 'iw-djokovic-fritz', player1: 'Novak Djokovic', player2: 'Taylor Fritz',
+        ranking1: 5, ranking2: 4, odds1: 1.55, odds2: 2.40,
+        tournament: 'BNP Paribas Open', round: 'Semi-Final',
+        date: '2026-03-14T20:00:00Z', surface: 'Hard', location: 'Indian Wells, USA'
+      },
+      {
+        id: 'iw-zverev-draper', player1: 'Alexander Zverev', player2: 'Jack Draper',
+        ranking1: 3, ranking2: 8, odds1: 1.65, odds2: 2.20,
+        tournament: 'BNP Paribas Open', round: 'Semi-Final',
+        date: '2026-03-14T18:00:00Z', surface: 'Hard', location: 'Indian Wells, USA'
+      },
+      {
+        id: 'iw-medvedev-shelton', player1: 'Daniil Medvedev', player2: 'Ben Shelton',
+        ranking1: 6, ranking2: 10, odds1: 1.72, odds2: 2.10,
+        tournament: 'BNP Paribas Open', round: 'Quarter-Final',
+        date: '2026-03-13T19:00:00Z', surface: 'Hard', location: 'Indian Wells, USA'
+      },
+      {
+        id: 'iw-rublev-musetti', player1: 'Andrey Rublev', player2: 'Lorenzo Musetti',
+        ranking1: 9, ranking2: 15, odds1: 1.60, odds2: 2.30,
+        tournament: 'BNP Paribas Open', round: 'Quarter-Final',
+        date: '2026-03-13T17:00:00Z', surface: 'Hard', location: 'Indian Wells, USA'
+      },
+      {
+        id: 'miami-alcaraz-djokovic', player1: 'Carlos Alcaraz', player2: 'Novak Djokovic',
+        ranking1: 1, ranking2: 5, odds1: 1.50, odds2: 2.55,
+        tournament: 'Miami Open', round: 'Final',
+        date: '2026-03-29T20:00:00Z', surface: 'Hard', location: 'Miami, USA'
+      },
+      {
+        id: 'miami-sinner-zverev', player1: 'Jannik Sinner', player2: 'Alexander Zverev',
+        ranking1: 2, ranking2: 3, odds1: 1.65, odds2: 2.20,
+        tournament: 'Miami Open', round: 'Semi-Final',
+        date: '2026-03-28T19:00:00Z', surface: 'Hard', location: 'Miami, USA'
+      },
+      {
+        id: 'miami-fritz-draper', player1: 'Taylor Fritz', player2: 'Jack Draper',
+        ranking1: 4, ranking2: 8, odds1: 1.80, odds2: 2.00,
+        tournament: 'Miami Open', round: 'Semi-Final',
+        date: '2026-03-28T17:00:00Z', surface: 'Hard', location: 'Miami, USA'
+      },
+      {
+        id: 'mc-alcaraz-sinner', player1: 'Carlos Alcaraz', player2: 'Jannik Sinner',
+        ranking1: 1, ranking2: 2, odds1: 1.60, odds2: 2.25,
+        tournament: 'Monte-Carlo Masters', round: 'Final',
+        date: '2026-04-19T14:00:00Z', surface: 'Clay', location: 'Monte-Carlo, Monaco'
+      },
+      {
+        id: 'mc-djokovic-rublev', player1: 'Novak Djokovic', player2: 'Andrey Rublev',
+        ranking1: 5, ranking2: 9, odds1: 1.45, odds2: 2.70,
+        tournament: 'Monte-Carlo Masters', round: 'Semi-Final',
+        date: '2026-04-18T14:00:00Z', surface: 'Clay', location: 'Monte-Carlo, Monaco'
+      },
+      {
+        id: 'mc-zverev-musetti', player1: 'Alexander Zverev', player2: 'Lorenzo Musetti',
+        ranking1: 3, ranking2: 15, odds1: 1.40, odds2: 2.85,
+        tournament: 'Monte-Carlo Masters', round: 'Quarter-Final',
+        date: '2026-04-17T12:00:00Z', surface: 'Clay', location: 'Monte-Carlo, Monaco'
+      },
+      {
+        id: 'rg-alcaraz-sinner', player1: 'Carlos Alcaraz', player2: 'Jannik Sinner',
+        ranking1: 1, ranking2: 2, odds1: 1.55, odds2: 2.40,
+        tournament: 'French Open', round: 'Final',
+        date: '2026-06-07T14:00:00Z', surface: 'Clay', location: 'Paris, France'
+      },
+      {
+        id: 'rg-djokovic-zverev', player1: 'Novak Djokovic', player2: 'Alexander Zverev',
+        ranking1: 5, ranking2: 3, odds1: 1.70, odds2: 2.10,
+        tournament: 'French Open', round: 'Semi-Final',
+        date: '2026-06-06T14:00:00Z', surface: 'Clay', location: 'Paris, France'
+      },
+      {
+        id: 'wim-alcaraz-sinner', player1: 'Carlos Alcaraz', player2: 'Jannik Sinner',
+        ranking1: 1, ranking2: 2, odds1: 1.75, odds2: 2.05,
+        tournament: 'Wimbledon', round: 'Final',
+        date: '2026-07-12T14:00:00Z', surface: 'Grass', location: 'London, UK'
+      },
+      {
+        id: 'wim-djokovic-fritz', player1: 'Novak Djokovic', player2: 'Taylor Fritz',
+        ranking1: 5, ranking2: 4, odds1: 1.60, odds2: 2.30,
+        tournament: 'Wimbledon', round: 'Semi-Final',
+        date: '2026-07-11T14:00:00Z', surface: 'Grass', location: 'London, UK'
+      },
+      {
+        id: 'uso-sinner-alcaraz', player1: 'Jannik Sinner', player2: 'Carlos Alcaraz',
+        ranking1: 2, ranking2: 1, odds1: 1.85, odds2: 1.95,
+        tournament: 'US Open', round: 'Final',
+        date: '2026-09-13T20:00:00Z', surface: 'Hard', location: 'New York, USA'
+      },
+    ];
+
+    const now = new Date();
+    const upcomingMatches = tennisMatches.filter(m => new Date(m.date) > now);
+    const matchesToShow = upcomingMatches.slice(0, 8);
+
+    return matchesToShow.map(match => ({
+      id: `tennis_${match.id}`,
+      sportId: TENNIS_SPORT_ID,
+      leagueName: `${match.tournament} - ${match.round}`,
+      homeTeam: match.player1,
+      awayTeam: match.player2,
+      startTime: match.date,
+      status: 'scheduled',
+      isLive: false,
+      markets: [{
+        id: 'match_winner',
+        name: 'Match Winner',
+        outcomes: [
+          { id: 'player1', name: match.player1, odds: match.odds1, probability: 1 / match.odds1 },
+          { id: 'player2', name: match.player2, odds: match.odds2, probability: 1 / match.odds2 },
+        ]
+      }],
+      homeOdds: match.odds1,
+      awayOdds: match.odds2,
+      venue: match.location,
+      surface: match.surface,
+    } as SportEvent));
   }
 
   private async fetchCricketMatches(): Promise<SportEvent[]> {
