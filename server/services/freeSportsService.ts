@@ -457,7 +457,13 @@ export class FreeSportsService {
         awayTeam = game.teams?.away?.name || game.away?.name || 'Away Team';
       }
       
-      const league = game.league?.name || game.competition?.name || 'Unknown League';
+      let league = game.league?.name || game.competition?.name || '';
+      if ((sportSlug === 'mma' || sportSlug === 'boxing') && !league) {
+        const slug = game.slug || '';
+        const colonIdx = slug.indexOf(':');
+        league = colonIdx > 0 ? slug.substring(0, colonIdx).trim() : (slug || 'MMA');
+      }
+      if (!league) league = 'Unknown League';
       const startTime = game.date ? game.date : (game.timestamp ? new Date(game.timestamp * 1000).toISOString() : new Date().toISOString());
 
       // Generate basic odds (will be updated when API provides real odds)
