@@ -610,26 +610,49 @@ export class FreeSportsService {
   }
 
   private generateF1DriverMatchups(raceId: string, gpName: string, startTime: string, sportId: number): SportEvent[] {
-    const f1Drivers = [
-      'Max Verstappen', 'Liam Lawson', 'Charles Leclerc', 'Lewis Hamilton',
-      'Lando Norris', 'Oscar Piastri', 'George Russell', 'Andrea Kimi Antonelli',
-      'Fernando Alonso', 'Lance Stroll', 'Pierre Gasly', 'Jack Doohan',
-      'Carlos Sainz', 'Alex Albon', 'Yuki Tsunoda', 'Isack Hadjar',
-      'Nico Hülkenberg', 'Gabriel Bortoleto', 'Esteban Ocon', 'Oliver Bearman'
+    const f1Drivers: { name: string; rating: number }[] = [
+      { name: 'Max Verstappen', rating: 98 },
+      { name: 'Liam Lawson', rating: 72 },
+      { name: 'Charles Leclerc', rating: 92 },
+      { name: 'Lewis Hamilton', rating: 90 },
+      { name: 'Lando Norris', rating: 93 },
+      { name: 'Oscar Piastri', rating: 88 },
+      { name: 'George Russell', rating: 87 },
+      { name: 'Andrea Kimi Antonelli', rating: 74 },
+      { name: 'Fernando Alonso', rating: 82 },
+      { name: 'Lance Stroll', rating: 65 },
+      { name: 'Pierre Gasly', rating: 78 },
+      { name: 'Jack Doohan', rating: 68 },
+      { name: 'Carlos Sainz', rating: 86 },
+      { name: 'Alex Albon', rating: 79 },
+      { name: 'Yuki Tsunoda', rating: 76 },
+      { name: 'Isack Hadjar', rating: 70 },
+      { name: 'Nico Hülkenberg', rating: 75 },
+      { name: 'Gabriel Bortoleto', rating: 69 },
+      { name: 'Esteban Ocon', rating: 77 },
+      { name: 'Oliver Bearman', rating: 71 },
     ];
     const h2hPairs: [number, number][] = [
       [0, 3], [2, 4], [5, 6], [12, 8], [1, 7]
     ];
+    const MARGIN = 1.08;
     return h2hPairs.map((pair, idx) => {
       const [a, b] = pair;
-      const hOdds = parseFloat((1.7 + Math.random() * 0.6).toFixed(2));
-      const aOdds = parseFloat((1.7 + Math.random() * 0.6).toFixed(2));
+      const rA = f1Drivers[a].rating;
+      const rB = f1Drivers[b].rating;
+      const pA = rA / (rA + rB);
+      const pB = 1 - pA;
+      const jitter = (Math.random() - 0.5) * 0.04;
+      const adjA = Math.max(0.05, Math.min(0.95, pA + jitter));
+      const adjB = 1 - adjA;
+      const hOdds = parseFloat((MARGIN / adjA).toFixed(2));
+      const aOdds = parseFloat((MARGIN / adjB).toFixed(2));
       return {
         id: `formula-1_${raceId}_h2h_${idx}`,
         sportId,
         leagueName: `F1 ${gpName} - Driver H2H`,
-        homeTeam: f1Drivers[a],
-        awayTeam: f1Drivers[b],
+        homeTeam: f1Drivers[a].name,
+        awayTeam: f1Drivers[b].name,
         startTime,
         status: 'scheduled',
         isLive: false,
@@ -637,8 +660,8 @@ export class FreeSportsService {
           id: 'winner',
           name: 'Driver H2H',
           outcomes: [
-            { id: 'home', name: f1Drivers[a], odds: hOdds, probability: 1 / hOdds },
-            { id: 'away', name: f1Drivers[b], odds: aOdds, probability: 1 / aOdds }
+            { id: 'home', name: f1Drivers[a].name, odds: hOdds, probability: 1 / hOdds },
+            { id: 'away', name: f1Drivers[b].name, odds: aOdds, probability: 1 / aOdds }
           ]
         }],
         homeOdds: hOdds,
@@ -693,9 +716,43 @@ export class FreeSportsService {
             const format = match.matchFormat || 'T20';
             const venue = match.venueInfo ? `${match.venueInfo.ground || ''}, ${match.venueInfo.city || ''}` : '';
 
-            const homeOdds = parseFloat((1.7 + Math.random() * 0.6).toFixed(2));
-            const awayOdds = parseFloat((1.7 + Math.random() * 0.6).toFixed(2));
-            const drawOdds = format === 'TEST' ? parseFloat((3.0 + Math.random() * 1.0).toFixed(2)) : undefined;
+            const cricketRatings: Record<string, number> = {
+              'india': 95, 'australia': 92, 'england': 88, 'south africa': 86,
+              'new zealand': 84, 'pakistan': 83, 'sri lanka': 75, 'west indies': 73,
+              'bangladesh': 68, 'afghanistan': 66, 'zimbabwe': 58, 'ireland': 55,
+              'netherlands': 50, 'scotland': 48, 'nepal': 45, 'oman': 42,
+              'usa': 44, 'uae': 43, 'namibia': 46, 'kenya': 40,
+            };
+            const rateTeam = (name: string) => {
+              const lower = name.toLowerCase();
+              for (const [key, val] of Object.entries(cricketRatings)) {
+                if (lower.includes(key)) return val;
+              }
+              return 70;
+            };
+            const rH = rateTeam(homeTeam);
+            const rA = rateTeam(awayTeam);
+            const homeAdv = 1.03;
+            const CMARGIN = format === 'TEST' ? 1.12 : 1.08;
+            const rawPH = (rH * homeAdv) / (rH * homeAdv + rA);
+            const jitterC = (Math.random() - 0.5) * 0.04;
+            const pH = Math.max(0.08, Math.min(0.92, rawPH + jitterC));
+            const pA = 1 - pH;
+
+            let homeOdds: number, awayOdds: number, drawOdds: number | undefined;
+            if (format === 'TEST') {
+              const drawProb = 0.18 + (Math.random() - 0.5) * 0.06;
+              const remProb = 1 - drawProb;
+              const testPH = pH * remProb;
+              const testPA = pA * remProb;
+              homeOdds = parseFloat((CMARGIN / testPH).toFixed(2));
+              awayOdds = parseFloat((CMARGIN / testPA).toFixed(2));
+              drawOdds = parseFloat((CMARGIN / drawProb).toFixed(2));
+            } else {
+              homeOdds = parseFloat((CMARGIN / pH).toFixed(2));
+              awayOdds = parseFloat((CMARGIN / pA).toFixed(2));
+              drawOdds = undefined;
+            }
 
             const outcomes: OutcomeData[] = [
               { id: 'home', name: homeTeam, odds: homeOdds, probability: 1 / homeOdds },
@@ -865,10 +922,22 @@ export class FreeSportsService {
           const runners = race.runners.slice(0, 12);
           const topRunners = runners.slice(0, 6);
 
-          const outcomes: OutcomeData[] = topRunners.map((runner: any, idx: number) => {
+          const fieldSize = runners.length;
+          const rawPowers = topRunners.map((runner: any, idx: number) => {
             const formScore = this.calculateFormScore(runner.form || '');
-            const baseOdds = 2.5 + (idx * 1.2) + (Math.random() * 1.5) - formScore;
-            const odds = Math.max(1.5, parseFloat(baseOdds.toFixed(2)));
+            const drawAdv = (runner.draw && runner.draw <= 4) ? 0.15 : 0;
+            const weightPen = runner.lbs ? Math.max(0, (runner.lbs - 140) * 0.003) : 0;
+            const positionBias = idx * 0.08;
+            return Math.max(0.05, 1.8 + formScore * 0.7 + drawAdv - weightPen - positionBias);
+          });
+          const totalPower = rawPowers.reduce((s: number, v: number) => s + v, 0);
+          const RACE_MARGIN = 1.15 + (fieldSize > 8 ? 0.05 : 0);
+
+          const outcomes: OutcomeData[] = topRunners.map((runner: any, idx: number) => {
+            const prob = rawPowers[idx] / totalPower;
+            const jitter = (Math.random() - 0.5) * 0.02;
+            const adjProb = Math.max(0.03, Math.min(0.80, prob + jitter));
+            const odds = parseFloat(Math.max(1.20, RACE_MARGIN / adjProb).toFixed(2));
             return {
               id: `runner_${runner.number || idx}`,
               name: runner.horse || `Runner ${idx + 1}`,
@@ -945,16 +1014,21 @@ export class FreeSportsService {
 
   private calculateFormScore(form: string): number {
     if (!form || form === '-') return 0;
-    const recent = form.replace(/[^0-9]/g, '').slice(-3);
+    const chars = form.replace(/[^0-9]/g, '').slice(-5);
     let score = 0;
-    for (const ch of recent) {
-      const pos = parseInt(ch);
-      if (pos === 1) score += 1.5;
-      else if (pos === 2) score += 1.0;
-      else if (pos === 3) score += 0.5;
-      else if (pos <= 5) score += 0.2;
+    const weights = [1.0, 0.85, 0.7, 0.55, 0.4];
+    for (let i = chars.length - 1; i >= 0; i--) {
+      const pos = parseInt(chars[i]);
+      const w = weights[chars.length - 1 - i] || 0.3;
+      if (pos === 1) score += 2.0 * w;
+      else if (pos === 2) score += 1.4 * w;
+      else if (pos === 3) score += 0.9 * w;
+      else if (pos === 4) score += 0.5 * w;
+      else if (pos <= 6) score += 0.2 * w;
+      else if (pos <= 9) score -= 0.1 * w;
+      else score -= 0.3 * w;
     }
-    return score;
+    return Math.max(0, score);
   }
 
   /**

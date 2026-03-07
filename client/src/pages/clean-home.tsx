@@ -51,8 +51,7 @@ const SPORTS_LIST = [
   { id: 15, name: "Rugby", icon: "🏉" },
   { id: 24, name: "Esports", icon: "🎮" },
   { id: 7, name: "MMA", icon: "🥊" },
-  { id: 17, name: "Boxing", icon: "🥊" },
-  { id: 4, name: "American Football", icon: "🏈" },
+  { id: 18, name: "Horse Racing", icon: "🏇" },
   { id: 10, name: "AFL", icon: "🏉" },
   { id: 11, name: "Formula 1", icon: "🏎️" },
   { id: 9, name: "Cricket", icon: "🏏" },
@@ -559,13 +558,12 @@ export default function CleanHome() {
               <p className="text-gray-400 mb-2">No {activeTab} events available</p>
               <p className="text-gray-500 text-sm">
                 {showFavoritesOnly ? "Star some teams to see them here!" : 
-                  selectedSport === 4 ? "American Football events update weekly. Check back soon!" :
                   selectedSport === 11 ? "Formula 1 races update weekly. Check back closer to race weekend!" :
                   selectedSport === 10 ? "AFL events update weekly. Check back soon!" :
                   selectedSport === 24 ? "No esports matches scheduled right now. Check back soon!" :
                   selectedSport === 3 ? "Tennis events coming soon!" :
-                  selectedSport === 7 ? "MMA fights update weekly. Check back closer to fight night!" :
-                  selectedSport === 17 ? "Boxing events appear closer to fight nights!" :
+                  selectedSport === 7 ? "MMA / Boxing fights update weekly. Check back closer to fight night!" :
+                  selectedSport === 18 ? "Horse Racing events appear closer to race times!" :
                   "Check back later for more events"}
               </p>
             </div>
@@ -777,6 +775,111 @@ function FloatingBetSlip({ isOpen, onToggle, bets, onRemoveBet, onClearAll }: Fl
   );
 }
 
+function HorseRacingEventCard({ event }: { event: Event }) {
+  const { addBet } = useBetting();
+  const { toast } = useToast();
+  const runners = (event as any).markets?.[0]?.outcomes || [];
+  const runnersInfo = (event as any).runnersInfo || [];
+  const raceDetails = (event as any).raceDetails;
+
+  const formatTime = (dateStr: string) => {
+    try {
+      const date = new Date(dateStr);
+      const now = new Date();
+      const isToday = date.toDateString() === now.toDateString();
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const isTomorrow = date.toDateString() === tomorrow.toDateString();
+      const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      if (isToday) return timeStr;
+      if (isTomorrow) return `Tomorrow\n${timeStr}`;
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric' }) + '\n' + timeStr;
+    } catch { return ''; }
+  };
+
+  const handleRunnerBet = (runner: any, idx: number) => {
+    const info = runnersInfo[idx];
+    addBet({
+      id: `${event.id}-race-winner-${runner.id || idx}`,
+      eventId: String(event.id),
+      eventName: `${event.homeTeam}`,
+      marketId: "race-winner",
+      market: "Race Winner",
+      outcomeId: runner.id || `runner_${idx}`,
+      selectionId: runner.id || `runner_${idx}`,
+      selectionName: runner.name || `Runner ${idx + 1}`,
+      odds: runner.odds,
+      homeTeam: event.homeTeam,
+      awayTeam: runner.name,
+      isLive: false,
+    });
+    toast({ title: "Added to bet slip", description: `${runner.name} @ ${runner.odds?.toFixed(2)}` });
+  };
+
+  return (
+    <div className="px-4 py-3" data-testid={`horse-race-${event.id}`}>
+      <div className="flex items-start gap-3 mb-3">
+        <div className="w-16 md:w-20 flex-shrink-0 text-gray-500 text-xs whitespace-pre-line">
+          {formatTime(event.startTime)}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-white text-sm font-semibold truncate">{event.homeTeam}</div>
+          <div className="text-gray-500 text-xs">{event.awayTeam}</div>
+          {raceDetails && (
+            <div className="flex items-center gap-2 mt-1 text-[10px] text-gray-600 flex-wrap">
+              <span>{raceDetails.surface}</span>
+              <span>•</span>
+              <span>{raceDetails.distance}</span>
+              <span>•</span>
+              <span>{raceDetails.going}</span>
+              {raceDetails.prize && <><span>•</span><span>{raceDetails.prize}</span></>}
+              <span>•</span>
+              <span>{raceDetails.fieldSize || runners.length} runners</span>
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="space-y-1 ml-0 md:ml-[80px]">
+        {runners.map((runner: any, idx: number) => {
+          const info = runnersInfo[idx];
+          return (
+            <div
+              key={runner.id || idx}
+              className="flex items-center justify-between py-2 px-3 rounded-lg bg-[#111111] border border-cyan-900/10 hover:border-cyan-500/30 hover:bg-[#151515] transition-all group/runner"
+              data-testid={`runner-row-${event.id}-${idx}`}
+            >
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <span className="text-cyan-400 font-bold text-xs w-5 text-center">{info?.number || idx + 1}</span>
+                <div className="min-w-0 flex-1">
+                  <span className="text-white text-sm font-medium">{runner.name}</span>
+                  {info && (
+                    <span className="text-gray-500 text-[10px] ml-2">
+                      {info.jockey || 'TBA'}
+                      {info.trainer && ` / ${info.trainer}`}
+                    </span>
+                  )}
+                </div>
+                {info?.form && (
+                  <span className="text-yellow-400/60 text-[10px] font-mono bg-yellow-400/5 px-1.5 py-0.5 rounded hidden md:inline">
+                    {info.form}
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => handleRunnerBet(runner, idx)}
+                className="ml-2 px-3 py-1.5 rounded text-xs font-bold bg-[#1a1a1a] text-cyan-400 hover:bg-cyan-500 hover:text-black transition-all min-w-[52px] text-center"
+                data-testid={`odds-runner-${event.id}-${idx}`}
+              >
+                {runner.odds?.toFixed(2) || 'N/A'}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 interface LeagueGroupProps {
   leagueName: string;
   events: Event[];
@@ -811,12 +914,19 @@ function LeagueGroup({ leagueName, events, defaultExpanded = false, favorites, t
       {isExpanded && (
         <div className="divide-y divide-cyan-900/20">
           {events.map((event, index) => (
-            <CompactEventCard 
-              key={`${event.sportId}-${event.id}-${index}`} 
-              event={event}
-              favorites={favorites}
-              toggleFavorite={toggleFavorite}
-            />
+            event.sportId === 18 ? (
+              <HorseRacingEventCard
+                key={`${event.sportId}-${event.id}-${index}`}
+                event={event}
+              />
+            ) : (
+              <CompactEventCard 
+                key={`${event.sportId}-${event.id}-${index}`} 
+                event={event}
+                favorites={favorites}
+                toggleFavorite={toggleFavorite}
+              />
+            )
           ))}
         </div>
       )}
